@@ -1,4 +1,5 @@
 import './estilos.css';
+import { ruta } from './rutas';
 import './galeria.css';
 import { montarMuestrario } from './probador';
 
@@ -14,7 +15,7 @@ let zoom = 4;
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
 function sprite(archivo: string, w: number, h: number, extra = '') {
-  return `<img src="/assets/${archivo}" width="${w * zoom}" height="${h * zoom}" alt="" ${extra}>`;
+  return `<img src="${ruta('assets/' + archivo)}" width="${w * zoom}" height="${h * zoom}" alt="" ${extra}>`;
 }
 
 function pintar(m: Manifiesto) {
@@ -69,7 +70,7 @@ function tarjeta(g: Grupo, it: Item) {
 }
 
 let manifiesto: Manifiesto;
-fetch('/assets/manifiesto.json')
+fetch(ruta('assets/manifiesto.json'))
   .then((r) => r.json())
   .then((m: Manifiesto) => { manifiesto = m; pintar(m); });
 
