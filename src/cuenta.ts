@@ -31,6 +31,8 @@ export interface PersonajeGuardado {
   barco?: 'barca' | 'carabela' | 'galeon';
   /** Personaje del modo creador (solo en este navegador). */
   creador?: boolean;
+  /** Lo que está haciendo ahora (ver mundo/vida.ts). */
+  accion?: import('./mundo/vida').AccionPersonaje;
   /** Sucesos de su vida para el diario: [fecha, texto]. */
   registro?: [number, string][];
   /** Isla donde está ahora (si falta, se le asigna una al cargar). */

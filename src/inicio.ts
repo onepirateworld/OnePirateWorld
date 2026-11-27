@@ -15,6 +15,8 @@ import { arsenalBot } from './datos/arsenal';
 import { frutasDelMar } from './mundo/cronica';
 import { azar } from './arte/lienzo';
 import { arsenalDe, modoCreador } from './cuenta';
+import { TEXTO_ACCION, avanzarVida, islasCercanas, mandar, posicionPersonaje, segundosViaje } from './mundo/vida';
+import { ZONAS } from './mundo/geografia';
 import { iniciarCombate } from './combate/pantalla';
 import { actualizarPersonaje, type PersonajeGuardado } from './cuenta';
 import type { Bot } from './mundo/habitantes';
@@ -25,6 +27,8 @@ import {
 } from './cuenta';
 
 const $ = <T extends HTMLElement = HTMLElement>(s: string) => document.querySelector<T>(s)!;
+/** Estado vivo del personaje activo (lo que hace ahora, dónde está...). */
+let miEstado: PersonajeGuardado | null = null;
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
 // ---------------------------------------------------------------------------
@@ -118,12 +122,15 @@ function pintar() {
         <span class="insignia oro">${icono('moneda', '#f2b63d')} ${p.creador ? '∞' : p.doblones}</span>
         <span class="insignia">Nv. ${p.nivel}</span>
       </span>
-      <button class="ficha-lugar" id="ficha-lugar">${icono('diana', '#f2b63d')} En ${esc(islaDePersonaje(p).nombre)} · ${esc(nombreZona(islaDePersonaje(p).zona))}</button>`;
+      <button class="ficha-lugar" id="ficha-lugar">${icono('diana', '#f2b63d')} <span id="ficha-lugar-texto">En ${esc(islaDePersonaje(p).nombre)} · ${esc(nombreZona(islaDePersonaje(p).zona))}</span></button>`;
     const momentos = boton('', () => paneles.abrir('mi-pirata'));
     momentos.classList.add('momentos');
     momentos.title = 'Momentos clave pendientes';
     momentos.innerHTML = '<span class="chispa">✦</span><span class="cuenta">0</span>';
-    ficha.append(cuerpo, momentos);
+    const accion = document.createElement('button');
+    accion.className = 'ficha-accion'; accion.id = 'ficha-accion';
+    ficha.append(cuerpo, momentos, accion);
+    lineaAccion();
   }
 }
 
@@ -264,10 +271,11 @@ function marcadores(): Marcador[] {
     posicion: posicionBot(b, ahora), barco: b.barco, esMio: false,
   }));
   const p = personajeActivo();
-  if (p && cuentaActual()) {
-    const isla = islaDePersonaje(p);
-    lista.push({ id: p.id, nombre: p.nombre, bando: p.bando, aspecto: p.aspecto, barco: 'barca', esMio: true,
-      posicion: { lat: isla.lat, lon: isla.lon, navegando: false, islaId: isla.id, rumbo: 1 } });
+  const yo = miEstado && cuentaActual() && p?.id === miEstado.id ? miEstado : null;
+  if (yo) {
+    const tipo = yo.accion?.tipo ?? 'pasear';
+    lista.push({ id: yo.id, nombre: yo.nombre, bando: yo.bando, aspecto: yo.aspecto, barco: yo.barco ?? 'barca', esMio: true,
+      posicion: posicionPersonaje(yo, ahora), quieto: tipo === 'entrenar' || tipo === 'descansar', actividad: TEXTO_ACCION[tipo] });
   }
   return lista;
 }
@@ -292,16 +300,18 @@ function volverAlGlobo(lat?: number, lon?: number) {
   if (lat !== undefined) planeta.irA(lat, lon!, 2.7);
 }
 function localizar() {
-  const p = personajeActivo();
+  const p = miEstado ?? personajeActivo();
   if (!p || !cuentaActual()) { aviso('Aún no tienes personaje. Firma el pacto y crea uno.'); return; }
   const isla = islaDePersonaje(p);
+  mapa?.seguir(p.id);
   const mio = marcadores().find((m) => m.esMio)!;
   const sitio = mapa!.posicionDe(mio);
   const zoom = mapa!.zoomIsla(isla);
   if (mapa?.visible) mapa.centrarEn(sitio.lat, sitio.lon, zoom);
   else planeta?.irA(isla.lat, isla.lon, 2.3, () => abrirMapa(sitio.lat, sitio.lon, zoom));
-  setTimeout(() => encuentroAutomatico(p), 2200);
-  aviso(`${p.nombre} está en ${isla.nombre} (${nombreZona(isla.zona)}).`);
+  const navegando = p.accion?.tipo === 'viajar' && Date.now() < p.accion.hasta;
+  if (!navegando) setTimeout(() => encuentroAutomatico(p), 2200);
+  aviso(navegando ? `${p.nombre} navega hacia ${islasDelMundo()[p.accion!.destino!].nombre}.` : `${p.nombre} está en ${isla.nombre} (${nombreZona(isla.zona)}).`);
 }
 
 // ---------------------------------------------------------------------------
@@ -407,6 +417,87 @@ function mostrarTarjeta(m: Marcador | null, isla: IslaMundo | null) {
   t.append(cerrar);
   t.hidden = false;
 }
+
+// ---------------------------------------------------------------------------
+// La vida del personaje: avanza sola y el jugador puede mandarle
+
+const mmss = (ms: number) => { const s = Math.max(0, Math.round(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+
+function refrescarVida(primera = false) {
+  const p = cuentaActual() ? personajeActivo() : null;
+  if (!p) { miEstado = null; return; }
+  const antes = miEstado?.nivel;
+  const { p: nuevo, resumen } = avanzarVida(p);
+  miEstado = nuevo;
+  if (primera && resumen.length) {
+    $('#resumen-lista').innerHTML = resumen.slice(-12).map((r) => `<li>${esc(nuevo.nombre)} ${esc(r)}.</li>`).join('')
+      + (resumen.length > 12 ? `<li>…y ${resumen.length - 12} cosas más (míralo en su diario).</li>` : '');
+    abrir('#dlg-resumen');
+  } else if (resumen.length) aviso(`${nuevo.nombre} ${resumen[resumen.length - 1]}.`);
+  if (antes !== undefined && antes !== nuevo.nivel) pintar();
+  lineaAccion();
+}
+
+function lineaAccion() {
+  const el = document.querySelector<HTMLElement>('#ficha-accion');
+  const p = miEstado;
+  if (!el || !p?.accion) return;
+  const a = p.accion;
+  const falta = mmss(a.hasta - Date.now());
+  const detalle = a.tipo === 'viajar' ? `hacia ${islasDelMundo()[a.destino!].nombre}` : `en ${islaDePersonaje(p).nombre}`;
+  el.innerHTML = `<span>${TEXTO_ACCION[a.tipo]} ${esc(detalle)} <small>(${falta})${a.mandada ? '' : ' · decide solo'}</small></span><b>¿Qué hace? ›</b>`;
+  const lugar = document.querySelector('#ficha-lugar-texto');
+  const isla = islaDePersonaje(p);
+  if (lugar) lugar.textContent = a.tipo === 'viajar' ? `Navegando hacia ${islasDelMundo()[a.destino!].nombre}` : `En ${isla.nombre} · ${nombreZona(isla.zona)}`;
+}
+
+function abrirDecidir() {
+  const p = miEstado;
+  if (!p) return;
+  const isla = islaDePersonaje(p);
+  const a = p.accion!;
+  const navegando = a.tipo === 'viajar' && Date.now() < a.hasta;
+  const rivales = botsDelMar(marActual()).filter((b) => { const pos = posicionBot(b); return !pos.navegando && pos.islaId === isla.id && esRival(p.bando, b.bando); });
+  const cuerpo = $('#decidir-cuerpo');
+  cuerpo.innerHTML = `
+    <p>Ahora: <b>${TEXTO_ACCION[a.tipo]}</b> ${a.tipo === 'viajar' ? `hacia ${esc(islasDelMundo()[a.destino!].nombre)}` : `en ${esc(isla.nombre)}`} (${mmss(a.hasta - Date.now())}).
+      ${a.mandada ? 'Se lo has mandado tú.' : 'Lo ha decidido él solo.'}</p>
+    ${navegando ? '<p class="nota-prueba">Está navegando: no puede hacer otra cosa hasta llegar.</p>' : `
+    <div class="opciones-decidir">
+      <button data-hacer="entrenar"><b>Entrenar</b><small>Gana experiencia</small></button>
+      <button data-hacer="explorar"><b>Explorar</b><small>Puede encontrar doblones o rumores</small></button>
+      <button data-hacer="descansar"><b>Descansar</b><small>Recupera fuerzas</small></button>
+      <button data-hacer="pelear" ${rivales.length ? '' : 'disabled'}><b>Buscar pelea</b><small>${rivales.length ? `${rivales.length} rival${rivales.length > 1 ? 'es' : ''} en la isla` : 'No hay rivales aquí'}</small></button>
+      <button data-hacer="solo"><b>Que decida solo</b><small>Según su carácter</small></button>
+    </div>
+    <h3>Zarpar hacia...</h3>
+    <div class="destinos">${islasCercanas(isla).map((d) => {
+      const peligro = ZONAS[d.zona].nivelMinimo > p.nivel;
+      return `<button data-zarpar="${d.id}"><b>${esc(d.nombre)}</b><small>${esc(nombreZona(d.zona))} · ${mmss(segundosViaje(isla, d) * 1000)} de viaje${peligro ? ` · <span class="peligro">⚠ nivel ${ZONAS[d.zona].nivelMinimo}</span>` : ''}</small></button>`;
+    }).join('')}</div>`}`;
+  cuerpo.querySelectorAll<HTMLButtonElement>('[data-hacer]').forEach((b) => b.addEventListener('click', () => {
+    const que = b.dataset.hacer!;
+    $<HTMLDialogElement>('#dlg-decidir').close();
+    if (que === 'pelear') { pelearCon(rivales[0], `${p.nombre} busca pelea y encuentra a ${rivales[0].nombre}.`); return; }
+    if (que === 'solo') { miEstado = { ...p, accion: { ...a, hasta: Date.now(), mandada: false } }; actualizarPersonaje(miEstado); refrescarVida(); aviso(`${p.nombre} decidirá por su cuenta.`); return; }
+    miEstado = mandar(p, que as 'entrenar' | 'explorar' | 'descansar');
+    lineaAccion();
+    aviso(`${p.nombre}: ${TEXTO_ACCION[que as 'entrenar'].toLowerCase()}.`);
+  }));
+  cuerpo.querySelectorAll<HTMLButtonElement>('[data-zarpar]').forEach((b) => b.addEventListener('click', () => {
+    const destino = islasDelMundo()[Number(b.dataset.zarpar)];
+    $<HTMLDialogElement>('#dlg-decidir').close();
+    miEstado = mandar(p, 'viajar', destino);
+    lineaAccion();
+    aviso(`${p.nombre} zarpa hacia ${destino.nombre}.`);
+    if (mapa?.visible) mapa.seguir(p.id);
+  }));
+  abrir('#dlg-decidir');
+}
+document.addEventListener('click', (e) => { if ((e.target as HTMLElement).closest('#ficha-accion')) abrirDecidir(); });
+
+refrescarVida(true);
+setInterval(() => refrescarVida(), 2000);
 
 requestAnimationFrame(() => {
   planeta = crearPlaneta($('#mundo'), $('#etiquetas'), {

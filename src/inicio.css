@@ -475,3 +475,24 @@ button { font-family: inherit; cursor: pointer; }
 .insignia.creador-ins { background: #f2b63d; color: #1a1423; font-weight: 700; }
 .combate-menu .fruta { background: #b89ae0; }
 .vacio-combate { grid-column: 1 / -1; margin: 0; color: var(--hueso); }
+
+/* --- Qué hace el personaje */
+.ficha-accion {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; margin-top: 2px;
+  background: #12304f; border: 2px solid var(--panel-borde); border-radius: 8px; padding: 4px 8px; color: var(--texto); font-size: 13px; text-align: left;
+}
+.ficha-accion:empty { display: none; }
+.ficha-accion small { color: var(--texto-suave); }
+.ficha-accion b { color: #f2b63d; flex: none; }
+.opciones-decidir, .destinos { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.opciones-decidir button, .destinos button {
+  display: flex; flex-direction: column; gap: 2px; text-align: left; padding: 8px 10px;
+  background: #0b1124; color: var(--texto); border: 2px solid var(--panel-borde); border-radius: 10px; font-size: 15px;
+}
+.opciones-decidir button:disabled { opacity: 0.5; }
+.opciones-decidir small, .destinos small { color: var(--texto-suave); font-size: 12px; }
+.destinos { grid-template-columns: 1fr; }
+.peligro { color: #e77b33; }
+.resumen-lista { padding-left: 18px; color: var(--texto); line-height: 1.5; margin: 8px 0 14px; }
+.ficha { flex-wrap: wrap; }
+.ficha .ficha-accion { flex-basis: 100%; grid-column: 1 / -1; padding: 6px 10px; font-size: 14px; }

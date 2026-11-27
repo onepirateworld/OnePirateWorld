@@ -31,6 +31,10 @@ export interface Marcador {
   posicion: Posicion;
   barco: TipoBarco;
   esMio: boolean;
+  /** Si está quieto haciendo algo (entrenando, descansando...), no pasea. */
+  quieto?: boolean;
+  /** Texto de lo que hace, para la etiqueta del jugador. */
+  actividad?: string;
 }
 
 export interface Mapa {
@@ -40,6 +44,8 @@ export interface Mapa {
   centrarEn(lat: number, lon: number, zoom?: number): void;
   /** Zoom en el que la isla se ve a tamaño real del personaje. */
   zoomIsla(isla: IslaMundo): number;
+  /** La cámara sigue a ese personaje hasta que el jugador mueva el mapa. */
+  seguir(id: string | null): void;
   /** Punto exacto del mapa donde está un personaje (en su sitio de la isla). */
   posicionDe(m: Marcador): { lat: number; lon: number };
 }
@@ -91,9 +97,10 @@ export function crearMapa(
     return [b.id, { der: aCanvas(L), izq: aCanvas(L.voltear()) }];
   })) as Record<TipoBarco, { der: HTMLCanvasElement; izq: HTMLCanvasElement }>;
   const spritesPersonaje = new Map<string, HTMLCanvasElement>();
-  const spritePersonaje = (m: Marcador) => {
-    let s = spritesPersonaje.get(m.id);
-    if (!s) { s = aCanvas(dibujarPersonaje(m.aspecto)); spritesPersonaje.set(m.id, s); }
+  const spritePersonaje = (m: Marcador, izq = false) => {
+    const clave = `${m.id}:${izq ? 'i' : 'd'}:${JSON.stringify(m.aspecto).length}`;
+    let s = spritesPersonaje.get(clave);
+    if (!s) { const L = dibujarPersonaje(m.aspecto); s = aCanvas(izq ? L.voltear() : L); spritesPersonaje.set(clave, s); }
     return s;
   };
 
@@ -169,11 +176,43 @@ export function crearMapa(
   let islasEnPantalla: { isla: IslaMundo; x: number; y: number; r: number }[] = [];
 
   /** Sitio (en px de escena) que ocupa un personaje en su isla. */
-  function sitioEn(m: Marcador, isla: IslaMundo): [number, number] {
-    const esc = escenario(isla);
-    if (m.esMio) return esc.sitios[0];
+  /** Vecinos de cada sitio libre (para pasear de uno a otro sin cruzar la isla entera). */
+  const vecinosCache = new WeakMap<object, number[][]>();
+  function vecinos(sitios: [number, number][]) {
+    let v = vecinosCache.get(sitios);
+    if (!v) {
+      v = sitios.map(([x, y], i) => sitios.map((q, j) => [j, Math.hypot(q[0] - x, q[1] - y)] as const)
+        .filter(([j]) => j !== i).sort((a, b) => a[1] - b[1]).slice(0, 4).map(([j]) => j));
+      vecinosCache.set(sitios, v);
+    }
+    return v;
+  }
+  const hashN = (a: number, b: number) => { let h = (a * 374761393 + b * 668265263) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return (h ^ (h >>> 16)) >>> 0; };
+
+  /**
+   * Dónde está un personaje dentro de su isla AHORA: camina de un sitio a otro cercano
+   * (con el reloj real, así todos lo ven en el mismo sitio). Devuelve [x, y, mira a la izquierda, andando].
+   */
+  function sitioEn(m: Marcador, isla: IslaMundo, t = Date.now()): [number, number, boolean, boolean] {
+    const sitios = escenario(isla).sitios;
     let h = 0; for (const ch of m.id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-    return esc.sitios[1 + (h % Math.max(1, esc.sitios.length - 1))] ?? esc.sitios[0];
+    const n = sitios.length;
+    if (n < 2) return [sitios[0][0], sitios[0][1], false, false];
+    if (m.quieto) { const q = sitios[m.esMio ? 0 : 1 + (h % (n - 1))]; return [q[0], q[1], false, false]; }
+    const v = vecinos(sitios);
+    const SEG = 9000;                       // 9 s por tramo: ~5 s andando y ~4 s parado
+    const s = (t + (h % SEG)) / SEG;
+    const seg = Math.floor(s), u = s - seg;
+    const bloque = Math.floor(seg / 40);
+    let idx = (h + bloque * 7919) % n;
+    for (let k = bloque * 40; k < seg; k++) idx = v[idx][hashN(h, k) % v[idx].length];
+    const sig = v[idx][hashN(h, seg) % v[idx].length];
+    const [ax, ay] = sitios[idx], [bx, by] = sitios[sig];
+    if (u < 0.6) {
+      const f = u / 0.6, e = f * f * (3 - 2 * f);
+      return [ax + (bx - ax) * e, ay + (by - ay) * e, bx < ax, true];
+    }
+    return [bx, by, bx < ax, false];
   }
   /** Escala de escena de una isla con el zoom actual (1 = tamaño real del personaje). */
   const escalaIsla = (isla: IslaMundo) => (2 * isla.radio * k) / diametroEscena(isla.radio);
@@ -245,8 +284,10 @@ export function crearMapa(
       let [x, y] = aPantalla(pos.lat, pos.lon);
       const isla = pos.islaId !== undefined && !pos.navegando ? islas[pos.islaId] : null;
       const escena = isla ? enEscena.get(isla.id) : undefined;
+      let izq = false, andando = false;
       if (isla) {
-        const [sx, sy] = sitioEn(m, isla);
+        const [sx, sy, iz, an] = sitioEn(m, isla);
+        izq = iz; andando = an;
         const f = escena ? escena.s : (2 * isla.radio * k) / diametroEscena(isla.radio);
         x += sx * f; y += sy * f;
       }
@@ -265,9 +306,12 @@ export function crearMapa(
         if (m.esMio) yo = { x, y, alto: h };
       } else if (escena) {
         const s = escena.s;
-        const sp = spritePersonaje(m);
+        const sp = spritePersonaje(m, izq);
         const w = Math.round(32 * s);
-        const respira = m.esMio ? 0 : Math.round(Math.sin(ahora / 600 + x * 0.1) * 0.6 * s);
+        // Al andar da saltitos; quieto, respira; entrenando, se mueve deprisa
+        const respira = andando ? -Math.round(Math.abs(Math.sin(ahora / 110)) * 1.5 * s)
+          : m.actividad === 'Entrenando' ? -Math.round(Math.abs(Math.sin(ahora / 90)) * 2 * s)
+          : Math.round(Math.sin(ahora / 600 + x * 0.1) * 0.6 * s);
         sombras.push([x, y, 7 * s]);
         capas.push({ y, pintar: () => ctx.drawImage(sp, Math.round(x - w / 2), Math.round(y - w + 2 * s + respira), w, w) });
         tocables.push({ m, x, y: y - w / 2, r: Math.max(8, w / 2.5) });
@@ -280,7 +324,8 @@ export function crearMapa(
         tocables.push({ m, x, y, r: 5 });
         if (m.esMio) yo = { x, y, alto: 4 };
       }
-      if (m.esMio && yo) etiqueta('yo', `<span class="pin-yo">Tú · ${m.nombre}</span>`, yo.x, yo.y - yo.alto - 6, 'etq-yo');
+      if (m.id === siguiendo) yoPantalla = { x, y: y - 16 };
+      if (m.esMio && yo) etiqueta('yo', `<span class="pin-yo">Tú · ${m.nombre}${m.actividad ? ` · ${m.actividad}` : ''}</span>`, yo.x, yo.y - yo.alto - 6, 'etq-yo');
     }
 
     // Sombras suaves y luego todo ordenado de atrás hacia delante
@@ -290,7 +335,14 @@ export function crearMapa(
     for (const c of capas) c.pintar();
 
     for (const [id, el] of pool) if (!usadas.has(id)) { el.remove(); pool.delete(id); }
+    // Seguir al personaje: la cámara se acerca poco a poco a su posición
+    if (siguiendo && yoPantalla) {
+      const dx = yoPantalla.x - W / 2, dy = yoPantalla.y - H / 2;
+      if (Math.abs(dx) + Math.abs(dy) > 0.5) { lon0 = envolver(lon0 + (dx * 0.12) / (k * cosLat())); lat0 -= (dy * 0.12) / k; }
+    }
   }
+  let siguiendo: string | null = null;
+  let yoPantalla: { x: number; y: number } | null = null;
 
   function bucle() {
     if (!vivo) return;
@@ -327,6 +379,7 @@ export function crearMapa(
       const dx = (act.x - ant.x) / P, dy = (act.y - ant.y) / P;
       movido += Math.abs(dx) + Math.abs(dy);
       lat0 += dy / k; lon0 -= dx / (k * cosLat());
+      if (movido > 4) siguiendo = null;   // si el jugador mueve el mapa, deja de seguir
       limitar();
     } else if (punteros.size === 2) {
       const [a, b] = [...punteros.values()];
@@ -395,6 +448,7 @@ export function crearMapa(
       redimensionar();
       return Math.min(kMax, diametroEscena(isla.radio) / (2 * isla.radio));   // escala 1: tamaño real
     },
+    seguir(id) { siguiendo = id; yoPantalla = null; },
     posicionDe(m) {
       const pos = m.posicion;
       if (pos.navegando || pos.islaId === undefined) return { lat: pos.lat, lon: pos.lon };

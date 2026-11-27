@@ -97,15 +97,24 @@ export function posicionBot(bot: Bot, ahora = Date.now()): Posicion {
   const A = islas[bot.islaA], B = islas[bot.islaB];
   const f = ((ahora / 60000 / bot.periodoMin + bot.desfase) % 1 + 1) % 1;
   // 0-0.3 en A, 0.3-0.5 navegando A→B, 0.5-0.8 en B, 0.8-1 navegando B→A
-  const viaje = (de: Isla, a: Isla, t: number): Posicion => {
-    const s = t * t * (3 - 2 * t);
-    const dlon = envolver(a.lon - de.lon);
-    return { lat: de.lat + (a.lat - de.lat) * s, lon: envolver(de.lon + dlon * s), navegando: true, rumbo: dlon >= 0 ? 1 : -1 };
-  };
+  const viaje = (de: Isla, a: Isla, t: number): Posicion => travesia(de, a, t);
   if (f < 0.3) return { lat: A.lat, lon: A.lon, navegando: false, islaId: A.id, rumbo: 1 };
   if (f < 0.5) return viaje(A, B, (f - 0.3) / 0.2);
   if (f < 0.8) return { lat: B.lat, lon: B.lon, navegando: false, islaId: B.id, rumbo: -1 };
   return viaje(B, A, (f - 0.8) / 0.2);
+}
+
+/** Posición en una travesía de orilla a orilla (no por encima de las casas). */
+export function travesia(de: Isla, a: Isla, t: number): Posicion {
+  const s = t * t * (3 - 2 * t);
+  const cl = Math.cos(((de.lat + a.lat) / 2) * Math.PI / 180);
+  const dlon = envolver(a.lon - de.lon);
+  const dx = dlon * cl, dy = a.lat - de.lat, d = Math.hypot(dx, dy) || 1;
+  const ux = dx / d, uy = dy / d;
+  const x0 = ux * de.radio * 0.95, y0 = uy * de.radio * 0.95;          // salida por la orilla
+  const x1 = dx - ux * a.radio * 0.95, y1 = dy - uy * a.radio * 0.95;  // llegada a la otra orilla
+  const x = x0 + (x1 - x0) * s, y = y0 + (y1 - y0) * s;
+  return { lat: de.lat + y, lon: envolver(de.lon + x / cl), navegando: true, rumbo: dlon >= 0 ? 1 : -1 };
 }
 
 /** Isla del personaje del jugador. Si aún no tiene, le toca una al azar de un mar de inicio. */
