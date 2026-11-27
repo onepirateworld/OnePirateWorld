@@ -11,8 +11,10 @@ create table if not exists public.perfiles (
 );
 alter table public.perfiles enable row level security;
 
+-- El nombre de usuario funciona como una contraseña: cada uno solo ve SU perfil.
 drop policy if exists "perfiles visibles" on public.perfiles;
-create policy "perfiles visibles" on public.perfiles for select using (true);
+drop policy if exists "ver mi perfil" on public.perfiles;
+create policy "ver mi perfil" on public.perfiles for select using (auth.uid() = id);
 drop policy if exists "editar mi nombre" on public.perfiles;
 create policy "editar mi nombre" on public.perfiles for update using (auth.uid() = id) with check (auth.uid() = id);
 
@@ -181,3 +183,22 @@ do $$ begin
 exception when others then null;
 end $$;
 select cron.schedule('borrar-mensajes-viejos', '17 4 * * *', $$delete from public.mensajes where creado < now() - interval '90 days'$$);
+
+-- ---------------------------------------------------------------------------
+-- Nombres de usuario únicos (sin distinguir mayúsculas)
+create unique index if not exists perfiles_nombre_unico on public.perfiles (lower(nombre));
+
+-- ---------------------------------------------------------------------------
+-- Permisos de la API (los proyectos nuevos no los dan por defecto).
+-- Las reglas RLS de arriba siguen decidiendo qué filas puede ver o tocar cada uno.
+grant usage on schema public to anon, authenticated;
+grant select on public.personajes, public.mensajes to anon, authenticated;
+grant select on public.perfiles to authenticated;   -- y la regla de arriba limita a su propia fila
+revoke select on public.perfiles from anon;
+grant update on public.perfiles to authenticated;
+grant insert, update, delete on public.personajes to authenticated;
+grant insert, update, delete on public.mensajes to authenticated;
+grant select, insert on public.reportes to authenticated;
+grant usage on all sequences in schema public to authenticated;
+-- roles_especiales: sin permisos para nadie desde el navegador
+revoke all on public.roles_especiales from anon, authenticated;

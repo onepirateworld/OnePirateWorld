@@ -562,7 +562,8 @@ function montarChat(el: HTMLElement, mar: number) {
     const texto = input.value.trim();
     if (!texto) return;
     const p = personajeActivo();
-    const autor = p?.nombre ?? cuentaActual()?.nombre ?? 'Marinero';
+    // En el juego solo se ve el nombre del pirata; el de usuario es secreto
+    const autor = p?.nombre ?? 'Marinero sin nombre';
     input.disabled = true;
     const error = await enviarMensaje(mar, autor, texto);
     input.disabled = false;

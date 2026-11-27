@@ -93,6 +93,33 @@ function escucharMundo(mar: number) {
 
 // --- Cuenta ---------------------------------------------------------------
 
+/**
+ * Entrar con nombre de usuario + correo (sin contraseña ni correos).
+ * La primera vez crea la cuenta; después, el mismo nombre y correo vuelven a abrirla.
+ * Por debajo usamos una clave derivada de los dos datos.
+ */
+async function claveDe(nombre: string, correo: string) {
+  const datos = new TextEncoder().encode(`opw:${nombre.trim().toLowerCase()}:${correo.trim().toLowerCase()}`);
+  const h = new Uint8Array(await crypto.subtle.digest('SHA-256', datos));
+  return 'opw-' + [...h].map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 40);
+}
+export async function entrarConNombre(nombre: string, correo: string): Promise<string | null> {
+  nombre = nombre.trim(); correo = correo.trim().toLowerCase();
+  const password = await claveDe(nombre, correo);
+  const entrada = await sb.auth.signInWithPassword({ email: correo, password });
+  if (!entrada.error) { estado.usuario = entrada.data.user; return null; }
+  // No existe esa combinación: creamos la cuenta (los nombres de usuario son privados y únicos)
+  const alta = await sb.auth.signUp({ email: correo, password, options: { data: { nombre } } });
+  if (alta.error) {
+    if (/registered|exists|database error/i.test(alta.error.message)) return 'No coinciden: ese nombre de usuario o ese correo ya se usan en otra cuenta. Revisa que los dos sean los tuyos.';
+    if (/rate limit/i.test(alta.error.message)) return 'Demasiados intentos. Espera unos minutos.';
+    return alta.error.message;
+  }
+  if (!alta.data.session) return 'Tu cuenta se ha creado, pero el servidor pide confirmar el correo. Hay que desactivar «Confirm email» en Supabase.';
+  estado.usuario = alta.data.user;
+  return null;
+}
+
 /** Manda el enlace mágico al correo. Al pulsarlo vuelve al juego con la sesión iniciada. */
 export async function enviarEnlace(correo: string, nombre: string): Promise<string | null> {
   escribir('srv.nombrePendiente', nombre);

@@ -86,7 +86,7 @@ function pintar() {
 
   // Botón de perfil
   const bp = $('#btn-perfil');
-  bp.innerHTML = cuenta ? `<span class="inicial">${esc(cuenta.nombre[0].toUpperCase())}</span>` : icono('perfil');
+  bp.innerHTML = cuenta ? `<span class="inicial">${esc((personajeActivo()?.nombre ?? '⚓')[0].toUpperCase())}</span>` : icono('perfil');
   bp.classList.toggle('sin-cuenta', !cuenta);
 
   // Avatar de la barra inferior
@@ -111,7 +111,7 @@ function pintar() {
     ficha.append(cuerpo, boton('Firmar el pacto', abrirPacto));
   } else if (!p) {
     cuerpo.innerHTML = `
-      <b class="ficha-nombre">¡Hola, ${esc(cuenta.nombre)}!</b>
+      <b class="ficha-nombre">¡Hola, marinero!</b>
       <span class="ficha-texto">Crea tu primer pirata, marine o revolucionario.</span>`;
     ficha.append(cuerpo, boton('Crear personaje', abrirPerfil));
   } else {
@@ -169,18 +169,26 @@ async function completarPacto() {
   if (!inCorreo.value.trim() || !inCorreo.checkValidity()) { inCorreo.reportValidity(); return; }
   const estadoEl = $('#pacto-estado');
   const boton = $<HTMLButtonElement>('#pacto-correo-btn');
-  boton.disabled = true; estadoEl.textContent = 'Enviando…';
+  boton.disabled = true; estadoEl.textContent = 'Entrando…';
   const error = await firmarPacto(nombre, inCorreo.value.trim());
   boton.disabled = false;
-  estadoEl.innerHTML = error ? `<span class="peligro">${esc(error)}</span>`
-    : `✉️ ¡Listo! Te hemos mandado un enlace a <b>${esc(inCorreo.value.trim())}</b>. Ábrelo y volverás aquí con tu cuenta.`;
+  if (error) { estadoEl.innerHTML = `<span class="peligro">${esc(error)}</span>`; return; }
+  estadoEl.textContent = '';
+  await iniciarServidor(marActual());
+  const subidos = migrarLocales();
+  $<HTMLDialogElement>('#dlg-pacto').close();
+  miEstado = null;
+  refrescarVida(true);
+  pintar();
+  aviso(`¡Pacto firmado! Bienvenido a los mares.${subidos ? ` Hemos subido ${subidos} personaje${subidos > 1 ? 's' : ''} que tenías en este navegador.` : ''}`);
+  if (!personajes().length) abrirPerfil();
 }
 $('#form-pacto').addEventListener('submit', (e) => { e.preventDefault(); void completarPacto(); });
 
 function abrirPerfil() {
   const cuenta = cuentaActual();
   if (!cuenta) { abrirPacto(); return; }
-  $('#perfil-titulo').textContent = cuenta.nombre;
+  $('#perfil-titulo').textContent = modoCreador() ? 'Tu cuenta · Creador' : 'Tu cuenta';
   const lista = $('#perfil-lista');
   const ps = personajes();
   const activo = personajeActivo();
@@ -262,7 +270,7 @@ await iniciarServidor(marActual());
 if (volviendoDelCorreo) history.replaceState(null, '', location.pathname + location.search);
 const migrados = migrarLocales();
 pintar();
-if (volviendoDelCorreo && cuentaActual()) aviso(`¡Pacto firmado! Bienvenido a los mares, ${cuentaActual()!.nombre}.${modoCreador() ? ' Tu cuenta tiene el rol de Creador.' : ''}`);
+if (volviendoDelCorreo && cuentaActual()) aviso(`¡Pacto firmado! Bienvenido a los mares.${modoCreador() ? ' Tu cuenta tiene el rol de Creador.' : ''}`);
 if (migrados) aviso(`Hemos subido a tu cuenta ${migrados} personaje${migrados > 1 ? 's' : ''} que tenías en este navegador.`);
 const params = new URLSearchParams(location.search);
 if (params.has('pacto')) abrirPacto();

@@ -1,6 +1,6 @@
 // Cuenta y personajes del jugador, guardados en el servidor (Supabase) con copia local.
 import type { AspectoPersonaje } from './arte/personajes';
-import { enviarEnlace, estado, guardar, salir, type FilaPersonaje } from './servidor';
+import { entrarConNombre, estado, guardar, salir, type FilaPersonaje } from './servidor';
 import { CATALOGO_ARMAS, CATALOGO_HABILIDADES, arsenalInicial, type Arsenal } from './datos/arsenal';
 
 export type Bando = 'pirata' | 'marine' | 'revolucionario';
@@ -79,8 +79,8 @@ export function cuentaActual(): Cuenta | null {
   if (!estado.usuario) return null;
   return { nombre: estado.perfil?.nombre ?? 'Marinero', metodo: 'correo', correo: estado.usuario.email, creada: Date.parse(estado.usuario.created_at) };
 }
-/** Manda el enlace de acceso al correo. Devuelve un error en texto o null si ha ido bien. */
-export const firmarPacto = (nombre: string, correo: string) => enviarEnlace(correo, nombre);
+/** Entra (o crea la cuenta) con nombre de usuario + correo. Devuelve un error en texto o null. */
+export const firmarPacto = (nombre: string, correo: string) => entrarConNombre(nombre, correo);
 export async function cerrarSesion() { await salir(); }
 
 export const personajes = (): PersonajeGuardado[] => estado.mios.map(filaAPersonaje);

@@ -59,16 +59,16 @@
     <dialog id="dlg-pacto" class="dialogo">
       <form method="dialog" id="form-pacto">
         <h2>Firma el pacto</h2>
-        <p>Para soltar a tu personaje en el mundo necesitas una cuenta. Sin contraseñas.</p>
-        <label>¿Cómo te llamarán en los mares?
-          <input id="pacto-nombre" maxlength="20" required autocomplete="nickname" placeholder="Tu nombre de jugador" />
+        <p>Para soltar a tu personaje en el mundo necesitas una cuenta. Sin contraseñas: la primera vez se crea, y para volver a entrar usa el mismo nombre y correo.</p>
+        <label>Nombre de usuario <small>(secreto: es como tu contraseña, nadie más lo ve)</small>
+          <input id="pacto-nombre" maxlength="20" required autocomplete="username" placeholder="Tu nombre de usuario" />
         </label>
-        <label>Tu correo (te mandamos un enlace para entrar)
+        <label>Tu correo
           <input id="pacto-correo" type="email" required autocomplete="email" placeholder="tu@correo.com" />
         </label>
-        <button type="submit" class="boton-grande" id="pacto-correo-btn">Enviar enlace</button>
+        <button type="submit" class="boton-grande" id="pacto-correo-btn">Entrar</button>
         <p class="pacto-estado" id="pacto-estado" role="status"></p>
-        <p class="nota-hoja">Abre el enlace del correo en este mismo navegador. El correo puede llegar en inglés y tardar un minuto; mira también en spam.</p>
+        <p class="nota-hoja">En el juego solo se verá el nombre de tu pirata. No le digas a nadie tu nombre de usuario: con él y tu correo se entra en tu cuenta.</p>
         <button type="button" class="cerrar" data-cerrar aria-label="Cerrar">✕</button>
       </form>
     </dialog>
