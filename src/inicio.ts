@@ -1,5 +1,5 @@
 // Pantalla principal: el planeta de fondo y la interfaz encima.
-import { ruta } from './rutas';
+import { portada, ruta } from './rutas';
 import './estilos.css';
 import './inicio.css';
 import { Lienzo } from './arte/lienzo';
@@ -169,7 +169,7 @@ function abrirPerfil() {
   for (const b of Object.keys(BANDOS) as Bando[]) {
     const a = document.createElement('a');
     a.className = `bando bando-${b}`;
-    a.href = ruta(`nuevo/?bando=${b}&mar=${marActual()}`);
+    a.href = ruta(`nuevo/index.html?bando=${b}&mar=${marActual()}`);
     a.append(aCanvas(dibujarPersonaje(MUESTRA_BANDO[b]), 2));
     a.insertAdjacentHTML('beforeend', `<b>${BANDOS[b].nombre}</b><small>${BANDOS[b].descripcion}</small>`);
     bandos.append(a);
@@ -181,7 +181,7 @@ $('#cerrar-sesion').addEventListener('click', () => { cerrarSesion(); $<HTMLDial
 function abrirMares() {
   const actual = marActual();
   $('#lista-mares').innerHTML = MARES.map((m) => `
-    <a class="mar ${m.id === actual ? 'actual' : ''}" href="${ruta(`?mar=${m.id}`)}">
+    <a class="mar ${m.id === actual ? 'actual' : ''}" href="${portada(`?mar=${m.id}`)}">
       <b>${m.nombre}</b><small>${m.id === actual ? 'Estás aquí' : `Mar ${m.id}`}</small>
     </a>`).join('');
   abrir('#dlg-mares');

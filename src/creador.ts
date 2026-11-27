@@ -1,6 +1,6 @@
 // Menú de personalización (paso 2 "Aspecto" de la creación de personaje).
 // Empieza con un maniquí sin color, sin pelo y en ropa interior.
-import { ruta } from './rutas';
+import { portada } from './rutas';
 import './estilos.css';
 import './creador.css';
 import { Lienzo, azar } from './arte/lienzo';
@@ -228,14 +228,14 @@ document.addEventListener('click', (e) => {
 const bandoParam = new URLSearchParams(location.search).get('bando') as Bando | null;
 const bando: Bando = bandoParam && bandoParam in BANDOS ? bandoParam : 'pirata';
 const pasoBando = document.querySelector<HTMLElement>('#paso-bando')!;
-pasoBando.innerHTML = `<a href="${ruta('?perfil=1')}">1 · ${BANDOS[bando].nombre} ✓</a>`;
+pasoBando.innerHTML = `<a href="${portada('?perfil=1')}">1 · ${BANDOS[bando].nombre} ✓</a>`;
 
 // --- Guardar: pide el nombre y suelta al personaje en el mundo
 const dlg = document.querySelector<HTMLDialogElement>('#dlg-nombre')!;
 const inputNombre = document.querySelector<HTMLInputElement>('#input-nombre')!;
 document.addEventListener('click', (e) => {
   if ((e.target as HTMLElement).closest('#guardar')) {
-    if (!cuentaActual()) { location.href = ruta('?pacto=1'); return; }
+    if (!cuentaActual()) { location.href = portada('?pacto=1'); return; }
     document.querySelector('#dlg-bando')!.textContent = BANDOS[bando].nombre.toLowerCase();
     dlg.showModal();
     inputNombre.focus();
@@ -248,7 +248,7 @@ document.querySelector<HTMLFormElement>('#form-nombre')!.addEventListener('submi
   if (!nombre) return;
   guardarPersonaje({ nombre, bando, aspecto: a, mar: marActual() });
   try { localStorage.removeItem(CLAVE_BORRADOR); } catch { /* nada */ }
-  location.href = ruta(`?mar=${marActual()}&creado=1`);
+  location.href = portada(`?mar=${marActual()}&creado=1`);
 });
 
 render();
