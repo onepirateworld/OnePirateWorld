@@ -269,8 +269,11 @@ function localizar() {
   const p = personajeActivo();
   if (!p || !cuentaActual()) { aviso('Aún no tienes personaje. Firma el pacto y crea uno.'); return; }
   const isla = islaDePersonaje(p);
-  if (mapa?.visible) mapa.centrarEn(isla.lat, isla.lon, mapa.zoomIsla(isla));
-  else planeta?.irA(isla.lat, isla.lon, 2.3, () => abrirMapa(isla.lat, isla.lon, mapa!.zoomIsla(isla)));
+  const mio = marcadores().find((m) => m.esMio)!;
+  const sitio = mapa!.posicionDe(mio);
+  const zoom = mapa!.zoomIsla(isla);
+  if (mapa?.visible) mapa.centrarEn(sitio.lat, sitio.lon, zoom);
+  else planeta?.irA(isla.lat, isla.lon, 2.3, () => abrirMapa(sitio.lat, sitio.lon, zoom));
   aviso(`${p.nombre} está en ${isla.nombre} (${nombreZona(isla.zona)}).`);
 }
 

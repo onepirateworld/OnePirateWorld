@@ -4,7 +4,21 @@ import { Lienzo } from '../arte/lienzo';
 import { PALETA, C, hexARgb } from '../arte/paleta';
 import { dibujarPersonaje, type AspectoPersonaje } from '../arte/personajes';
 import { BARCOS_PRUEBA } from '../arte/barcos';
-import { FRACCION_TIERRA, spriteIsla } from '../arte/islaDetalle';
+import { FRACCION_TIERRA, lienzoACanvas, spriteIsla } from '../arte/islaDetalle';
+import { diametroEscena, escenario, sueloEscena } from '../arte/escena';
+
+/** A partir de esta escala la isla se dibuja como escena (casas y árboles de verdad). */
+const UMBRAL_ESCENA = 0.42;
+const suelos = new Map<number, HTMLCanvasElement>();
+function sueloCanvas(isla: IslaMundo) {
+  let cv = suelos.get(isla.id);
+  if (!cv) {
+    cv = lienzoACanvas(sueloEscena(isla));
+    suelos.set(isla.id, cv);
+    if (suelos.size > 10) suelos.delete(suelos.keys().next().value!);
+  }
+  return cv;
+}
 import { ANCHO_CONTINENTE, LAT_CALMA, LAT_RUTA, ZONAS, distanciaContinente } from './geografia';
 import type { Bando } from '../cuenta';
 import type { IslaMundo, Posicion, TipoBarco } from './habitantes';
@@ -24,8 +38,10 @@ export interface Mapa {
   mostrar(lat: number, lon: number, zoom?: number): void;
   ocultar(): void;
   centrarEn(lat: number, lon: number, zoom?: number): void;
-  /** Zoom recomendado para ver una isla entera con detalle. */
+  /** Zoom en el que la isla se ve a tamaño real del personaje. */
   zoomIsla(isla: IslaMundo): number;
+  /** Punto exacto del mapa donde está un personaje (en su sitio de la isla). */
+  posicionDe(m: Marcador): { lat: number; lon: number };
 }
 
 const envolver = (g: number) => ((((g + 180) % 360) + 360) % 360) - 180;
@@ -64,7 +80,7 @@ export function crearMapa(
   let W = 0, H = 0;
   let lat0 = 0, lon0 = 0, k = 10;                   // k: píxeles del mapa por grado
   let kMin = 6;
-  const kMax = 170;
+  const kMax = 420;
   let fondo: ImageData | null = null;
   let fondoClave = '';
   let vivo = false;
@@ -152,6 +168,16 @@ export function crearMapa(
   let tocables: { m: Marcador; x: number; y: number; r: number }[] = [];
   let islasEnPantalla: { isla: IslaMundo; x: number; y: number; r: number }[] = [];
 
+  /** Sitio (en px de escena) que ocupa un personaje en su isla. */
+  function sitioEn(m: Marcador, isla: IslaMundo): [number, number] {
+    const esc = escenario(isla);
+    if (m.esMio) return esc.sitios[0];
+    let h = 0; for (const ch of m.id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    return esc.sitios[1 + (h % Math.max(1, esc.sitios.length - 1))] ?? esc.sitios[0];
+  }
+  /** Escala de escena de una isla con el zoom actual (1 = tamaño real del personaje). */
+  const escalaIsla = (isla: IslaMundo) => (2 * isla.radio * k) / diametroEscena(isla.radio);
+
   function dibujar(ahora: number) {
     const clave = `${W}x${H}:${lat0.toFixed(4)}:${lon0.toFixed(4)}:${k.toFixed(3)}`;
     if (clave !== fondoClave) { pintarFondo(); fondoClave = clave; }
@@ -159,6 +185,12 @@ export function crearMapa(
     ctx.imageSmoothingEnabled = false;
     usadas = new Set();
     islasEnPantalla = [];
+    tocables = [];
+
+    // Cosas que se ordenan por profundidad (su base): objetos de las islas cercanas y personajes en ellas
+    const capas: { y: number; pintar: () => void }[] = [];
+    const sombras: [number, number, number][] = [];
+    const enEscena = new Map<number, { x: number; y: number; s: number }>();
 
     // Islas
     for (const isla of islas) {
@@ -166,14 +198,32 @@ export function crearMapa(
       const tam = (2 * isla.radio / FRACCION_TIERRA) * k;
       if (x + tam < 0 || x - tam > W || y + tam < 0 || y - tam > H) continue;
       if (tam < 3) { ctx.fillStyle = PALETA[C.arena - 1].hex; ctx.fillRect(Math.round(x), Math.round(y), 1, 1); continue; }
-      const sp = spriteIsla(isla, tam);
+      const s = escalaIsla(isla);
       const t = Math.round(tam);
-      ctx.drawImage(sp, Math.round(x - t / 2), Math.round(y - t / 2), t, t);
+      if (s >= UMBRAL_ESCENA) {
+        // De cerca: suelo grande y objetos de verdad
+        const suelo = sueloCanvas(isla);
+        const ts = Math.round(suelo.width * s);
+        ctx.drawImage(suelo, Math.round(x - ts / 2), Math.round(y - ts / 2), ts, ts);
+        enEscena.set(isla.id, { x, y, s });
+        for (const o of escenario(isla).objetos) {
+          if (o.sprite.w < 2) continue;
+          const sp = lienzoACanvas(o.sprite);
+          const ox = x + o.x * s, oy = y + o.y * s;
+          const w = Math.round(sp.width * s), h = Math.round(sp.height * s);
+          if (ox + w < 0 || ox - w > W || oy - h > H || oy + 10 < 0) continue;
+          if (o.sombra) sombras.push([ox, oy, o.sombra * s]);
+          capas.push({ y: oy, pintar: () => ctx.drawImage(sp, Math.round(ox - w / 2), Math.round(oy - h + 2 * s), w, h) });
+        }
+      } else {
+        ctx.drawImage(spriteIsla(isla, tam), Math.round(x - t / 2), Math.round(y - t / 2), t, t);
+      }
       islasEnPantalla.push({ isla, x, y, r: (t / 2) * FRACCION_TIERRA });
       if (t * P > 90) {
         const extra = isla.especial === 'base' ? '<small>Base de la marina</small>' : isla.especial === 'taberna' ? '<small>Taberna</small>'
           : isla.especial === 'maestro' ? '<small>Maestro</small>' : '';
-        etiqueta(`i${isla.id}`, `${isla.nombre}${t * P > 260 ? extra : ''}`, x, y - (t / 2) * FRACCION_TIERRA - 6, 'etq-isla');
+        const yE = Math.max(14, y - (t / 2) * FRACCION_TIERRA - 6);
+        etiqueta(`i${isla.id}`, `${isla.nombre}${t * P > 260 ? extra : ''}`, x, yE, 'etq-isla');
       }
     }
 
@@ -187,48 +237,57 @@ export function crearMapa(
     }
 
     // Personajes y barcos
-    tocables = [];
-    const detalle = k > 45;
+    const escGlobal = Math.min(2, Math.max(0.34, k / 230));
     const marcadores = opciones.marcadores();
+    let yo: { x: number; y: number; alto: number } | null = null;
     for (const m of marcadores) {
       const pos = m.posicion;
       let [x, y] = aPantalla(pos.lat, pos.lon);
-      if (!pos.navegando && pos.islaId !== undefined) {
-        // Repartidos por la isla, cada uno en su sitio
-        let h = 0; for (const ch of m.id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-        const isla = islas[pos.islaId];
-        const radio = isla.radio * k * (m.esMio ? 0.15 : 0.25 + (h % 50) / 100);
-        const ang = (h % 628) / 100;
-        x += Math.cos(ang) * radio; y += Math.sin(ang) * radio * 0.8;
+      const isla = pos.islaId !== undefined && !pos.navegando ? islas[pos.islaId] : null;
+      const escena = isla ? enEscena.get(isla.id) : undefined;
+      if (isla) {
+        const [sx, sy] = sitioEn(m, isla);
+        const f = escena ? escena.s : (2 * isla.radio * k) / diametroEscena(isla.radio);
+        x += sx * f; y += sy * f;
       }
-      if (x < -40 || x > W + 40 || y < -40 || y > H + 40) continue;
+      if (x < -60 || x > W + 60 || y < -60 || y > H + 80) continue;
       if (pos.navegando) {
         const b = barcos[m.barco];
         const sp = pos.rumbo > 0 ? b.der : b.izq;
-        const esc = detalle ? 1 : k > 18 ? 0.5 : 0.34;
-        const w = Math.max(6, Math.round(sp.width * esc)), h = Math.max(4, Math.round(sp.height * esc));
-        const balanceo = Math.round(Math.sin(ahora / 400 + x) * (detalle ? 1 : 0));
-        ctx.drawImage(sp, Math.round(x - w / 2), Math.round(y - h + 2 + balanceo), w, h);
-        // estela
-        ctx.fillStyle = PALETA[C.espuma - 1].hex;
-        for (let i = 1; i <= 3; i++) ctx.fillRect(Math.round(x - pos.rumbo * (w / 2 + i * 2)), Math.round(y + 1), 2, 1);
+        const w = Math.max(6, Math.round(sp.width * escGlobal)), h = Math.max(4, Math.round(sp.height * escGlobal));
+        const balanceo = Math.round(Math.sin(ahora / 400 + x) * escGlobal);
+        capas.push({ y, pintar: () => {
+          ctx.drawImage(sp, Math.round(x - w / 2), Math.round(y - h + 2 + balanceo), w, h);
+          ctx.fillStyle = PALETA[C.espuma - 1].hex;
+          for (let i = 1; i <= 3; i++) ctx.fillRect(Math.round(x - pos.rumbo * (w / 2 + i * 3 * escGlobal)), Math.round(y + 1), Math.max(1, Math.round(2 * escGlobal)), 1);
+        } });
         tocables.push({ m, x, y: y - h / 2, r: Math.max(6, w / 2) });
-      } else if (detalle || m.esMio && k > 25) {
+        if (m.esMio) yo = { x, y, alto: h };
+      } else if (escena) {
+        const s = escena.s;
         const sp = spritePersonaje(m);
-        ctx.drawImage(sp, Math.round(x - 16), Math.round(y - 30));
-        tocables.push({ m, x, y: y - 14, r: 12 });
+        const w = Math.round(32 * s);
+        const respira = m.esMio ? 0 : Math.round(Math.sin(ahora / 600 + x * 0.1) * 0.6 * s);
+        sombras.push([x, y, 7 * s]);
+        capas.push({ y, pintar: () => ctx.drawImage(sp, Math.round(x - w / 2), Math.round(y - w + 2 * s + respira), w, w) });
+        tocables.push({ m, x, y: y - w / 2, r: Math.max(8, w / 2.5) });
+        if (m.esMio) yo = { x, y, alto: w };
       } else {
-        ctx.fillStyle = '#1a1423';
-        ctx.fillRect(Math.round(x) - 2, Math.round(y) - 2, 4, 4);
-        ctx.fillStyle = COLOR_BANDO[m.bando];
-        ctx.fillRect(Math.round(x) - 1, Math.round(y) - 1, 2, 2);
+        capas.push({ y, pintar: () => {
+          ctx.fillStyle = '#1a1423'; ctx.fillRect(Math.round(x) - 2, Math.round(y) - 2, 4, 4);
+          ctx.fillStyle = m.esMio ? '#f2b63d' : COLOR_BANDO[m.bando]; ctx.fillRect(Math.round(x) - 1, Math.round(y) - 1, 2, 2);
+        } });
         tocables.push({ m, x, y, r: 5 });
+        if (m.esMio) yo = { x, y, alto: 4 };
       }
-      if (m.esMio) {
-        const yEtq = detalle || k > 25 ? y - 36 : y - 8;
-        etiqueta('yo', `<span class="pin-yo">Tú · ${m.nombre}</span>`, x, yEtq, 'etq-yo');
-      }
+      if (m.esMio && yo) etiqueta('yo', `<span class="pin-yo">Tú · ${m.nombre}</span>`, yo.x, yo.y - yo.alto - 6, 'etq-yo');
     }
+
+    // Sombras suaves y luego todo ordenado de atrás hacia delante
+    ctx.fillStyle = 'rgba(18, 20, 40, 0.28)';
+    for (const [x, y, rx] of sombras) { ctx.beginPath(); ctx.ellipse(x, y, rx, rx * 0.35, 0, 0, Math.PI * 2); ctx.fill(); }
+    capas.sort((a, b) => a.y - b.y);
+    for (const c of capas) c.pintar();
 
     for (const [id, el] of pool) if (!usadas.has(id)) { el.remove(); pool.delete(id); }
   }
@@ -334,7 +393,15 @@ export function crearMapa(
     },
     zoomIsla(isla) {
       redimensionar();
-      return Math.min(kMax, (Math.min(W, H) * 0.8) / (2 * isla.radio / FRACCION_TIERRA));
+      return Math.min(kMax, diametroEscena(isla.radio) / (2 * isla.radio));   // escala 1: tamaño real
+    },
+    posicionDe(m) {
+      const pos = m.posicion;
+      if (pos.navegando || pos.islaId === undefined) return { lat: pos.lat, lon: pos.lon };
+      const isla = islas[pos.islaId];
+      const [sx, sy] = sitioEn(m, isla);
+      const gradosPorPx = (2 * isla.radio) / diametroEscena(isla.radio);
+      return { lat: isla.lat - sy * gradosPorPx, lon: envolver(isla.lon + (sx * gradosPorPx) / Math.cos(isla.lat * Math.PI / 180)) };
     },
   };
   return mapa;
