@@ -1,0 +1,453 @@
+// Paneles de la pantalla principal: Mi pirata, Noticias, Taberna, Tablones, Más, En vivo...
+// Se abren en una hoja sobre el mapa. Lo que aún no existe aparece bloqueado.
+import { Lienzo } from './arte/lienzo';
+import { dibujarPersonaje, type AspectoPersonaje } from './arte/personajes';
+import { dibujarFruta, siluetaFruta } from './arte/frutas';
+import { FRUTAS, CATEGORIAS, RAREZAS, DEBILIDAD_COMUN } from './datos/frutas';
+import { RASGOS } from './datos/caracter';
+import { LOGROS, NOMBRES_ESTADISTICAS, estadisticasIniciales, objetivosPara, type Estadisticas } from './datos/progreso';
+import {
+  BANDOS, actualizarPersonaje, cuentaActual, marActual, personajeActivo, type PersonajeGuardado,
+} from './cuenta';
+import { botsDelMar, islaDePersonaje, islasDelMundo, nombreZona, posicionBot, type Bot } from './mundo/habitantes';
+import { cronica, frutasDelMar, formatoDoblones, haceCuanto, rangoDe, recompensa, type Suceso } from './mundo/cronica';
+import { icono } from './iconos';
+
+export type IdPanel = 'mi-pirata' | 'noticias' | 'taberna' | 'tablones' | 'mas' | 'en-vivo' | 'se-busca' | 'cofre' | 'compendio' | 'guia' | 'normas' | 'privacidad';
+
+interface Acciones {
+  aviso(t: string): void;
+  localizar(): void;
+  abrirPerfil(): void;
+  abrirMares(): void;
+  cerrarSesion(): void;
+  rutaGaleria: string;
+}
+
+const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
+const nombreBot = (b: Bot) => (b.apodo ? `${b.nombre} «${b.apodo}»` : b.nombre);
+
+function aCanvas(L: Lienzo, escala: number) {
+  const cv = document.createElement('canvas');
+  cv.width = L.w; cv.height = L.h;
+  cv.style.width = `${L.w * escala}px`; cv.style.height = `${L.h * escala}px`;
+  cv.getContext('2d')!.putImageData(new ImageData(L.aRGBA(), L.w, L.h), 0, 0);
+  return cv;
+}
+function cara(a: AspectoPersonaje, escala: number) {
+  const L = dibujarPersonaje(a);
+  const r = new Lienzo(20, 16);
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 20; x++) r.px(x, y, L.get(x + 6, y));
+  return aCanvas(r, escala);
+}
+/** Sustituye los <i data-sprite="..."> por canvas. */
+function ponerSprites(raiz: HTMLElement, sprites: Map<string, HTMLCanvasElement>) {
+  raiz.querySelectorAll<HTMLElement>('[data-sprite]').forEach((el) => { const cv = sprites.get(el.dataset.sprite!); if (cv) el.replaceWith(cv.cloneNode(true) instanceof HTMLCanvasElement ? copiarCanvas(cv) : cv); });
+}
+function copiarCanvas(cv: HTMLCanvasElement) {
+  const c = document.createElement('canvas');
+  c.width = cv.width; c.height = cv.height; c.style.cssText = cv.style.cssText;
+  c.getContext('2d')!.drawImage(cv, 0, 0);
+  return c;
+}
+
+function bloqueado(titulo: string, texto: string) {
+  return `<div class="bloqueado"><span class="candado">🔒</span><b>${titulo}</b><small>${texto}</small></div>`;
+}
+
+export function crearPaneles(acc: Acciones) {
+  const hoja = document.querySelector<HTMLElement>('#hoja')!;
+  const titulo = hoja.querySelector<HTMLElement>('.hoja-titulo')!;
+  const cuerpo = hoja.querySelector<HTMLElement>('.hoja-cuerpo')!;
+  const volver = hoja.querySelector<HTMLButtonElement>('.hoja-volver')!;
+  let actual: IdPanel | null = null;
+  const pila: IdPanel[] = [];
+
+  hoja.querySelector('.hoja-cerrar')!.addEventListener('click', cerrar);
+  volver.addEventListener('click', () => { const ant = pila.pop(); if (ant) abrir(ant, false); });
+
+  function cerrar() {
+    hoja.hidden = true; actual = null; pila.length = 0;
+    document.body.classList.remove('con-hoja');
+    document.querySelectorAll('.barra-inf button').forEach((b) => b.classList.remove('activo'));
+  }
+
+  function abrir(id: IdPanel, apilar = true) {
+    if (apilar && actual && actual !== id && ['mas', 'tablones', 'mi-pirata'].includes(actual)) pila.push(actual);
+    if (apilar && (!actual || !['mas', 'tablones', 'mi-pirata'].includes(actual))) pila.length = 0;
+    actual = id;
+    hoja.hidden = false;
+    document.body.classList.add('con-hoja');
+    document.querySelectorAll<HTMLElement>('.barra-inf button').forEach((b) => b.classList.toggle('activo', b.dataset.panel === id));
+    volver.hidden = pila.length === 0;
+    cuerpo.scrollTop = 0;
+    const r = PANELES[id]();
+    titulo.textContent = r.titulo;
+    cuerpo.innerHTML = r.html;
+    r.despues?.(cuerpo);
+  }
+
+  // -------------------------------------------------------------------------
+  const PANELES: Record<IdPanel, () => { titulo: string; html: string; despues?: (el: HTMLElement) => void }> = {
+    'mi-pirata': miPirata,
+    noticias,
+    taberna,
+    tablones,
+    mas,
+    'en-vivo': enVivo,
+    'se-busca': seBusca,
+    cofre,
+    compendio,
+    guia,
+    normas,
+    privacidad,
+  };
+
+  // --- Mi pirata --------------------------------------------------------------
+  function miPirata() {
+    const p = cuentaActual() ? personajeActivo() : null;
+    if (!p) return { titulo: 'Mi pirata', html: `<p class="vacio">Aún no tienes personaje.</p><button class="boton-oro ancho" data-accion="perfil">Crear personaje</button>`,
+      despues: enlazarAcciones };
+    const isla = islaDePersonaje(p);
+    const est = estadisticasIniciales(p.rasgos, p.nivel);
+    const rasgos = p.rasgos.map((id) => RASGOS.find((r) => r.id === id)).filter(Boolean);
+    const objetivos = objetivosPara(p.bando);
+    const obj = objetivos.find((o) => o.id === p.objetivo);
+    const vecinos = botsDelMar(marActual()).filter((b) => { const pos = posicionBot(b); return !pos.navegando && pos.islaId === isla.id; }).slice(0, 6);
+    const html = `
+      <div class="perfil-cabecera">
+        <i data-sprite="yo"></i>
+        <div>
+          <b class="perfil-nombre">${esc(p.nombre)}${p.apodo ? ` <span>«${esc(p.apodo)}»</span>` : ''}</b>
+          <span class="bando-${p.bando}">${BANDOS[p.bando].nombre}${p.bando === 'marine' ? ` · ${rangoDe(p.nivel)}` : ''} · Nv. ${p.nivel}</span>
+          <span class="oro">${icono('moneda', '#f2b63d')} ${formatoDoblones(p.doblones)} doblones</span>
+          <button class="enlace-oro" data-accion="localizar">${icono('diana', '#f2b63d')} En ${esc(isla.nombre)} · ${esc(nombreZona(isla.zona))}</button>
+        </div>
+      </div>
+
+      <h3>Estadísticas</h3>
+      <div class="barras">${(Object.keys(NOMBRES_ESTADISTICAS) as (keyof Estadisticas)[]).map((k) => `
+        <div class="barra"><span>${NOMBRES_ESTADISTICAS[k]}</span><i><b style="width:${Math.min(100, est[k])}%"></b></i><em>${est[k]}</em></div>`).join('')}
+      </div>
+      <p class="nota-hoja">Subirán cuando tu personaje entrene, pelee y viaje (motor de simulación, fase 6).</p>
+
+      <h3>Objetivo</h3>
+      ${obj ? `<div class="objetivo">
+          <b>${esc(obj.texto)}</b>
+          <div class="progreso"><i style="width:4%"></i></div><small>0 de ${obj.pasos.length} pasos</small>
+          <ol>${obj.pasos.map((s) => `<li>${esc(s)}</li>`).join('')}</ol>
+        </div>` : '<p class="nota-hoja">Elige qué quieres que persiga. Lo dividirá en pasos y trabajará en ello aunque no estés.</p>'}
+      <div class="chips">${objetivos.map((o) => `<button class="chip-hoja ${o.id === p.objetivo ? 'sel' : ''}" data-objetivo="${o.id}">${esc(o.texto)}</button>`).join('')}</div>
+
+      <h3>Momentos clave</h3>
+      <p class="vacio">No hay ninguno pendiente. Cuando pase algo importante (unirse a una tripulación, comerse una fruta, un duelo…) te preguntaremos aquí qué hacer.</p>
+
+      <h3>Carácter</h3>
+      <div class="rasgos-hoja">${rasgos.map((r) => `<div><b>${r!.nombre}</b><small class="mas">▲ ${esc(r!.ventaja)}</small><small class="menos">▼ ${esc(r!.desventaja)}</small></div>`).join('') || '<p class="vacio">Sin rasgos.</p>'}</div>
+
+      <h3>Sueño</h3>
+      <p class="sueno-hoja">${esc(p.sueno || 'Todavía no tiene un sueño.')}</p>
+
+      <h3>Diario</h3>
+      <ul class="diario">${diario(p).map(([t, txt]) => `<li><small>${haceCuanto(t)}</small>${esc(txt)}</li>`).join('')}</ul>
+
+      <h3>Equipo</h3>
+      <div class="ranuras">
+        <div class="ranura"><b>Barco</b><small>Barca de remos</small></div>
+        ${bloqueado('Arma', 'Consíguela en combates, tesoros o tiendas.')}
+        ${bloqueado('Ropa especial', 'Mejora tu defensa. Llegará con el equipo.')}
+        ${bloqueado('Fruta del poder', 'Ninguna. Si encuentras una, decidirás si te la comes.')}
+      </div>
+
+      <h3>Relaciones</h3>
+      ${vecinos.length ? `<p class="nota-hoja">Personajes que están ahora en ${esc(isla.nombre)}. Aún no os conocéis.</p>
+        <ul class="lista-gente">${vecinos.map((b) => `<li><i data-sprite="b-${b.id}"></i><span><b>${esc(nombreBot(b))}</b><small class="bando-${b.bando}">${BANDOS[b.bando].nombre} · Nv. ${b.nivel}</small></span><em>Desconocido</em></li>`).join('')}</ul>`
+        : '<p class="vacio">Nadie más en la isla ahora mismo.</p>'}`;
+    return {
+      titulo: 'Mi pirata', html, despues: (el: HTMLElement) => {
+        const sprites = new Map<string, HTMLCanvasElement>([['yo', aCanvas(dibujarPersonaje(p.aspecto), 3)]]);
+        for (const b of vecinos) sprites.set(`b-${b.id}`, cara(b.aspecto, 2));
+        ponerSprites(el, sprites);
+        enlazarAcciones(el);
+        el.querySelectorAll<HTMLButtonElement>('[data-objetivo]').forEach((b) => b.addEventListener('click', () => {
+          actualizarPersonaje({ ...p, objetivo: b.dataset.objetivo });
+          acc.aviso('Nuevo objetivo fijado.');
+          abrir('mi-pirata', false);
+        }));
+      },
+    };
+  }
+
+  function diario(p: PersonajeGuardado): [number, string][] {
+    const isla = islaDePersonaje(p);
+    const entradas: [number, string][] = [
+      [p.creado, `${p.nombre} pisó por primera vez ${isla.nombre}. Olía a sal y a aventura.`],
+      [p.creado + 60_000, `Juró que cumpliría su sueño: ${p.sueno.charAt(0).toLowerCase()}${p.sueno.slice(1)}`],
+    ];
+    if (p.objetivo) entradas.push([Date.now(), `Se propuso un nuevo objetivo y empezó a pensar cómo conseguirlo.`]);
+    return entradas.sort((a, b) => b[0] - a[0]);
+  }
+
+  // --- Noticias ---------------------------------------------------------------
+  function noticias() {
+    const mar = marActual();
+    const p = cuentaActual() ? personajeActivo() : null;
+    const todas = cronica(mar, Date.now() - 24 * 3600_000).filter((s) => s.importante).slice(0, 40);
+    const mias: Suceso[] = p ? diario(p).map(([t, texto]) => ({ t, texto, tipo: 'llega', ids: [p.id], importante: true })) : [];
+    const lista = (xs: Suceso[]) => xs.length ? `<ul class="noticias">${xs.map((s) => `<li class="n-${s.tipo}"><small>${haceCuanto(s.t)}</small>${esc(s.texto)}</li>`).join('')}</ul>`
+      : '<p class="vacio">Todavía no hay noticias tuyas. Cuando tu personaje haga algo sonado, saldrá aquí.</p>';
+    return {
+      titulo: 'Noticias',
+      html: `<div class="pestanas-hoja"><button class="sel" data-filtro="todo">Todo el mar</button><button data-filtro="mio">Lo mío</button></div>
+        <div data-vista="todo">${lista(todas)}</div><div data-vista="mio" hidden>${lista(mias)}</div>`,
+      despues: pestanasLocales,
+    };
+  }
+
+  // --- En vivo ----------------------------------------------------------------
+  function enVivo() {
+    const mar = marActual();
+    const bots = botsDelMar(mar);
+    const navegando = bots.filter((b) => posicionBot(b).navegando).length;
+    const sucesos = cronica(mar, Date.now() - 3600_000);
+    return {
+      titulo: 'En vivo',
+      html: `<div class="cifras"><div><b>${bots.length + (personajeActivo() ? 1 : 0)}</b><small>personajes en este mar</small></div><div><b>${navegando}</b><small>navegando ahora</small></div><div><b>${sucesos.length}</b><small>sucesos en la última hora</small></div></div>
+        <ul class="noticias">${sucesos.map((s) => `<li class="n-${s.tipo}"><small>${haceCuanto(s.t)}</small>${esc(s.texto)}</li>`).join('')}</ul>`,
+    };
+  }
+
+  // --- Taberna (chat) ---------------------------------------------------------
+  function taberna() {
+    const mar = marActual();
+    const cuenta = cuentaActual();
+    return {
+      titulo: 'La Taberna',
+      html: `
+        <details class="normas-chat"><summary>Normas de la taberna</summary>
+          <ul><li>Respeto: nada de insultos, acoso ni odio.</li><li>Nada de datos personales (tuyos ni de nadie).</li><li>Sin spam: como mucho 5 mensajes por minuto.</li><li>Los mensajes se borran a los 90 días.</li><li>Puedes reportar y silenciar a quien quieras.</li></ul>
+        </details>
+        <p class="nota-hoja">De momento la taberna funciona solo en tu navegador; el chat en tiempo real con todos llega con el servidor (fase 9).</p>
+        <ul class="chat" id="chat"></ul>
+        <div class="silenciados" id="silenciados"></div>
+        ${cuenta ? `<form class="chat-form" id="chat-form"><input id="chat-texto" maxlength="200" autocomplete="off" placeholder="Di algo en la taberna..." /><button class="boton-oro">Enviar</button></form>`
+          : '<p class="vacio">Firma el pacto para hablar en la taberna.</p>'}`,
+      despues: (el: HTMLElement) => montarChat(el, mar),
+    };
+  }
+
+  // --- Tablones ---------------------------------------------------------------
+  function tablones() {
+    const mar = marActual();
+    const bots = botsDelMar(mar);
+    const p = cuentaActual() ? personajeActivo() : null;
+    const fila = (i: number, b: Bot, valor: string) => `<li><span class="pos">${i + 1}</span><i data-sprite="b-${b.id}"></i><span><b>${esc(nombreBot(b))}</b><small class="bando-${b.bando}">${BANDOS[b.bando].nombre} · Nv. ${b.nivel}</small></span><em>${valor}</em></li>`;
+    const buscados = bots.filter((b) => b.bando !== 'marine').sort((a, b) => recompensa(b) - recompensa(a)).slice(0, 15);
+    const marines = bots.filter((b) => b.bando === 'marine').sort((a, b) => b.nivel - a.nivel).slice(0, 15);
+    const fuertes = [...bots].sort((a, b) => b.nivel - a.nivel).slice(0, 15);
+    const frutas = frutasDelMar(mar);
+    const todos = [...buscados, ...marines, ...fuertes, ...bots.filter((b) => [...frutas.values()].includes(b.id))];
+    const html = `
+      <div class="pestanas-hoja"><button class="sel" data-filtro="rec">Recompensas</button><button data-filtro="rangos">Marina</button><button data-filtro="fuertes">Más fuertes</button><button data-filtro="trip">Tripulaciones</button><button data-filtro="frutas">Frutas</button></div>
+      <div data-vista="rec"><ol class="ranking">${buscados.map((b, i) => fila(i, b, `${formatoDoblones(recompensa(b))}`)).join('')}</ol>
+        ${p && p.bando !== 'marine' ? `<p class="nota-hoja">${esc(p.nombre)} aún no tiene recompensa.</p>` : ''}</div>
+      <div data-vista="rangos" hidden><ol class="ranking">${marines.map((b, i) => fila(i, b, rangoDe(b.nivel))).join('')}</ol></div>
+      <div data-vista="fuertes" hidden><ol class="ranking">${fuertes.map((b, i) => fila(i, b, `Nv. ${b.nivel}`)).join('')}</ol></div>
+      <div data-vista="trip" hidden>${bloqueado('Tripulaciones', 'Cuando los personajes formen tripulaciones (fase 7), aquí estarán las más famosas.')}</div>
+      <div data-vista="frutas" hidden><ol class="ranking">${[...frutas.entries()].map(([fid, bid], i) => {
+        const b = bots.find((x) => x.id === bid)!; const f = FRUTAS.find((x) => x.id === fid)!;
+        return fila(i, b, esc(f.nombre));
+      }).join('')}</ol><p class="nota-hoja">${frutas.size} de ${FRUTAS.length} frutas encontradas en este mar.</p></div>`;
+    return {
+      titulo: 'Tablones', html, despues: (el: HTMLElement) => {
+        ponerSprites(el, new Map(todos.map((b) => [`b-${b.id}`, cara(b.aspecto, 1.6)])));
+        pestanasLocales(el);
+      },
+    };
+  }
+
+  // --- Más --------------------------------------------------------------------
+  function mas() {
+    const items: [string, string, string][] = [
+      ['se-busca', 'Se busca', 'Los carteles del día'], ['cofre', 'Cofre', 'Objetos, tesoros y logros'], ['compendio', 'Compendio', 'Las frutas del poder'],
+      ['guia', 'Guía', 'Cómo funciona el juego'], ['normas', 'Normas', 'Para convivir en los mares'], ['privacidad', 'Privacidad', 'Qué datos guardamos'],
+    ];
+    return {
+      titulo: 'Más',
+      html: `<div class="rejilla-mas">${items.map(([id, t, s]) => `<button data-ir="${id}"><b>${t}</b><small>${s}</small></button>`).join('')}
+        <button data-accion="mares"><b>Cambiar de mar</b><small>Mar ${marActual()}</small></button>
+        <a href="${acc.rutaGaleria}"><b>Galería de arte</b><small>Todos los dibujos</small></a>
+        ${cuentaActual() ? '<button data-accion="salir"><b>Cerrar sesión</b><small>Salir de tu cuenta</small></button>' : ''}</div>`,
+      despues: (el: HTMLElement) => {
+        el.querySelectorAll<HTMLButtonElement>('[data-ir]').forEach((b) => b.addEventListener('click', () => abrir(b.dataset.ir as IdPanel)));
+        enlazarAcciones(el);
+      },
+    };
+  }
+
+  // --- Se busca ---------------------------------------------------------------
+  function seBusca() {
+    const bots = botsDelMar(marActual()).filter((b) => b.bando !== 'marine').sort((a, b) => recompensa(b) - recompensa(a)).slice(0, 8);
+    const p = cuentaActual() ? personajeActivo() : null;
+    return {
+      titulo: 'Se busca',
+      html: `<p class="nota-hoja">Carteles publicados al amanecer. La recompensa baja poco a poco si el buscado pasa días tranquilo.</p>
+        <div class="carteles">${bots.map((b) => `<div class="cartel"><span class="cartel-titulo">SE BUSCA</span><i data-sprite="b-${b.id}"></i><b>${esc(b.nombre)}</b>${b.apodo ? `<small>«${esc(b.apodo)}»</small>` : ''}<span class="cartel-cifra">${formatoDoblones(recompensa(b))}</span><small class="cartel-pie">doblones</small></div>`).join('')}</div>
+        ${p && p.bando !== 'marine' ? `<p class="vacio">Todavía nadie busca a ${esc(p.nombre)}. Con unas cuantas fechorías, su cara acabará aquí.</p>` : ''}`,
+      despues: (el: HTMLElement) => ponerSprites(el, new Map(bots.map((b) => [`b-${b.id}`, cara(b.aspecto, 3)]))),
+    };
+  }
+
+  // --- Cofre ------------------------------------------------------------------
+  function cofre() {
+    return {
+      titulo: 'Cofre',
+      html: `<div class="pestanas-hoja"><button class="sel" data-filtro="obj">Objetos</button><button data-filtro="tes">Tesoros</button><button data-filtro="fru">Frutas</button><button data-filtro="log">Logros</button></div>
+        <div data-vista="obj"><div class="ranuras">${Array.from({ length: 6 }, () => bloqueado('Vacío', 'Los objetos llegarán con el equipo.')).join('')}</div></div>
+        <div data-vista="tes" hidden><p class="vacio">Aún no has encontrado ningún tesoro. Tu personaje los busca en ruinas y en islas con rumores.</p></div>
+        <div data-vista="fru" hidden><p class="vacio">No tienes ninguna fruta. Mira el Compendio para ver cuáles hay.</p></div>
+        <div data-vista="log" hidden><div class="logros">${LOGROS.map((l) => `<div class="logro"><span class="candado">🔒</span><b>${esc(l.nombre)}</b><small>${esc(l.como)}</small></div>`).join('')}</div></div>`,
+      despues: pestanasLocales,
+    };
+  }
+
+  // --- Compendio de frutas ----------------------------------------------------
+  function compendio() {
+    const bots = botsDelMar(marActual());
+    const duenos = frutasDelMar(marActual());
+    return {
+      titulo: 'Compendio de frutas',
+      html: `<p class="nota-hoja">Solo existe una de cada fruta en cada mar. ${duenos.size} de ${FRUTAS.length} ya tienen dueño.</p>
+        <div class="compendio">${FRUTAS.map((f) => {
+          const due = duenos.get(f.id);
+          const b = due ? bots.find((x) => x.id === due) : null;
+          return b ? `<div class="fruta conocida" style="--rareza:${RAREZAS[f.rareza].color}"><i data-sprite="f-${f.id}"></i><b>${esc(f.nombre)}</b><small>${CATEGORIAS[f.categoria].nombre} · ${RAREZAS[f.rareza].nombre}</small><small>${esc(f.poder)}</small><em>La tiene ${esc(nombreBot(b))}</em></div>`
+            : `<div class="fruta" style="--rareza:${RAREZAS[f.rareza].color}"><i data-sprite="s-${f.id}"></i><b>???</b><small>${CATEGORIAS[f.categoria].nombre} · ${RAREZAS[f.rareza].nombre}</small><em>Nadie la ha encontrado</em></div>`;
+        }).join('')}</div>
+        <h3>Debilidad común: ${esc(DEBILIDAD_COMUN.nombre)}</h3><p class="nota-hoja">${esc(DEBILIDAD_COMUN.descripcion)}</p>`,
+      despues: (el: HTMLElement) => ponerSprites(el, new Map(FRUTAS.flatMap((f) => [[`f-${f.id}`, aCanvas(dibujarFruta(f.id), 3)], [`s-${f.id}`, aCanvas(siluetaFruta(f.id), 3)]] as [string, HTMLCanvasElement][]))),
+    };
+  }
+
+  // --- Textos -----------------------------------------------------------------
+  function guia() {
+    return {
+      titulo: 'Guía',
+      html: `<div class="texto">
+        <h3>Tu personaje vive solo</h3><p>No lo manejas tú: navega, pelea, entrena y hace amigos por su cuenta, incluso cuando cierras el juego. Al volver verás un resumen de lo que ha pasado.</p>
+        <h3>Tú decides lo importante</h3><p>Le pones un <b>objetivo</b> (hacerse fuerte, encontrar una fruta, formar tripulación…) y él lo divide en pasos. En los <b>momentos clave</b> (comerse una fruta, unirse a una tripulación, traicionar…) te pregunta qué hacer. Si no contestas a tiempo, decide según su carácter.</p>
+        <h3>El carácter importa</h3><p>Sus 3 rasgos cambian lo que prefiere hacer y cómo le va: un Curioso explora más, un Rudo pega más fuerte pero hace menos amigos.</p>
+        <h3>El mundo</h3><p>Cuatro mares (Alba, Ocaso, Coral y Bruma) separados por ${esc('El Espinazo')}, un continente que da la vuelta al planeta, y por las Aguas Dormidas, sin viento. En el centro está la Senda de las Mareas, solo para los más fuertes.</p>
+        <h3>Frutas del poder</h3><p>Hay una de cada en cada mar. Dan poderes enormes, pero todas comparten una debilidad: la Noche Hueca.</p>
+        <h3>Recompensas</h3><p>Las fechorías suben tu notoriedad. Cada amanecer se publican los carteles de Se busca.</p>
+        <h3>Lo que llegará</h3><p>Combates, tripulaciones, el chat compartido y las cuentas de verdad irán llegando por fases.</p></div>`,
+    };
+  }
+  function normas() {
+    return { titulo: 'Normas', html: `<div class="texto"><ul>
+      <li>Trata a todos con respeto. Nada de insultos, acoso, amenazas ni odio.</li>
+      <li>No compartas datos personales: ni tuyos ni de otros (nombre real, dirección, teléfono…).</li>
+      <li>Nada de contenido sexual, violento de verdad ni ilegal.</li>
+      <li>No hagas spam ni publicidad.</li>
+      <li>Un nombre de personaje ofensivo puede ser cambiado por la moderación.</li>
+      <li>Si algo te molesta, repórtalo o silencia a esa persona. Los moderadores revisan los reportes.</li></ul></div>` };
+  }
+  function privacidad() {
+    return { titulo: 'Privacidad', html: `<div class="texto">
+      <p><b>Ahora mismo</b> (versión de prueba) todo se guarda solo en tu navegador: tu cuenta, tus personajes y tus mensajes de la taberna. No se envía nada a ningún servidor.</p>
+      <p><b>Cuando haya servidor</b> (fase 9) guardaremos tu correo o tu cuenta de Google para iniciar sesión, tu nombre de jugador, tus personajes y tus mensajes de la taberna. Los mensajes se borran a los 90 días. No vendemos datos a nadie.</p>
+      <p>Podrás pedir que borremos tu cuenta y todo lo tuyo en cualquier momento.</p></div>` };
+  }
+
+  // -------------------------------------------------------------------------
+  function pestanasLocales(el: HTMLElement) {
+    el.querySelectorAll<HTMLButtonElement>('[data-filtro]').forEach((b) => b.addEventListener('click', () => {
+      el.querySelectorAll('[data-filtro]').forEach((x) => x.classList.toggle('sel', x === b));
+      el.querySelectorAll<HTMLElement>('[data-vista]').forEach((v) => (v.hidden = v.dataset.vista !== b.dataset.filtro));
+    }));
+  }
+  function enlazarAcciones(el: HTMLElement) {
+    el.querySelectorAll<HTMLButtonElement>('[data-accion]').forEach((b) => b.addEventListener('click', () => {
+      const a = b.dataset.accion;
+      if (a === 'localizar') { cerrar(); acc.localizar(); }
+      else if (a === 'perfil') { cerrar(); acc.abrirPerfil(); }
+      else if (a === 'mares') acc.abrirMares();
+      else if (a === 'salir') { cerrar(); acc.cerrarSesion(); }
+    }));
+  }
+
+  return { abrir, cerrar, get actual() { return actual; } };
+}
+
+// ---------------------------------------------------------------------------
+// Chat de la taberna (local hasta tener servidor)
+
+interface Mensaje { id: string; autor: string; texto: string; t: number; bot?: boolean; mio?: boolean }
+
+const PALABRAS_PROHIBIDAS = ['idiota', 'imbécil', 'imbecil', 'estúpido', 'estupido', 'gilipollas', 'subnormal', 'puta', 'puto', 'mierda', 'cabrón', 'cabron', 'pendejo', 'mamón', 'tonto del culo'];
+function filtrar(t: string) {
+  let s = t;
+  for (const p of PALABRAS_PROHIBIDAS) s = s.replace(new RegExp(p, 'gi'), (m) => '*'.repeat(m.length));
+  return s;
+}
+const FRASES_BOT = ['¿Alguien ha visto un barco con velas negras por el Mar del Alba?', 'Busco tripulación. Sé cocinar y pelear un poco.', 'Dicen que en Cayo Ballena hay un maestro de espada.',
+  '¡Una ronda para todos, invito yo!', 'Cuidado con la marina, hoy hay muchos barcos en la zona.', 'He oído que alguien encontró una fruta rara cerca de las ruinas.',
+  'Mañana zarpo hacia la Senda de las Mareas. Deseadme suerte.', '¿Qué tal las tormentas por el Ocaso?', 'Alguien me debe 300 doblones y sabe quién es.',
+  'Las Aguas Dormidas dan miedo de verdad. No hay ni una brisa.', 'Vendo mapa casi completo, le falta un trozo.', 'Hoy he ganado mi primer duelo :)'];
+
+function leer<T>(k: string, d: T): T { try { const t = localStorage.getItem(k); return t ? JSON.parse(t) : d; } catch { return d; } }
+function escribir(k: string, v: unknown) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* nada */ } }
+
+function montarChat(el: HTMLElement, mar: number) {
+  const clave = `taberna.${mar}`;
+  const NOVENTA_DIAS = 90 * 24 * 3600_000;
+  const lista = el.querySelector<HTMLElement>('#chat')!;
+  const silEl = el.querySelector<HTMLElement>('#silenciados')!;
+  const ahora = Date.now();
+  // Mensajes de bots: uno cada 4 minutos, iguales para todos
+  const bots = botsDelMar(mar);
+  const deBots: Mensaje[] = [];
+  for (let i = 0; i < 14; i++) {
+    const slot = Math.floor(ahora / 240_000) - i;
+    const b = bots[(slot * 7919) % bots.length];
+    deBots.push({ id: `b${slot}`, autor: nombreBot(b), texto: FRASES_BOT[(slot * 31) % FRASES_BOT.length], t: slot * 240_000, bot: true });
+  }
+  const pintar = () => {
+    const mios = leer<Mensaje[]>(clave, []).filter((m) => ahora - m.t < NOVENTA_DIAS);
+    const silenciados = leer<string[]>('taberna.silenciados', []);
+    const reportados = leer<string[]>('taberna.reportados', []);
+    const todos = [...deBots, ...mios].sort((a, b) => a.t - b.t).filter((m) => !silenciados.includes(m.autor));
+    lista.innerHTML = todos.map((m) => reportados.includes(m.id)
+      ? `<li class="reportado">Mensaje reportado. Lo revisará la moderación.</li>`
+      : `<li class="${m.mio ? 'mio' : ''}"><b>${esc(m.autor)}</b><small>${haceCuanto(m.t)}</small><p>${esc(m.texto)}</p>
+        ${m.mio ? '' : `<span class="acciones-msg"><button data-reportar="${m.id}">Reportar</button><button data-silenciar="${esc(m.autor)}">Silenciar</button></span>`}</li>`).join('');
+    silEl.innerHTML = silenciados.length ? `Silenciados: ${silenciados.map((s) => `<button data-quitar="${esc(s)}">${esc(s)} ✕</button>`).join(' ')}` : '';
+    el.scrollTop = el.scrollHeight;   // baja hasta el último mensaje
+  };
+  el.addEventListener('click', (e) => {
+    const b = (e.target as HTMLElement).closest('button');
+    if (!b) return;
+    if (b.dataset.reportar) { escribir('taberna.reportados', [...leer<string[]>('taberna.reportados', []), b.dataset.reportar]); pintar(); }
+    else if (b.dataset.silenciar) { escribir('taberna.silenciados', [...new Set([...leer<string[]>('taberna.silenciados', []), b.dataset.silenciar])]); pintar(); }
+    else if (b.dataset.quitar) { escribir('taberna.silenciados', leer<string[]>('taberna.silenciados', []).filter((s) => s !== b.dataset.quitar)); pintar(); }
+  });
+  const form = el.querySelector<HTMLFormElement>('#chat-form');
+  form?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const input = el.querySelector<HTMLInputElement>('#chat-texto')!;
+    const texto = input.value.trim();
+    if (!texto) return;
+    const mios = leer<Mensaje[]>(clave, []);
+    const ultimoMinuto = mios.filter((m) => Date.now() - m.t < 60_000).length;
+    if (ultimoMinuto >= 5) { input.setCustomValidity('Como mucho 5 mensajes por minuto. Espera un poco.'); input.reportValidity(); setTimeout(() => input.setCustomValidity(''), 2500); return; }
+    const p = personajeActivo();
+    const autor = p?.nombre ?? cuentaActual()?.nombre ?? 'Tú';
+    mios.push({ id: `m${Date.now()}`, autor, texto: filtrar(texto), t: Date.now(), mio: true });
+    escribir(clave, mios.slice(-200));
+    input.value = '';
+    pintar();
+  });
+  pintar();
+}
+
+void islasDelMundo;

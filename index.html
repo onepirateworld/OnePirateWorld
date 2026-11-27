@@ -37,14 +37,22 @@
     </aside>
 
     <section class="tarjeta" id="tarjeta" hidden></section>
+    <section class="hoja" id="hoja" hidden aria-live="polite">
+      <header class="hoja-cabecera">
+        <button class="hoja-volver" aria-label="Volver" hidden>←</button>
+        <h2 class="hoja-titulo"></h2>
+        <button class="hoja-cerrar" aria-label="Cerrar">✕</button>
+      </header>
+      <div class="hoja-cuerpo"></div>
+    </section>
     <section class="ficha" id="ficha"></section>
 
     <nav class="barra-inf">
-      <button data-seccion="Noticias"><span class="ico" data-ico="noticias"></span>Noticias</button>
-      <button data-seccion="La Taberna"><span class="ico" data-ico="taberna"></span>Taberna</button>
-      <button class="mi-pirata" id="btn-mi-pirata"><span class="aro" id="avatar-nav"></span><span id="texto-mi-pirata">Mi pirata</span></button>
-      <button data-seccion="Tablones"><span class="ico" data-ico="tablones"></span>Tablones</button>
-      <button data-seccion="Más"><span class="ico" data-ico="mas"></span>Más</button>
+      <button data-panel="noticias"><span class="ico" data-ico="noticias"></span>Noticias</button>
+      <button data-panel="taberna"><span class="ico" data-ico="taberna"></span>Taberna</button>
+      <button class="mi-pirata" id="btn-mi-pirata" data-panel="mi-pirata"><span class="aro" id="avatar-nav"></span><span id="texto-mi-pirata">Mi pirata</span></button>
+      <button data-panel="tablones"><span class="ico" data-ico="tablones"></span>Tablones</button>
+      <button data-panel="mas"><span class="ico" data-ico="mas"></span>Más</button>
     </nav>
 
     <!-- Firmar el pacto (crear cuenta) -->

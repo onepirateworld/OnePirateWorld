@@ -9,6 +9,7 @@ import { crearPlaneta, type Planeta } from './mundo/planeta';
 import { crearMapa, type Mapa, type Marcador } from './mundo/mapa';
 import { botsDelMar, islaDePersonaje, islasDelMundo, nombreZona, posicionBot, type IslaMundo } from './mundo/habitantes';
 import { RASGOS } from './datos/caracter';
+import { crearPaneles, type IdPanel } from './paneles';
 import { icono } from './iconos';
 import {
   BANDOS, MARES, META_COMUNIDAD, cerrarSesion, cuentaActual, elegirActivo, firmarPacto, marActual,
@@ -109,7 +110,7 @@ function pintar() {
         <span class="insignia">Nv. ${p.nivel}</span>
       </span>
       <button class="ficha-lugar" id="ficha-lugar">${icono('diana', '#f2b63d')} En ${esc(islaDePersonaje(p).nombre)} · ${esc(nombreZona(islaDePersonaje(p).zona))}</button>`;
-    const momentos = boton('', () => aviso('Momentos clave: llegarán con el motor de simulación (fase 6).'));
+    const momentos = boton('', () => paneles.abrir('mi-pirata'));
     momentos.classList.add('momentos');
     momentos.title = 'Momentos clave pendientes';
     momentos.innerHTML = '<span class="chispa">✦</span><span class="cuenta">0</span>';
@@ -202,17 +203,24 @@ $('#btn-guia').innerHTML = icono('guia', '#f2b63d');
 document.querySelectorAll<HTMLElement>('[data-ico]').forEach((el) => (el.innerHTML = icono(el.dataset.ico!, '#f2b63d')));
 
 $('#btn-perfil').addEventListener('click', abrirPerfil);
-$('#btn-mi-pirata').addEventListener('click', () => (personajeActivo() ? aviso('La ficha de tu personaje llegará con el motor de simulación (fase 6).') : abrirPerfil()));
+
 $('#btn-mar').addEventListener('click', abrirMares);
 $('#btn-mapa').addEventListener('click', () => { if (!mapa?.visible) abrirMapa(); });
 $('#btn-localizar').innerHTML = icono('diana', '#f2b63d');
 $('#btn-localizar').addEventListener('click', localizar);
 document.addEventListener('click', (e) => { if ((e.target as HTMLElement).closest('#ficha-lugar')) localizar(); });
-$('#btn-envivo').addEventListener('click', () => aviso('«En vivo» mostrará lo que pasa en el mundo ahora mismo (fase 6).'));
-$('#btn-guia').addEventListener('click', () => aviso('La Guía del juego llega en la fase 10.'));
+const paneles = crearPaneles({
+  aviso, localizar: () => localizar(), abrirPerfil: () => abrirPerfil(), abrirMares: () => abrirMares(),
+  cerrarSesion: () => { cerrarSesion(); pintar(); aviso('Sesión cerrada.'); }, rutaGaleria: ruta('galeria/index.html'),
+});
+$('#btn-envivo').addEventListener('click', () => paneles.abrir('en-vivo'));
+$('#btn-guia').addEventListener('click', () => paneles.abrir('guia'));
+document.querySelectorAll<HTMLButtonElement>('.barra-inf [data-panel]').forEach((b) => b.addEventListener('click', () => {
+  const id = b.dataset.panel as IdPanel;
+  if (paneles.actual === id) paneles.cerrar(); else paneles.abrir(id);
+}));
 $('#btn-globo').addEventListener('click', () => (mapa?.visible ? volverAlGlobo() : aviso('Arrastra para girar el planeta. Pellizca o usa la rueda para acercarte.')));
-document.querySelectorAll<HTMLButtonElement>('[data-seccion]').forEach((b) =>
-  b.addEventListener('click', () => aviso(`${b.dataset.seccion}: llega en la fase 10.`)));
+
 
 // ---------------------------------------------------------------------------
 // Arranque

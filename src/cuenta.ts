@@ -18,6 +18,8 @@ export interface PersonajeGuardado {
   rasgos: string[];
   sueno: string;
   apodo?: string;
+  /** Objetivo actual que el jugador le ha puesto. */
+  objetivo?: string;
   /** Isla donde está ahora (si falta, se le asigna una al cargar). */
   islaId?: number;
   nivel: number;
