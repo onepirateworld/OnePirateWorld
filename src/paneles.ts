@@ -21,6 +21,7 @@ interface Acciones {
   abrirPerfil(): void;
   abrirMares(): void;
   cerrarSesion(): void;
+  entrenar(): void;
   rutaGaleria: string;
 }
 
@@ -125,6 +126,8 @@ export function crearPaneles(acc: Acciones) {
         </div>
       </div>
 
+      <button class="boton-oro ancho" data-accion="entrenar">⚔ Combate de entrenamiento</button>
+
       <h3>Estadísticas</h3>
       <div class="barras">${(Object.keys(NOMBRES_ESTADISTICAS) as (keyof Estadisticas)[]).map((k) => `
         <div class="barra"><span>${NOMBRES_ESTADISTICAS[k]}</span><i><b style="width:${Math.min(100, est[k])}%"></b></i><em>${est[k]}</em></div>`).join('')}
@@ -185,6 +188,7 @@ export function crearPaneles(acc: Acciones) {
       [p.creado + 60_000, `Juró que cumpliría su sueño: ${p.sueno.charAt(0).toLowerCase()}${p.sueno.slice(1)}`],
     ];
     if (p.objetivo) entradas.push([Date.now(), `Se propuso un nuevo objetivo y empezó a pensar cómo conseguirlo.`]);
+    for (const r of p.registro ?? []) entradas.push(r);
     return entradas.sort((a, b) => b[0] - a[0]);
   }
 
@@ -373,6 +377,7 @@ export function crearPaneles(acc: Acciones) {
       else if (a === 'perfil') { cerrar(); acc.abrirPerfil(); }
       else if (a === 'mares') acc.abrirMares();
       else if (a === 'salir') { cerrar(); acc.cerrarSesion(); }
+      else if (a === 'entrenar') { cerrar(); acc.entrenar(); }
     }));
   }
 

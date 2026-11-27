@@ -14,7 +14,7 @@ export function estadisticasIniciales(rasgos: string[], nivel = 1): Estadisticas
     inteligente: { tecnica: 5, fuerza: -2 }, rudo: { fuerza: 5, resistencia: 1 }, astuto: { velocidad: 4, tecnica: 1 },
     valiente: { fuerza: 2, resistencia: 2 }, prudente: { resistencia: 4, vida: 5 }, leal: { resistencia: 2, vida: 5 },
     avaricioso: { velocidad: 2 }, honrado: { resistencia: 2, fama: 2 }, curioso: { velocidad: 3, tecnica: 1 },
-    carismatico: { fama: 5 }, gloton: { vida: 15, velocidad: -1 }, orgulloso: { fuerza: 2, fama: 3 },
+    carismatico: { fama: 5 }, gloton: { vida: 10, velocidad: -1 }, orgulloso: { fuerza: 2, fama: 3 },
   };
   for (const r of rasgos) for (const [k, v] of Object.entries(suma[r] ?? {})) e[k as keyof Estadisticas] += v as number;
   const extra = (nivel - 1) * 2;

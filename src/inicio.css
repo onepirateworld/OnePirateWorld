@@ -393,3 +393,57 @@ button { font-family: inherit; cursor: pointer; }
   .hoja { top: calc(64px + env(safe-area-inset-top)); left: 6px; right: 6px; }
   .cifras b { font-size: 20px; }
 }
+
+/* --- Combate por turnos */
+.combate {
+  position: fixed; inset: 0; z-index: 20; background: #0b1124; display: flex; flex-direction: column;
+  padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom); animation: aparecer 0.25s;
+}
+.combate.saliendo { opacity: 0; transition: opacity 0.25s; }
+@keyframes aparecer { from { opacity: 0; } }
+.combate-arriba { position: relative; width: 100%; max-width: 720px; margin: 0 auto; flex: none; }
+.combate-escena { display: block; width: 100%; aspect-ratio: 3 / 2; image-rendering: pixelated; }
+.combate-cortina { position: absolute; inset: 0; background: #0b1124; pointer-events: none; opacity: 0; }
+.combate.entrando .combate-cortina { animation: cortina 0.35s steps(4) forwards; }
+@keyframes cortina { from { opacity: 1; clip-path: inset(0 0 0 0); } to { opacity: 1; clip-path: inset(50% 0 50% 0); } }
+
+.combate-info {
+  position: absolute; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 2px 8px;
+  background: #f0dcae; color: #1a1423; border: 3px solid #1a1423; box-shadow: 4px 4px 0 #4a2c22;
+  padding: 4px 10px 6px; min-width: 44%; max-width: 52%;
+}
+.combate-info b { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.combate-info small { font-size: 13px; font-weight: 700; }
+.combate-info.rival { left: 3%; top: 6%; }
+.combate-info.yo { right: 3%; bottom: 4%; }
+.cv-barra, .cv-energia { grid-column: 1 / -1; display: block; height: 8px; background: #4a3a6b; border: 2px solid #1a1423; }
+.cv-barra i, .cv-energia i { display: block; height: 100%; background: #3d8a4a; transition: width 0.08s linear; }
+.cv-barra i.amarilla { background: #f2b63d; }
+.cv-barra i.roja { background: #c43a3a; }
+.cv-energia { height: 5px; }
+.cv-energia i { background: #5cc3d8; }
+.cv-num { grid-column: 1 / -1; text-align: right; font-size: 13px; font-variant-numeric: tabular-nums; margin-top: -2px; }
+
+.combate-panel {
+  flex: 1; width: 100%; max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 10px;
+  padding: 12px max(12px, env(safe-area-inset-left)) 14px max(12px, env(safe-area-inset-right));
+  background: #2b2d4f; border-top: 4px solid #1a1423;
+}
+.combate-texto {
+  margin: 0; min-height: 3.4em; background: #f2ecdc; color: #1a1423; font-size: 18px; line-height: 1.35;
+  border: 3px solid #1a1423; box-shadow: inset 0 0 0 3px #b07a45; padding: 10px 14px;
+}
+.combate-menu { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.combate-menu button {
+  font: inherit; font-size: 18px; font-weight: 700; color: #1a1423; background: #f0dcae;
+  border: 3px solid #1a1423; box-shadow: 0 4px 0 #4a2c22; padding: 12px 8px; display: flex; flex-direction: column; align-items: center; gap: 2px;
+}
+.combate-menu button:active { transform: translateY(2px); box-shadow: 0 2px 0 #4a2c22; }
+.combate-menu button:disabled { opacity: 0.45; }
+.combate-menu button small { font-size: 12px; font-weight: 400; }
+.combate-menu.principal [data-m="atacar"] { background: #f2b63d; }
+.combate-menu .huir, .combate-menu .volver, .combate-menu .salir { grid-column: 1 / -1; background: #a9a7b8; padding: 8px; font-size: 16px; }
+.combate-menu .salir { background: #f2b63d; padding: 12px; }
+.combate-menu.tecnicas button { align-items: flex-start; text-align: left; }
+.boton-pelear { margin-left: auto; flex: none; }
+@media (min-width: 900px) { .combate-arriba { max-width: 640px; } .combate-panel { max-width: 640px; } }

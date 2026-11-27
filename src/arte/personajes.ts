@@ -455,3 +455,23 @@ export const PERSONAJES_PRUEBA: { id: string; nombre: string; descripcion: strin
       accesorios: ['panueloCuello'], cicatrices: ['cruz'] },
   },
 ];
+
+/** El personaje visto de espaldas (para el combate): la cabeza se tapa con el pelo. */
+export function dibujarPersonajeEspalda(a: AspectoPersonaje): Lienzo {
+  const atras: AspectoPersonaje = {
+    ...a, rasgo: 'ninguno', cicatrices: [],
+    accesorios: a.accesorios.filter((x) => x === 'garfio' || x === 'aro'),
+  };
+  const L = dibujarPersonaje(atras);
+  const [piel, pielS] = PIEL[a.piel];
+  const pelo = a.pelo === 'ninguno' || a.pelo === 'rapado' ? null : a.colorPelo;
+  for (let y = 4; y <= 8; y++)
+    for (let x = 12; x <= 19; x++) {
+      const c = L.get(x, y);
+      if (!c) continue;
+      const deCara = c === piel || c === pielS || ((c === C.tinta || c === C.hueso || c === C.coral || c === SOMBRA[pielS]) && x > 12 && x < 19);
+      if (deCara) L.px(x, y, pelo ?? (x === 19 ? pielS : piel));
+    }
+  if (pelo) for (let x = 13; x <= 18; x++) L.px(x, 9, SOMBRA[pelo]);   // nuca
+  return L;
+}

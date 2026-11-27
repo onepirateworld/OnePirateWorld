@@ -10,6 +10,10 @@ import { crearMapa, type Mapa, type Marcador } from './mundo/mapa';
 import { botsDelMar, islaDePersonaje, islasDelMundo, nombreZona, posicionBot, type IslaMundo } from './mundo/habitantes';
 import { RASGOS } from './datos/caracter';
 import { crearPaneles, type IdPanel } from './paneles';
+import { crearLuchador, type IdArma } from './combate/motor';
+import { iniciarCombate } from './combate/pantalla';
+import { actualizarPersonaje, type PersonajeGuardado } from './cuenta';
+import type { Bot } from './mundo/habitantes';
 import { icono } from './iconos';
 import {
   BANDOS, MARES, META_COMUNIDAD, cerrarSesion, cuentaActual, elegirActivo, firmarPacto, marActual,
@@ -212,6 +216,13 @@ document.addEventListener('click', (e) => { if ((e.target as HTMLElement).closes
 const paneles = crearPaneles({
   aviso, localizar: () => localizar(), abrirPerfil: () => abrirPerfil(), abrirMares: () => abrirMares(),
   cerrarSesion: () => { cerrarSesion(); pintar(); aviso('Sesión cerrada.'); }, rutaGaleria: ruta('galeria/index.html'),
+  entrenar: () => {
+    const p = personajeActivo();
+    if (!p) return;
+    const rivales = botsDelMar(marActual()).filter((b) => esRival(p.bando, b.bando));
+    const bot = rivales[Math.floor(Math.random() * rivales.length)];
+    pelearCon(bot, `${bot.nombre} acepta un combate de entrenamiento. ¡En guardia!`);
+  },
 });
 $('#btn-envivo').addEventListener('click', () => paneles.abrir('en-vivo'));
 $('#btn-guia').addEventListener('click', () => paneles.abrir('guia'));
@@ -282,7 +293,69 @@ function localizar() {
   const zoom = mapa!.zoomIsla(isla);
   if (mapa?.visible) mapa.centrarEn(sitio.lat, sitio.lon, zoom);
   else planeta?.irA(isla.lat, isla.lon, 2.3, () => abrirMapa(sitio.lat, sitio.lon, zoom));
+  setTimeout(() => encuentroAutomatico(p), 2200);
   aviso(`${p.nombre} está en ${isla.nombre} (${nombreZona(isla.zona)}).`);
+}
+
+// ---------------------------------------------------------------------------
+// Combates
+
+const esRival = (a: Bando, b: Bando) => (a === 'marine') !== (b === 'marine');
+const ARMAS_BOT: IdArma[][] = [['punos'], ['espada', 'punos'], ['pistola', 'punos']];
+let combatiendo = false;
+
+/** Si hay un enemigo en tu isla, salta el combate (como mucho uno cada 10 minutos). */
+function encuentroAutomatico(p: PersonajeGuardado) {
+  if (combatiendo) return;
+  let ultimo = 0;
+  try { ultimo = Number(localStorage.getItem('ultimoEncuentro') ?? 0); } catch { /* nada */ }
+  if (Date.now() - ultimo < 10 * 60_000) return;
+  const isla = islaDePersonaje(p);
+  const rival = botsDelMar(marActual()).find((b) => { const pos = posicionBot(b); return !pos.navegando && pos.islaId === isla.id && esRival(p.bando, b.bando); });
+  if (!rival) return;
+  try { localStorage.setItem('ultimoEncuentro', String(Date.now())); } catch { /* nada */ }
+  const quien = rival.bando === 'marine' ? 'Un marine' : rival.bando === 'pirata' ? 'Un pirata buscado' : 'Un revolucionario';
+  pelearCon(rival, `¡${quien} te ha visto! ${rival.nombre} te corta el paso.`);
+}
+
+async function pelearCon(bot: Bot, motivo: string) {
+  const p = personajeActivo();
+  if (!p || combatiendo) return;
+  combatiendo = true;
+  let h = 0; for (const ch of bot.id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  // Enemigos adaptados: cerca de tu nivel para que un personaje nuevo pueda ganar
+  const nivelRival = Math.max(1, p.nivel + (h % 3) - 1);
+  const jugador = crearLuchador({ nombre: p.nombre, bando: p.bando, aspecto: p.aspecto, nivel: p.nivel, rasgos: p.rasgos, armas: ['espada', 'punos'] });
+  const rival = crearLuchador({ nombre: bot.nombre, bando: bot.bando, aspecto: bot.aspecto, nivel: nivelRival, rasgos: bot.rasgos, armas: ARMAS_BOT[h % 3] });
+  const isla = islaDePersonaje(p);
+  await iniciarCombate(jugador, rival, {
+    bioma: isla.bioma, motivo,
+    alTerminar: (ganador) => {
+      const yo = personajeActivo()!;
+      const registro = [...(yo.registro ?? [])];
+      const lineas: string[] = [];
+      let { nivel, doblones } = yo;
+      let xp = yo.xp ?? 0;
+      if (ganador === 0) {
+        const ganaXp = 20 + 5 * nivelRival, ganaOro = 40 + 10 * nivelRival;
+        xp += ganaXp; doblones += ganaOro;
+        lineas.push(`¡${yo.nombre} gana el combate!`, `+${ganaXp} de experiencia y +${ganaOro} doblones.`);
+        while (xp >= 50 * nivel * nivel) { xp -= 50 * nivel * nivel; nivel++; lineas.push(`¡${yo.nombre} sube a nivel ${nivel}!`); }
+        registro.push([Date.now(), `Venció a ${bot.nombre} en ${isla.nombre}.`]);
+      } else if (ganador === 1) {
+        const pierde = Math.floor(doblones * 0.1);
+        doblones -= pierde; xp += 5;
+        lineas.push(`${yo.nombre} ha perdido...`, `Pierde ${pierde} doblones y vuelve a curarse.`);
+        registro.push([Date.now(), `Perdió un combate contra ${bot.nombre} en ${isla.nombre}. Se curó las heridas y juró revancha.`]);
+      } else {
+        registro.push([Date.now(), `Escapó por los pelos de ${bot.nombre}.`]);
+      }
+      actualizarPersonaje({ ...yo, nivel, xp, doblones, registro: registro.slice(-30) });
+      return lineas;
+    },
+  });
+  combatiendo = false;
+  pintar();
 }
 
 // Tarjeta al tocar un personaje o una isla del mapa
@@ -303,6 +376,14 @@ function mostrarTarjeta(m: Marcador | null, isla: IslaMundo | null) {
       <small>${esc(lugar)}${rasgos ? ` · ${esc(rasgos)}` : ''}</small>
       ${p?.sueno ? `<small class="sueno-txt">Sueño: ${esc(p.sueno)}</small>` : ''}
     </div>`);
+    const mio = cuentaActual() ? personajeActivo() : null;
+    if (bot && mio && !m.posicion.navegando) {
+      const b = document.createElement('button');
+      b.className = 'boton-oro boton-pelear';
+      b.textContent = esRival(mio.bando, bot.bando) ? '¡Pelear!' : 'Retar';
+      b.addEventListener('click', () => { ocultarTarjeta(); pelearCon(bot, `¡${mio.nombre} se planta delante de ${bot.nombre}!`); });
+      t.append(b);
+    }
   } else if (isla) {
     const biomas: Record<string, string> = { tropical: 'Tropical', nevada: 'Nevada', volcanica: 'Volcánica', desierto: 'Desierto', flotante: 'Flotante', ciudad: 'Ciudad', ruinas: 'Ruinas' };
     const especial = { base: 'Hay una base de la marina.', taberna: 'Tiene taberna.', maestro: 'Dicen que aquí vive un maestro.', tesoro: 'Se habla de un tesoro escondido.' };
