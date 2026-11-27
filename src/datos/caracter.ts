@@ -53,20 +53,32 @@ export function puedeAnadir(elegidos: string[], id: string): string | null {
 
 export interface Sueno { id: string; texto: string; bandos?: Bando[] }
 
+const AVENTUREROS: Bando[] = ['pirata', 'revolucionario'];
 export const SUENOS: Sueno[] = [
-  { id: 'isla-sin-nombre', texto: 'Encontrar la Isla Sin Nombre, la que no aparece en ningún mapa.' },
-  { id: 'fortuna', texto: 'Reunir una fortuna que haya que contar en barcos llenos de oro.' },
-  { id: 'cancion', texto: 'Que su nombre se cante en todas las tabernas de los cuatro mares.' },
-  { id: 'espinazo', texto: 'Descubrir qué hay en lo alto de El Espinazo.' },
-  { id: 'barco', texto: 'Construir el barco más rápido que haya surcado el mar.' },
-  { id: 'faro', texto: 'Reunir las tres llaves del Faro Hundido y abrir su puerta.' },
-  { id: 'venganza', texto: 'Vengar al pueblo donde nació, que ardió cuando era niño.' },
-  { id: 'familia', texto: 'Encontrar a su hermano, que se fue al mar y nunca volvió.' },
-  { id: 'senda', texto: 'Cruzar la Senda Profunda de punta a punta y volver para contarlo.' },
-  { id: 'almirante', texto: 'Llegar a almirante y llevar la paz a los cuatro mares.', bandos: ['marine'] },
-  { id: 'cazador', texto: 'Atrapar al pirata más buscado del mundo.', bandos: ['marine'] },
+  // Piratas y revolucionarios
+  { id: 'isla-sin-nombre', texto: 'Encontrar la Isla Sin Nombre, la que no aparece en ningún mapa.', bandos: AVENTUREROS },
+  { id: 'fortuna', texto: 'Reunir una fortuna que haya que contar en barcos llenos de oro.', bandos: ['pirata'] },
+  { id: 'cancion', texto: 'Que su nombre se cante en todas las tabernas de los cuatro mares.', bandos: ['pirata'] },
+  { id: 'espinazo', texto: 'Descubrir qué hay en lo alto de El Espinazo.', bandos: AVENTUREROS },
+  { id: 'barco', texto: 'Construir el barco más rápido que haya surcado el mar.', bandos: ['pirata'] },
+  { id: 'faro', texto: 'Reunir las tres llaves del Faro Hundido y abrir su puerta.', bandos: AVENTUREROS },
+  { id: 'venganza', texto: 'Vengar al pueblo donde nació, que ardió cuando era niño.', bandos: AVENTUREROS },
+  { id: 'familia', texto: 'Encontrar a su hermano, que se fue al mar y nunca volvió.', bandos: AVENTUREROS },
+  { id: 'senda', texto: 'Cruzar la Senda Profunda de punta a punta y volver para contarlo.', bandos: AVENTUREROS },
+  // Revolucionarios
   { id: 'liberar', texto: 'Liberar todas las islas que viven bajo el yugo de un tirano.', bandos: ['revolucionario'] },
   { id: 'consejo', texto: 'Derribar al Consejo de los Mares y que cada isla se gobierne sola.', bandos: ['revolucionario'] },
+  // Marines
+  { id: 'almirante', texto: 'Llegar a almirante y llevar la paz a los cuatro mares.', bandos: ['marine'] },
+  { id: 'cazador', texto: 'Atrapar al pirata más buscado del mundo.', bandos: ['marine'] },
+  { id: 'proteger', texto: 'Que ningún pueblo de la costa vuelva a temer ver una bandera pirata.', bandos: ['marine'] },
+  { id: 'padre', texto: 'Limpiar el nombre de su padre, un marine expulsado por algo que no hizo.', bandos: ['marine'] },
+  { id: 'escuela', texto: 'Fundar una academia donde los huérfanos del puerto se hagan marines.', bandos: ['marine'] },
+  { id: 'justicia', texto: 'Demostrar que la justicia no tiene precio: ni oro ni amenazas la compran.', bandos: ['marine'] },
+  { id: 'cuartel', texto: 'Levantar un cuartel de la Marina en cada isla de su mar.', bandos: ['marine'] },
+  { id: 'traidor', texto: 'Desenmascarar al traidor que vende secretos de la Marina a los piratas.', bandos: ['marine'] },
+  { id: 'rescate', texto: 'Rescatar a los marineros que se llevó la tormenta del Mar del Coral.', bandos: ['marine'] },
+  { id: 'rebelion', texto: 'Acabar con la revolución antes de que hunda los cuatro mares en guerra.', bandos: ['marine'] },
 ];
 
 export const suenosPara = (b: Bando) => SUENOS.filter((s) => !s.bandos || s.bandos.includes(b));
