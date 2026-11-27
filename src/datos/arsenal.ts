@@ -129,16 +129,17 @@ export function habilidadUsable(h: Habilidad, a: Arsenal) {
 /** Arsenal de un bot según su nivel (siempre el mismo para el mismo bot). */
 export function arsenalBot(nivel: number, r: () => number): Arsenal {
   const a = arsenalInicial();
-  const armas = CATALOGO_ARMAS.filter((x) => x.nivelMin <= nivel && x.tipo !== 'escudo');
+  // Un poco por detrás de su nivel: un jugador que mejora su equipo debe poder ganarles
+  const armas = CATALOGO_ARMAS.filter((x) => x.nivelMin <= Math.max(1, nivel - 3) && x.tipo !== 'escudo');
   const principal = armas[Math.floor(r() * armas.length)];
-  a.armas[principal.id] = 1 + Math.min(4, Math.floor(nivel / 10));
+  a.armas[principal.id] = 1 + Math.min(4, Math.floor(nivel / 15));
   a.principal = principal.id;
   const escudos = CATALOGO_ARMAS.filter((x) => x.tipo === 'escudo' && x.nivelMin <= nivel);
   if (!principal.dosManos && escudos.length && r() < 0.4) a.escudo = escudos[Math.floor(r() * escudos.length)].id;
   const habs = CATALOGO_HABILIDADES.filter((h) => h.nivelMin <= nivel && habilidadUsable(h, a));
   const elegidas = new Set<string>();
-  while (elegidas.size < Math.min(MAX_EQUIPADAS, habs.length, 2 + Math.floor(nivel / 10))) elegidas.add(habs[Math.floor(r() * habs.length)].id);
-  a.habilidades = Object.fromEntries([...elegidas].map((id) => [id, 1 + Math.min(4, Math.floor(nivel / 12))]));
+  while (elegidas.size < Math.min(MAX_EQUIPADAS, habs.length, 2 + Math.floor(nivel / 15))) elegidas.add(habs[Math.floor(r() * habs.length)].id);
+  a.habilidades = Object.fromEntries([...elegidas].map((id) => [id, 1 + Math.min(4, Math.floor(nivel / 15))]));
   a.equipadas = [...elegidas];
   return a;
 }

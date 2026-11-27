@@ -70,3 +70,9 @@ legend small { font-weight: 400; color: var(--madera); }
   .probador { grid-template-columns: 1fr; }
   .probador-vista { position: static; }
 }
+
+.ataques { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+.ataque { margin: 0; background: #f2ecdc80; border: 2px solid var(--madera-clara); padding: 6px; display: flex; flex-direction: column; gap: 4px; }
+.ataque canvas { width: 100%; height: auto; aspect-ratio: 128 / 80; image-rendering: pixelated; border: 2px solid var(--tinta); }
+.ataque figcaption { display: flex; flex-direction: column; gap: 1px; }
+.ataque small { font-size: 12px; color: var(--madera); }

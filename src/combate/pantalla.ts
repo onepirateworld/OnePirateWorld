@@ -4,7 +4,10 @@ import { Lienzo } from '../arte/lienzo';
 import { C, PALETA } from '../arte/paleta';
 import { dibujarPersonaje, dibujarPersonajeEspalda } from '../arte/personajes';
 import type { BiomaIsla } from '../mundo/geografia';
-import { ARMAS, Combate, type Accion, type Efecto, type IdArma, type Luchador, type Paso } from './motor';
+import { Combate, armasParaCambiar, habilidadesActivas, tecnicasArma, tecnicasFruta, type Accion, type Luchador, type Paso } from './motor';
+import { arma } from '../datos/arsenal';
+import { pintarAnim, DURACION_ANIM } from './animaciones';
+import type { Anim, Tecnica } from './tecnicas';
 
 const W = 240, H = 160;
 const hex = (c: number) => PALETA[c - 1].hex;
@@ -76,7 +79,7 @@ export async function iniciarCombate(
   const spriteRival = aCanvas(dibujarPersonaje(rival.aspecto));
   const spriteYo = aCanvas(dibujarPersonajeEspalda(jugador.aspecto));
   const est: [Estado, Estado] = [{ dx: -200, dy: 0, visible: true, alfa: 1 }, { dx: 200, dy: 0, visible: true, alfa: 1 }];
-  let efectos: { tipo: Efecto; t0: number; sobre: 0 | 1 }[] = [];
+  let efectos: { anim: Anim; t0: number; de: 0 | 1 }[] = [];
   const vidaMostrada = [jugador.vida, rival.vida];
   let vivo = true;
 
@@ -97,27 +100,10 @@ export async function iniciarCombate(
       ctx.drawImage(spriteYo, 24 + est[0].dx, 56 + est[0].dy + respira(0), 96, 96);
     }
     ctx.globalAlpha = 1;
-    // Efectos de los ataques (blanco y amarillo, sin colorines)
-    efectos = efectos.filter((e) => t - e.t0 < 380);
-    for (const e of efectos) {
-      const f = (t - e.t0) / 380;
-      const [cx, cy] = e.sobre === 1 ? [172, 46] : [72, 104];
-      ctx.strokeStyle = hex(C.hueso); ctx.fillStyle = hex(C.limon); ctx.lineWidth = 2;
-      if (e.tipo === 'corte') {
-        ctx.beginPath(); ctx.moveTo(cx - 24 + f * 8, cy - 22); ctx.lineTo(cx + 22 - f * 8, cy + 22); ctx.stroke();
-        if (f > 0.4) { ctx.beginPath(); ctx.moveTo(cx + 22, cy - 22); ctx.lineTo(cx - 22, cy + 22); ctx.stroke(); }
-      } else if (e.tipo === 'disparo') {
-        const ox = e.sobre === 1 ? 90 : 160, oy = e.sobre === 1 ? 90 : 40;
-        ctx.fillRect(Math.round(ox + (cx - ox) * f), Math.round(oy + (cy - oy) * f), 3, 3);
-        if (f > 0.8) { ctx.beginPath(); ctx.arc(cx, cy, 8, 0, Math.PI * 2); ctx.stroke(); }
-      } else {
-        const r = 6 + f * 14;
-        for (let k = 0; k < 8; k++) {
-          const a = (k / 8) * Math.PI * 2;
-          ctx.fillRect(Math.round(cx + Math.cos(a) * r), Math.round(cy + Math.sin(a) * r), 3, 3);
-        }
-      }
-    }
+    // Animaciones de los ataques
+    const centro = (i: 0 | 1) => (i === 1 ? { x: 172 + est[1].dx, y: 44 + est[1].dy } : { x: 72 + est[0].dx, y: 100 + est[0].dy });
+    efectos = efectos.filter((e) => t - e.t0 < DURACION_ANIM);
+    for (const e of efectos) pintarAnim(ctx, e.anim, (t - e.t0) / DURACION_ANIM, centro(e.de), centro((1 - e.de) as 0 | 1));
     requestAnimationFrame(pintar);
   }
   requestAnimationFrame(pintar);
@@ -157,13 +143,18 @@ export async function iniciarCombate(
   async function reproducir(p: Paso) {
     switch (p.tipo) {
       case 'texto': await decir(p.texto); break;
-      case 'ataque': {
+      case 'anim': {
         const s = est[p.quien];
         const dir = p.quien === 0 ? [1, -1] : [-1, 1];
-        for (let k = 0; k < 4; k++) { s.dx = dir[0] * k * 4; s.dy = dir[1] * k * 2; await espera(25); }
-        efectos.push({ tipo: p.efecto, t0: performance.now(), sobre: (1 - p.quien) as 0 | 1 });
-        for (let k = 3; k >= 0; k--) { s.dx = dir[0] * k * 4; s.dy = dir[1] * k * 2; await espera(25); }
-        await espera(200);
+        efectos.push({ anim: p.anim, t0: performance.now(), de: p.quien });
+        if (p.mov === 'salto') {
+          for (let k = 0; k <= 10; k++) { const f = k / 10; s.dx = dir[0] * Math.sin(f * Math.PI) * 40 * f; s.dy = -Math.sin(f * Math.PI) * 30; await espera(DURACION_ANIM / 12); }
+          s.dx = 0; s.dy = 0;
+        } else if (p.mov === 'embestida') {
+          for (let k = 0; k < 4; k++) { s.dx = dir[0] * k * 5; s.dy = dir[1] * k * 2; await espera(30); }
+          for (let k = 3; k >= 0; k--) { s.dx = dir[0] * k * 5; s.dy = dir[1] * k * 2; await espera(30); }
+          await espera(DURACION_ANIM - 240);
+        } else await espera(DURACION_ANIM);
         break;
       }
       case 'dano': {
@@ -181,39 +172,46 @@ export async function iniciarCombate(
   }
 
   // --- Menús
-  type Vista = 'principal' | 'atacar' | 'arma';
+  type Vista = 'principal' | 'atacar' | 'habilidad' | 'fruta' | 'arma';
+  let enMenu: Tecnica[] = [];
+  const botonTecnica = (t: Tecnica, i: number) => `<button data-t="${i}" ${t.energia > jugador.energia ? 'disabled' : ''}><b>${t.nombre}</b><small>${t.poder ? `Poder ${t.poder}${t.golpes ? ` ×${t.golpes}` : ''}` : esc(t.descripcion)} · ${t.energia ? `${t.energia} energía` : 'Gratis'}</small></button>`;
+  let menuArma = true;
   function mostrarMenu(vista: Vista) {
     if (vista === 'principal') {
       texto.textContent = `¿Qué hará ${jugador.nombre}?`;
       menu.className = 'combate-menu principal';
+      const fruta = tecnicasFruta(jugador).length > 0;
       menu.innerHTML = `
-        <button data-m="atacar">Atacar</button><button data-m="defender">Defender</button>
-        <button data-m="arma">Arma</button><button data-m="objeto">Bolsa <small>${jugador.pociones}</small></button>
+        <button data-m="atacar">Atacar</button><button data-m="habilidad">Habilidad</button>
+        ${fruta ? '<button data-m="fruta" class="fruta">Fruta</button>' : ''}
+        <button data-m="defender">Defender</button><button data-m="arma">Arma</button>
+        <button data-m="objeto">Bolsa <small>${jugador.pociones}</small></button>
         <button data-m="huir" class="huir">Huir</button>`;
-    } else if (vista === 'atacar') {
-      menu.className = 'combate-menu tecnicas';
-      menu.innerHTML = ARMAS[jugador.arma].tecnicas.map((t, i) => `
-        <button data-t="${i}" ${t.energia > jugador.energia ? 'disabled' : ''}><b>${t.nombre}</b><small>${t.poder ? `Poder ${t.poder}${t.golpes ? ` ×${t.golpes}` : ''}` : 'Mejora'} · ${t.energia ? `${t.energia} energía` : 'Gratis'}</small></button>`).join('')
-        + '<button data-m="volver" class="volver">← Volver</button>';
-    } else {
-      menu.className = 'combate-menu tecnicas';
-      menu.innerHTML = jugador.armas.map((a) => `<button data-a="${a}" ${a === jugador.arma ? 'disabled' : ''}><b>${ARMAS[a].nombre}</b><small>${a === jugador.arma ? 'En la mano' : 'Gasta el turno'}</small></button>`).join('')
-        + '<button data-m="volver" class="volver">← Volver</button>';
+      return;
     }
+    menu.className = 'combate-menu tecnicas';
+    if (vista === 'arma') {
+      menu.innerHTML = armasParaCambiar(jugador).map((a) => `<button data-a="${a}" ${a === jugador.arma ? 'disabled' : ''}><b>${arma(a).nombre}</b><small>${a === jugador.arma ? 'En la mano' : 'Gasta el turno'}</small></button>`).join('')
+        + '<button data-m="volver" class="volver">← Volver</button>';
+      return;
+    }
+    enMenu = vista === 'atacar' ? tecnicasArma(jugador) : vista === 'habilidad' ? habilidadesActivas(jugador) : tecnicasFruta(jugador);
+    menuArma = vista === 'atacar';
+    menu.innerHTML = (enMenu.length ? enMenu.map(botonTecnica).join('') : '<p class="vacio-combate">No tienes ninguna equipada.</p>')
+      + '<button data-m="volver" class="volver">← Volver</button>';
   }
   let elegir: (a: Accion) => void = () => {};
   menu.addEventListener('click', (e) => {
     const b = (e.target as HTMLElement).closest('button');
     if (!b || b.disabled) return;
     const d = b.dataset;
-    if (d.m === 'atacar') mostrarMenu('atacar');
-    else if (d.m === 'arma') mostrarMenu('arma');
+    if (d.m === 'atacar' || d.m === 'habilidad' || d.m === 'fruta' || d.m === 'arma') mostrarMenu(d.m);
     else if (d.m === 'volver') mostrarMenu('principal');
     else if (d.m === 'defender') elegir({ tipo: 'defender' });
     else if (d.m === 'objeto') elegir({ tipo: 'objeto' });
     else if (d.m === 'huir') elegir({ tipo: 'huir' });
-    else if (d.t !== undefined) elegir({ tipo: 'atacar', tecnica: ARMAS[jugador.arma].tecnicas[Number(d.t)] });
-    else if (d.a) elegir({ tipo: 'arma', arma: d.a as IdArma });
+    else if (d.t !== undefined) elegir({ tipo: 'tecnica', tecnica: enMenu[Number(d.t)], deArma: menuArma });
+    else if (d.a) elegir({ tipo: 'arma', arma: d.a });
   });
 
   // --- Entrada: cortina y los dos luchadores deslizándose
@@ -250,4 +248,3 @@ export async function iniciarCombate(
   raiz.remove();
 }
 
-export type { IdArma };

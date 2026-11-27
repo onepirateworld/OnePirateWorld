@@ -7,13 +7,18 @@ import { FRUTAS, CATEGORIAS, RAREZAS, DEBILIDAD_COMUN } from './datos/frutas';
 import { RASGOS } from './datos/caracter';
 import { LOGROS, NOMBRES_ESTADISTICAS, estadisticasIniciales, objetivosPara, type Estadisticas } from './datos/progreso';
 import {
-  BANDOS, actualizarPersonaje, cuentaActual, marActual, personajeActivo, type PersonajeGuardado,
+  BANDOS, actualizarPersonaje, arsenalDe, cuentaActual, marActual, personajeActivo, type PersonajeGuardado,
 } from './cuenta';
+import {
+  CATALOGO_ARMAS, CATALOGO_HABILIDADES, MAX_EQUIPADAS, MEJORA_POR_PUNTO, NIVEL_MAX, arma, habilidadUsable, precioForja, precioHabilidad,
+  puntosLibres, type Arsenal, type Estadistica,
+} from './datos/arsenal';
+import { TECNICAS_FRUTA } from './combate/tecnicas';
 import { botsDelMar, islaDePersonaje, islasDelMundo, nombreZona, posicionBot, type Bot } from './mundo/habitantes';
 import { cronica, frutasDelMar, formatoDoblones, haceCuanto, rangoDe, recompensa, type Suceso } from './mundo/cronica';
 import { icono } from './iconos';
 
-export type IdPanel = 'mi-pirata' | 'noticias' | 'taberna' | 'tablones' | 'mas' | 'en-vivo' | 'se-busca' | 'cofre' | 'compendio' | 'guia' | 'normas' | 'privacidad';
+export type IdPanel = 'arsenal' | 'mi-pirata' | 'noticias' | 'taberna' | 'tablones' | 'mas' | 'en-vivo' | 'se-busca' | 'cofre' | 'compendio' | 'guia' | 'normas' | 'privacidad';
 
 interface Acciones {
   aviso(t: string): void;
@@ -75,6 +80,7 @@ export function crearPaneles(acc: Acciones) {
 
   function abrir(id: IdPanel, apilar = true) {
     if (apilar && actual && actual !== id && ['mas', 'tablones', 'mi-pirata'].includes(actual)) pila.push(actual);
+    if (!apilar && id === actual) { /* recarga del mismo panel */ }
     if (apilar && (!actual || !['mas', 'tablones', 'mi-pirata'].includes(actual))) pila.length = 0;
     actual = id;
     hoja.hidden = false;
@@ -91,6 +97,7 @@ export function crearPaneles(acc: Acciones) {
   // -------------------------------------------------------------------------
   const PANELES: Record<IdPanel, () => { titulo: string; html: string; despues?: (el: HTMLElement) => void }> = {
     'mi-pirata': miPirata,
+    arsenal: arsenalPanel,
     noticias,
     taberna,
     tablones,
@@ -120,13 +127,15 @@ export function crearPaneles(acc: Acciones) {
         <i data-sprite="yo"></i>
         <div>
           <b class="perfil-nombre">${esc(p.nombre)}${p.apodo ? ` <span>«${esc(p.apodo)}»</span>` : ''}</b>
-          <span class="bando-${p.bando}">${BANDOS[p.bando].nombre}${p.bando === 'marine' ? ` · ${rangoDe(p.nivel)}` : ''} · Nv. ${p.nivel}</span>
-          <span class="oro">${icono('moneda', '#f2b63d')} ${formatoDoblones(p.doblones)} doblones</span>
+          <span class="bando-${p.bando}">${BANDOS[p.bando].nombre}${p.creador ? ' · <b class="creador">Creador</b>' : p.bando === 'marine' ? ` · ${rangoDe(p.nivel)}` : ''} · Nv. ${p.nivel}</span>
+          <span class="oro">${icono('moneda', '#f2b63d')} ${p.creador ? '∞' : formatoDoblones(p.doblones)} doblones</span>
+          ${p.recompensa ? `<span class="recompensa-txt">Recompensa: ${formatoDoblones(p.recompensa)} doblones</span>` : ''}
+          ${p.fruta ? `<span class="fruta-txt">Fruta: ${esc(FRUTAS.find((f) => f.id === p.fruta)!.nombre)}</span>` : ''}
           <button class="enlace-oro" data-accion="localizar">${icono('diana', '#f2b63d')} En ${esc(isla.nombre)} · ${esc(nombreZona(isla.zona))}</button>
         </div>
       </div>
 
-      <button class="boton-oro ancho" data-accion="entrenar">⚔ Combate de entrenamiento</button>
+      <div class="botones-fila"><button class="boton-oro" data-ir="arsenal">🗡 Arsenal</button><button class="boton-oro" data-accion="entrenar">⚔ Entrenar</button></div>
 
       <h3>Estadísticas</h3>
       <div class="barras">${(Object.keys(NOMBRES_ESTADISTICAS) as (keyof Estadisticas)[]).map((k) => `
@@ -172,6 +181,7 @@ export function crearPaneles(acc: Acciones) {
         for (const b of vecinos) sprites.set(`b-${b.id}`, cara(b.aspecto, 2));
         ponerSprites(el, sprites);
         enlazarAcciones(el);
+        el.querySelectorAll<HTMLButtonElement>('[data-ir]').forEach((b) => b.addEventListener('click', () => abrir(b.dataset.ir as IdPanel)));
         el.querySelectorAll<HTMLButtonElement>('[data-objetivo]').forEach((b) => b.addEventListener('click', () => {
           actualizarPersonaje({ ...p, objetivo: b.dataset.objetivo });
           acc.aviso('Nuevo objetivo fijado.');
@@ -273,7 +283,7 @@ export function crearPaneles(acc: Acciones) {
   // --- Más --------------------------------------------------------------------
   function mas() {
     const items: [string, string, string][] = [
-      ['se-busca', 'Se busca', 'Los carteles del día'], ['cofre', 'Cofre', 'Objetos, tesoros y logros'], ['compendio', 'Compendio', 'Las frutas del poder'],
+      ['arsenal', 'Arsenal', 'Armas, habilidades y mejoras'], ['se-busca', 'Se busca', 'Los carteles del día'], ['cofre', 'Cofre', 'Objetos, tesoros y logros'], ['compendio', 'Compendio', 'Las frutas del poder'],
       ['guia', 'Guía', 'Cómo funciona el juego'], ['normas', 'Normas', 'Para convivir en los mares'], ['privacidad', 'Privacidad', 'Qué datos guardamos'],
     ];
     return {
@@ -364,6 +374,109 @@ export function crearPaneles(acc: Acciones) {
   }
 
   // -------------------------------------------------------------------------
+  // --- Arsenal: equipo, tienda, forja, habilidades y mejoras --------------------
+  let pestanaArsenal = 'equipo';
+  function arsenalPanel() {
+    const p = cuentaActual() ? personajeActivo() : null;
+    if (!p) return { titulo: 'Arsenal', html: '<p class="vacio">Crea un personaje para tener arsenal.</p>' };
+    const a = arsenalDe(p);
+    const libres = puntosLibres(p.nivel, a);
+    const dinero = (n: number) => (p.creador ? true : p.doblones >= n);
+    const rar = (r: keyof typeof RAREZAS) => `<span class="rareza-chip" style="--r:${RAREZAS[r].color}">${RAREZAS[r].nombre}</span>`;
+    const tarjetaArma = (id: string, pie: string) => { const x = arma(id); return `<div class="item" style="--r:${RAREZAS[x.rareza].color}"><b>${esc(x.nombre)}</b>${rar(x.rareza)}<small>${esc(x.descripcion)}</small><small>${x.tipo === 'escudo' ? `+${x.dano} de defensa` : `Daño ×${x.dano}`}${x.dosManos ? ' · Dos manos' : ''}</small>${pie}</div>`; };
+    const enMano = [a.principal, a.secundaria].filter(Boolean) as string[];
+    const equipo = `
+      <p class="nota-hoja">Llevas dos armas para cambiar en combate, un escudo si tu arma lo permite y hasta ${MAX_EQUIPADAS} habilidades.</p>
+      <h3>Armas en la mano</h3>
+      <div class="items">${enMano.map((id, i) => tarjetaArma(id, `<em>${i === 0 ? 'Principal' : 'Secundaria'} · Nivel ${a.armas[id] ?? 1}</em>`)).join('')}
+        ${a.escudo ? tarjetaArma(a.escudo, `<em>Escudo · Nivel ${a.armas[a.escudo] ?? 1}</em><button class="mini-boton" data-quitar-escudo>Quitar</button>`) : '<div class="item vacio-item"><b>Sin escudo</b><small>Compra uno en la tienda.</small></div>'}</div>
+      <h3>Cambiar armas</h3>
+      <div class="items">${Object.keys(a.armas).filter((id) => !enMano.includes(id) && id !== a.escudo).map((id) => {
+        const x = arma(id);
+        if (x.tipo === 'escudo') {
+          const bloqueado = enMano.some((m) => arma(m).dosManos);
+          return tarjetaArma(id, bloqueado ? '<em>No con armas de dos manos</em>' : `<button class="mini-boton" data-escudo="${id}">Equipar escudo</button>`);
+        }
+        return tarjetaArma(id, `<span class="fila-mini"><button class="mini-boton" data-principal="${id}">Principal</button><button class="mini-boton" data-secundaria="${id}">Secundaria</button></span>`);
+      }).join('') || '<p class="vacio">No tienes más armas. Compra en la tienda.</p>'}</div>
+      <h3>Habilidades equipadas (${a.equipadas.length}/${MAX_EQUIPADAS})</h3>
+      <div class="items">${Object.keys(a.habilidades).map((id) => {
+        const h = CATALOGO_HABILIDADES.find((x) => x.id === id)!;
+        const puesta = a.equipadas.includes(id);
+        const usable = habilidadUsable(h, a);
+        return `<div class="item ${puesta ? 'puesta' : ''}"><b>${esc(h.nombre)}</b><span class="tipo-hab">${h.tipo}</span><small>${esc(h.descripcion)}</small><em>Nivel ${a.habilidades[id]}${usable ? '' : ' · necesita ' + h.requiere}</em>
+          <button class="mini-boton" data-equipar="${id}">${puesta ? 'Quitar' : 'Equipar'}</button></div>`;
+      }).join('')}</div>
+      ${p.fruta ? `<h3>Fruta del poder</h3><div class="items">${(TECNICAS_FRUTA[p.fruta] ?? []).map((t) => `<div class="item"><b>${esc(t.nombre)}</b><small>${esc(t.descripcion)}</small></div>`).join('')}</div>` : ''}`;
+    const tienda = `
+      <p class="nota-hoja">Tienes ${p.creador ? '∞' : formatoDoblones(p.doblones)} doblones.</p>
+      <div class="items">${CATALOGO_ARMAS.filter((x) => !(x.id in a.armas)).map((x) => {
+        const nivelOk = p.nivel >= x.nivelMin || p.creador;
+        return tarjetaArma(x.id, `<em>${formatoDoblones(x.precio)} doblones · Nivel ${x.nivelMin}</em>
+          <button class="mini-boton" data-comprar="${x.id}" ${nivelOk && dinero(x.precio) ? '' : 'disabled'}>${nivelOk ? 'Comprar' : '🔒 Nivel ' + x.nivelMin}</button>`);
+      }).join('')}</div>`;
+    const forja = `
+      <p class="nota-hoja">Cada nivel de forja sube un 10% el daño del arma (máximo nivel ${NIVEL_MAX}).</p>
+      <div class="items">${Object.entries(a.armas).filter(([id]) => arma(id).precio > 0 || id === 'sable-grumete').map(([id, n]) => {
+        const x = arma(id);
+        const coste = precioForja(x, n);
+        return tarjetaArma(id, `<em>Nivel ${n} de ${NIVEL_MAX}</em>${n >= NIVEL_MAX ? '<em>¡Al máximo!</em>' : `<button class="mini-boton" data-forjar="${id}" ${dinero(coste) ? '' : 'disabled'}>Mejorar · ${formatoDoblones(coste)}</button>`}`);
+      }).join('')}</div>`;
+    const habilidades = `
+      <div class="items">${CATALOGO_HABILIDADES.map((h) => {
+        const n = a.habilidades[h.id] ?? 0;
+        const coste = n ? precioHabilidad(h, n) : h.precio;
+        const nivelOk = p.nivel >= h.nivelMin || p.creador;
+        const boton = n >= NIVEL_MAX ? '<em>¡Al máximo!</em>' : !nivelOk ? `<em>🔒 Nivel ${h.nivelMin}</em>`
+          : `<button class="mini-boton" data-aprender="${h.id}" ${dinero(coste) ? '' : 'disabled'}>${n ? 'Mejorar' : 'Aprender'} · ${coste ? formatoDoblones(coste) : 'Gratis'}</button>`;
+        return `<div class="item ${n ? '' : 'sin-aprender'}"><b>${esc(h.nombre)}</b><span class="tipo-hab">${h.tipo}</span><small>${esc(h.descripcion)}</small><small>Por nivel: ${esc(h.porNivel)}${h.requiere ? ` · Necesita ${h.requiere}` : ''}</small><em>${n ? `Nivel ${n} de ${NIVEL_MAX}` : 'Sin aprender'}</em>${boton}</div>`;
+      }).join('')}</div>`;
+    const mejoras = `
+      <p class="nota-hoja">Ganas 3 puntos por cada nivel. Te quedan <b>${p.creador ? '∞' : libres}</b>.</p>
+      <div class="mejoras">${(Object.keys(MEJORA_POR_PUNTO) as Estadistica[]).map((k) => `
+        <div class="mejora"><b>${k[0].toUpperCase() + k.slice(1)}</b><small>${MEJORA_POR_PUNTO[k].texto} por punto</small><em>${a.mejoras[k]} puntos</em>
+          <button class="mini-boton" data-punto="${k}" ${libres > 0 || p.creador ? '' : 'disabled'}>+1</button></div>`).join('')}</div>`;
+    const pest = [['equipo', 'Equipo', equipo], ['tienda', 'Tienda', tienda], ['forja', 'Forja', forja], ['habilidades', 'Habilidades', habilidades], ['mejoras', 'Mejoras', mejoras]];
+    return {
+      titulo: 'Arsenal',
+      html: `<div class="pestanas-hoja">${pest.map(([id, t]) => `<button class="${id === pestanaArsenal ? 'sel' : ''}" data-filtro="${id}">${t}</button>`).join('')}</div>
+        ${pest.map(([id, , h]) => `<div data-vista="${id}" ${id === pestanaArsenal ? '' : 'hidden'}>${h}</div>`).join('')}`,
+      despues: (el: HTMLElement) => {
+        pestanasLocales(el);
+        el.querySelectorAll<HTMLButtonElement>('[data-filtro]').forEach((b) => b.addEventListener('click', () => (pestanaArsenal = b.dataset.filtro!)));
+        el.addEventListener('click', (e) => {
+          const b = (e.target as HTMLElement).closest('button');
+          if (!b || b.disabled || b.dataset.filtro) return;
+          const d = b.dataset;
+          const n: Arsenal = structuredClone(a);
+          let gasto = 0, msg = '';
+          if (d.comprar) { const x = arma(d.comprar); n.armas[x.id] = 1; gasto = x.precio; msg = `Has comprado: ${x.nombre}.`; }
+          else if (d.forjar) { const x = arma(d.forjar); gasto = precioForja(x, n.armas[x.id]); n.armas[x.id]++; msg = `${x.nombre} sube a nivel ${n.armas[x.id]}.`; }
+          else if (d.aprender) { const h = CATALOGO_HABILIDADES.find((x) => x.id === d.aprender)!; const nv = n.habilidades[h.id] ?? 0; gasto = nv ? precioHabilidad(h, nv) : h.precio; n.habilidades[h.id] = nv + 1; msg = nv ? `${h.nombre} sube a nivel ${nv + 1}.` : `Has aprendido ${h.nombre}.`; }
+          else if (d.equipar) {
+            const i = n.equipadas.indexOf(d.equipar);
+            if (i >= 0) n.equipadas.splice(i, 1);
+            else if (n.equipadas.length >= MAX_EQUIPADAS) { acc.aviso(`Solo puedes llevar ${MAX_EQUIPADAS}. Quita una primero.`); return; }
+            else n.equipadas.push(d.equipar);
+          }
+          else if (d.principal || d.secundaria) {
+            const id = (d.principal || d.secundaria)!;
+            if (d.principal) n.principal = id; else n.secundaria = id;
+            if (arma(id).dosManos) n.escudo = undefined;
+          }
+          else if (d.escudo) n.escudo = d.escudo;
+          else if ('quitarEscudo' in d) n.escudo = undefined;
+          else if (d.punto) n.mejoras[d.punto as Estadistica]++;
+          else return;
+          if (gasto && !p.creador && p.doblones < gasto) return;
+          actualizarPersonaje({ ...p, arsenal: n, doblones: p.creador ? p.doblones : p.doblones - gasto });
+          if (msg) acc.aviso(msg);
+          abrir('arsenal', false);
+        });
+      },
+    };
+  }
+
   function pestanasLocales(el: HTMLElement) {
     el.querySelectorAll<HTMLButtonElement>('[data-filtro]').forEach((b) => b.addEventListener('click', () => {
       el.querySelectorAll('[data-filtro]').forEach((x) => x.classList.toggle('sel', x === b));

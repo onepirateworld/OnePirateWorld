@@ -2,6 +2,8 @@ import './estilos.css';
 import { ruta } from './rutas';
 import './galeria.css';
 import { montarMuestrario } from './probador';
+import { montarAtaques } from './galeriaAtaques';
+montarAtaques(document.getElementById('ataques')!);
 
 montarMuestrario(document.getElementById('muestrario')!);
 

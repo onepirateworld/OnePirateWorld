@@ -447,3 +447,31 @@ button { font-family: inherit; cursor: pointer; }
 .combate-menu.tecnicas button { align-items: flex-start; text-align: left; }
 .boton-pelear { margin-left: auto; flex: none; }
 @media (min-width: 900px) { .combate-arriba { max-width: 640px; } .combate-panel { max-width: 640px; } }
+
+/* --- Arsenal */
+.botones-fila { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+.items { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; }
+.item { background: #12304f; border: 2px solid var(--r, var(--panel-borde)); border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; gap: 3px; }
+.item b { font-size: 15px; }
+.item small { color: var(--texto-suave); font-size: 12px; }
+.item em { font-style: normal; color: #f2b63d; font-size: 12px; }
+.item.puesta { border-color: #f2b63d; box-shadow: inset 0 0 0 2px #f2b63d55; }
+.item.sin-aprender { opacity: 0.8; border-style: dashed; }
+.vacio-item { border-style: dashed; opacity: 0.7; }
+.rareza-chip { align-self: flex-start; font-size: 11px; color: #1a1423; background: var(--r); padding: 0 6px; border-radius: 999px; }
+.tipo-hab { align-self: flex-start; font-size: 11px; color: var(--acento); text-transform: uppercase; letter-spacing: 1px; }
+.mini-boton { margin-top: 4px; font-size: 13px; font-weight: 700; background: #f2b63d; color: #1a1423; border: 2px solid #f7e27a; border-radius: 8px; padding: 5px 8px; }
+.mini-boton:disabled { background: #2b2d4f; color: var(--texto-suave); border-color: var(--panel-borde); }
+.fila-mini { display: flex; gap: 4px; }
+.fila-mini .mini-boton { flex: 1; }
+.mejoras { display: grid; gap: 8px; }
+.mejora { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 2px 10px; background: #12304f; border-radius: 10px; padding: 8px 10px; }
+.mejora small { grid-column: 1; color: var(--texto-suave); font-size: 12px; }
+.mejora em { grid-row: 1 / 3; grid-column: 2; font-style: normal; color: #f2b63d; }
+.mejora .mini-boton { grid-row: 1 / 3; grid-column: 3; margin: 0; min-width: 44px; }
+.creador { color: #f7e27a; text-shadow: 0 0 6px #f2b63d; }
+.recompensa-txt { color: #e88ba0; font-size: 13px; }
+.fruta-txt { color: #b89ae0; font-size: 13px; }
+.insignia.creador-ins { background: #f2b63d; color: #1a1423; font-weight: 700; }
+.combate-menu .fruta { background: #b89ae0; }
+.vacio-combate { grid-column: 1 / -1; margin: 0; color: var(--hueso); }

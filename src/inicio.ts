@@ -10,7 +10,11 @@ import { crearMapa, type Mapa, type Marcador } from './mundo/mapa';
 import { botsDelMar, islaDePersonaje, islasDelMundo, nombreZona, posicionBot, type IslaMundo } from './mundo/habitantes';
 import { RASGOS } from './datos/caracter';
 import { crearPaneles, type IdPanel } from './paneles';
-import { crearLuchador, type IdArma } from './combate/motor';
+import { crearLuchador } from './combate/motor';
+import { arsenalBot } from './datos/arsenal';
+import { frutasDelMar } from './mundo/cronica';
+import { azar } from './arte/lienzo';
+import { arsenalDe, modoCreador } from './cuenta';
 import { iniciarCombate } from './combate/pantalla';
 import { actualizarPersonaje, type PersonajeGuardado } from './cuenta';
 import type { Bot } from './mundo/habitantes';
@@ -110,7 +114,8 @@ function pintar() {
       <b class="ficha-nombre">${esc(p.nombre)}</b>
       <span class="insignias">
         <span class="insignia bando-${p.bando}">${icono('bandera', '#f2b63d')} ${BANDOS[p.bando].nombre}</span>
-        <span class="insignia oro">${icono('moneda', '#f2b63d')} ${p.doblones}</span>
+        ${p.creador ? '<span class="insignia creador-ins">Creador</span>' : ''}
+        <span class="insignia oro">${icono('moneda', '#f2b63d')} ${p.creador ? '∞' : p.doblones}</span>
         <span class="insignia">Nv. ${p.nivel}</span>
       </span>
       <button class="ficha-lugar" id="ficha-lugar">${icono('diana', '#f2b63d')} En ${esc(islaDePersonaje(p).nombre)} · ${esc(nombreZona(islaDePersonaje(p).zona))}</button>`;
@@ -236,8 +241,10 @@ $('#btn-globo').addEventListener('click', () => (mapa?.visible ? volverAlGlobo()
 // ---------------------------------------------------------------------------
 // Arranque
 
+const enModoCreador = modoCreador();   // ?modo=creador lo activa en este navegador
 pintar();
 const params = new URLSearchParams(location.search);
+if (params.get('modo') === 'creador' && enModoCreador) aviso('Modo creador activado en este navegador. Tus nuevos personajes saldrán con todo al máximo.');
 if (params.has('pacto')) abrirPacto();
 if (params.has('perfil')) abrirPerfil();
 if (params.has('creado')) aviso('¡Tu personaje ya navega por el mundo!');
@@ -301,7 +308,6 @@ function localizar() {
 // Combates
 
 const esRival = (a: Bando, b: Bando) => (a === 'marine') !== (b === 'marine');
-const ARMAS_BOT: IdArma[][] = [['punos'], ['espada', 'punos'], ['pistola', 'punos']];
 let combatiendo = false;
 
 /** Si hay un enemigo en tu isla, salta el combate (como mucho uno cada 10 minutos). */
@@ -325,8 +331,9 @@ async function pelearCon(bot: Bot, motivo: string) {
   let h = 0; for (const ch of bot.id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
   // Enemigos adaptados: cerca de tu nivel para que un personaje nuevo pueda ganar
   const nivelRival = Math.max(1, p.nivel + (h % 3) - 1);
-  const jugador = crearLuchador({ nombre: p.nombre, bando: p.bando, aspecto: p.aspecto, nivel: p.nivel, rasgos: p.rasgos, armas: ['espada', 'punos'] });
-  const rival = crearLuchador({ nombre: bot.nombre, bando: bot.bando, aspecto: bot.aspecto, nivel: nivelRival, rasgos: bot.rasgos, armas: ARMAS_BOT[h % 3] });
+  const jugador = crearLuchador({ nombre: p.nombre, bando: p.bando, aspecto: p.aspecto, nivel: p.nivel, rasgos: p.rasgos, arsenal: arsenalDe(p), fruta: p.fruta, creador: p.creador });
+  const frutaBot = [...frutasDelMar(marActual()).entries()].find(([, id]) => id === bot.id)?.[0];
+  const rival = crearLuchador({ nombre: bot.nombre, bando: bot.bando, aspecto: bot.aspecto, nivel: nivelRival, rasgos: bot.rasgos, arsenal: arsenalBot(nivelRival, azar(h)), fruta: frutaBot });
   const isla = islaDePersonaje(p);
   await iniciarCombate(jugador, rival, {
     bioma: isla.bioma, motivo,

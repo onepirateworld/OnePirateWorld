@@ -6,7 +6,8 @@
     "dev": "vite",
     "assets": "tsx scripts/generar-assets.ts",
     "build": "npm run assets && tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "publicar": "bash scripts/publicar.sh"
   },
   "author": "",
   "license": "ISC",

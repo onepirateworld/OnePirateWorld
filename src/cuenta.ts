@@ -1,6 +1,7 @@
 // Cuenta y personajes del jugador.
 // MODO DE PRUEBA: hasta conectar Supabase (fase 9) todo se guarda en este navegador.
 import type { AspectoPersonaje } from './arte/personajes';
+import { CATALOGO_ARMAS, CATALOGO_HABILIDADES, arsenalInicial, type Arsenal } from './datos/arsenal';
 
 export type Bando = 'pirata' | 'marine' | 'revolucionario';
 export const BANDOS: Record<Bando, { nombre: string; descripcion: string }> = {
@@ -22,6 +23,14 @@ export interface PersonajeGuardado {
   objetivo?: string;
   /** Experiencia acumulada en el nivel actual. */
   xp?: number;
+  /** Armas, habilidades y mejoras. */
+  arsenal?: Arsenal;
+  /** Fruta del poder que se ha comido. */
+  fruta?: string;
+  recompensa?: number;
+  barco?: 'barca' | 'carabela' | 'galeon';
+  /** Personaje del modo creador (solo en este navegador). */
+  creador?: boolean;
   /** Sucesos de su vida para el diario: [fecha, texto]. */
   registro?: [number, string][];
   /** Isla donde está ahora (si falta, se le asigna una al cargar). */
@@ -61,7 +70,8 @@ export function actualizarPersonaje(p: PersonajeGuardado) {
   escribir('personajes', personajes().map((x) => (x.id === p.id ? p : x)));
 }
 export function guardarPersonaje(p: Omit<PersonajeGuardado, 'id' | 'nivel' | 'doblones' | 'creado'>): PersonajeGuardado {
-  const nuevo: PersonajeGuardado = { ...p, id: Math.random().toString(36).slice(2, 10), nivel: 1, doblones: 100, creado: Date.now() };
+  let nuevo: PersonajeGuardado = { ...p, id: Math.random().toString(36).slice(2, 10), nivel: 1, doblones: 100, creado: Date.now(), arsenal: arsenalInicial(), barco: 'barca' };
+  if (modoCreador()) nuevo = { ...nuevo, ...equipoCreador() };
   escribir('personajes', [...personajes(), nuevo]);
   escribir('activo', nuevo.id);
   return nuevo;
@@ -77,4 +87,31 @@ export function marActual(): number {
   const q = Number(new URLSearchParams(location.search).get('mar'));
   if (MARES.some((m) => m.id === q)) return q;
   return 1;
+}
+
+export const arsenalDe = (p: PersonajeGuardado): Arsenal => p.arsenal ?? arsenalInicial();
+
+// ---------------------------------------------------------------------------
+// Modo creador (de prueba): se activa SOLO en este navegador abriendo el juego con
+// ?modo=creador. Cuando haya servidor (fase 9), el rol de creador irá en la base de
+// datos, ligado a la cuenta, y no se podrá activar desde el navegador.
+
+export const RECOMPENSA_MAXIMA = 9_999_999_999;
+export function modoCreador(): boolean {
+  try {
+    if (new URLSearchParams(location.search).get('modo') === 'creador') localStorage.setItem('modoCreador', '1');
+    return localStorage.getItem('modoCreador') === '1';
+  } catch { return false; }
+}
+export function equipoCreador(): Partial<PersonajeGuardado> {
+  return {
+    creador: true, nivel: 80, doblones: 999_999_999, recompensa: RECOMPENSA_MAXIMA, barco: 'galeon', fruta: 'ceniza',
+    arsenal: {
+      armas: Object.fromEntries(CATALOGO_ARMAS.map((a) => [a.id, 5])),
+      principal: 'espada-espinazo', secundaria: 'guanteletes', escudo: 'caparazon',
+      habilidades: Object.fromEntries(CATALOGO_HABILIDADES.map((h) => [h.id, 5])),
+      equipadas: ['contraataque', 'vendaje', 'corazon-leon', 'piel-hierro'],
+      mejoras: { vida: 60, fuerza: 40, tecnica: 40, resistencia: 50, velocidad: 47 },
+    },
+  };
 }
