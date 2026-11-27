@@ -1,0 +1,219 @@
+/* Pantalla principal: planeta a pantalla completa y la interfaz flotando encima. */
+:root {
+  --panel: rgba(16, 22, 48, 0.88);
+  --panel-borde: #2c4a8a;
+  --panel-sombra: #070b18;
+  --texto: #f2ecdc;
+  --texto-suave: #a9a7b8;
+  --acento: #5cc3d8;
+}
+
+body.inicio {
+  background: #0b1124;
+  color: var(--texto);
+  overflow: hidden;
+  height: 100dvh;
+  -webkit-tap-highlight-color: transparent;
+}
+.icono { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
+
+/* --- Planeta */
+.mundo { position: fixed; inset: 0; touch-action: none; cursor: grab; }
+.mundo:active { cursor: grabbing; }
+.planeta-lienzo { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
+.etiquetas { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.etiqueta {
+  position: absolute; left: 0; top: 0; white-space: nowrap; opacity: 0;
+  font-weight: 700; font-size: 13px; letter-spacing: 0.5px; color: var(--texto);
+  text-shadow: 2px 0 #0b1124, -2px 0 #0b1124, 0 2px #0b1124, 0 -2px #0b1124;
+}
+.etiqueta-ruta { color: #f7e27a; font-size: 14px; }
+.etiqueta-calma { color: #b8ecef; font-size: 11px; font-weight: 400; }
+.etiqueta-continente { color: #e88ba0; font-size: 12px; letter-spacing: 3px; text-transform: uppercase; }
+
+/* --- Paneles comunes */
+.btn-cuadro, .pastilla-mar, .btn-perfil, .ficha, .barra-inf, .aviso, .dialogo {
+  background: var(--panel);
+  border: 2px solid var(--panel-borde);
+  box-shadow: 0 4px 0 var(--panel-sombra);
+  color: var(--texto);
+  font-family: inherit;
+}
+button { font-family: inherit; cursor: pointer; }
+
+/* --- Barra superior */
+.barra-sup {
+  position: fixed; top: max(10px, env(safe-area-inset-top)); left: 0; right: 0; z-index: 5;
+  display: grid; grid-template-columns: 52px 1fr 52px; gap: 8px; padding: 0 10px;
+  max-width: 720px; margin: 0 auto;
+}
+.btn-cuadro { width: 52px; height: 52px; padding: 12px; border-radius: 10px; }
+.btn-cuadro.activo { background: #f2b63d; color: #1a1423; border-color: #f7e27a; box-shadow: 0 4px 0 #a85a1a; }
+.pastilla-mar {
+  display: flex; align-items: center; gap: 10px; min-width: 0;
+  border-radius: 12px; padding: 4px 8px 4px 6px; text-align: left; height: 52px;
+}
+.pastilla-icono { width: 36px; height: 36px; padding: 7px; border-radius: 50%; background: #12304f; color: var(--acento); flex: none; }
+.pastilla-texto { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.pastilla-texto small { color: #f2b63d; font-size: 11px; letter-spacing: 2px; font-weight: 700; }
+.pastilla-texto b { font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.1; }
+.meta { display: block; height: 4px; background: #2b2d4f; margin-top: 3px; }
+.meta i { display: block; height: 100%; background: var(--acento); }
+.pastilla-cambiar { background: #2b2d4f; color: #f2b63d; font-weight: 700; padding: 6px 10px; border-radius: 8px; font-size: 14px; flex: none; }
+.btn-perfil {
+  width: 52px; height: 52px; border-radius: 10px; padding: 12px;
+  background: #c43a3a; border-color: #e77b33; box-shadow: 0 4px 0 #7d2230;
+}
+.btn-perfil.sin-cuenta { animation: latido 2s infinite; }
+.btn-perfil .inicial { font-size: 24px; font-weight: 700; line-height: 1; display: block; }
+@keyframes latido { 50% { transform: scale(1.06); } }
+
+/* --- Botones flotantes de la derecha */
+.flotantes {
+  position: fixed; right: max(10px, calc(50% - 360px + 10px)); bottom: calc(190px + env(safe-area-inset-bottom)); z-index: 5;
+  display: flex; flex-direction: column; gap: 10px;
+}
+
+/* --- Aviso */
+.aviso {
+  position: fixed; top: calc(78px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); z-index: 6;
+  padding: 10px 16px; border-radius: 12px; max-width: min(420px, calc(100% - 140px)); font-size: 15px; text-align: center;
+}
+
+/* --- Ficha del personaje */
+.ficha {
+  position: fixed; left: 10px; right: 10px; bottom: calc(96px + env(safe-area-inset-bottom)); z-index: 5;
+  max-width: 700px; margin: 0 auto;
+  display: flex; align-items: center; gap: 12px; padding: 8px 10px; border-radius: 14px;
+}
+.ficha-avatar {
+  flex: none; width: 72px; height: 72px; border-radius: 10px; background: #12304f; border: 2px solid var(--panel-borde);
+  display: grid; place-items: center; overflow: hidden;
+}
+.ficha-avatar canvas { image-rendering: pixelated; }
+.ficha-cuerpo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.ficha-nombre { font-size: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ficha-texto { font-size: 14px; color: var(--texto-suave); }
+.insignias { display: flex; gap: 6px; flex-wrap: wrap; }
+.insignia {
+  display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px;
+  background: #2b2d4f; font-size: 14px;
+}
+.insignia .icono { width: 14px; height: 14px; }
+.insignia.oro { color: #f2b63d; }
+.bando-pirata { color: #e88ba0; }
+.bando-marine { color: #5cc3d8; }
+.bando-revolucionario { color: #8cc85a; }
+.boton-oro {
+  flex: none; background: #f2b63d; color: #1a1423; font-weight: 700; font-size: 15px;
+  border: 2px solid #f7e27a; border-radius: 12px; padding: 10px 14px; box-shadow: 0 4px 0 #a85a1a;
+}
+.boton-oro:active { transform: translateY(2px); box-shadow: 0 2px 0 #a85a1a; }
+.momentos { display: flex; align-items: center; gap: 8px; padding: 10px 16px; }
+.momentos .cuenta { background: #e0c088; border-radius: 50%; width: 28px; height: 28px; display: grid; place-items: center; }
+
+/* --- Barra inferior */
+.barra-inf {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 5;
+  display: grid; grid-template-columns: repeat(5, 1fr); align-items: end;
+  padding: 8px 4px calc(8px + env(safe-area-inset-bottom)); border-radius: 18px 18px 0 0; border-bottom: none;
+  max-width: 760px; margin: 0 auto;
+}
+.barra-inf button {
+  background: none; border: none; color: var(--texto-suave); font-size: 14px;
+  display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px 0;
+}
+.barra-inf button:hover { color: var(--texto); }
+.barra-inf .ico { width: 26px; height: 26px; color: var(--texto); }
+.mi-pirata { color: var(--texto) !important; font-weight: 700; }
+.mi-pirata .aro {
+  width: 64px; height: 64px; margin-top: -34px; border-radius: 50%;
+  background: #12304f; border: 3px solid #f2b63d; box-shadow: 0 4px 0 var(--panel-sombra);
+  display: grid; place-items: center; overflow: hidden;
+}
+.mi-pirata canvas { image-rendering: pixelated; margin-top: 6px; }
+
+/* --- Diálogos */
+.dialogo {
+  border-radius: 16px; padding: 20px; width: min(440px, calc(100% - 24px)); max-height: calc(100dvh - 40px);
+}
+.dialogo::backdrop { background: rgba(7, 11, 24, 0.7); }
+.dialogo h2 { font-size: 24px; color: #f2b63d; margin-bottom: 6px; padding-right: 28px; }
+.dialogo h3 { font-size: 16px; margin: 14px 0 8px; color: var(--acento); }
+.dialogo p { margin: 6px 0 12px; color: var(--texto-suave); }
+.dialogo label { display: flex; flex-direction: column; gap: 6px; font-size: 14px; margin: 10px 0; }
+.dialogo input {
+  font: inherit; font-size: 16px; padding: 10px; border-radius: 8px; border: 2px solid var(--panel-borde);
+  background: #0b1124; color: var(--texto);
+}
+.dialogo input:focus { outline: 2px solid #f2b63d; }
+.dialogo .cerrar {
+  position: absolute; top: 12px; right: 12px; width: 34px; height: 34px; border-radius: 8px;
+  background: #2b2d4f; color: var(--texto); border: none; font-size: 16px;
+}
+.dialogo form, .dialogo > div { position: relative; }
+.boton-grande {
+  width: 100%; font-size: 16px; font-weight: 700; padding: 12px; border-radius: 10px;
+  background: #2c4a8a; color: var(--texto); border: 2px solid #5cc3d8; box-shadow: 0 4px 0 var(--panel-sombra);
+}
+.boton-grande.google { background: #f2ecdc; color: #1a1423; border-color: #f2ecdc; }
+.separador { text-align: center; color: var(--texto-suave); margin: 12px 0 0; }
+.nota-prueba { font-size: 12px; color: #e77b33 !important; margin-top: 14px !important; }
+.enlace { background: none; border: none; color: var(--texto-suave); text-decoration: underline; margin-top: 16px; font-size: 14px; }
+
+.fila-personaje {
+  width: 100%; display: flex; align-items: center; gap: 10px; text-align: left; margin-bottom: 6px;
+  background: #0b1124; color: var(--texto); border: 2px solid var(--panel-borde); border-radius: 10px; padding: 6px 10px;
+}
+.fila-personaje.activo { border-color: #f2b63d; }
+.fila-personaje canvas { image-rendering: pixelated; background: #12304f; border-radius: 6px; }
+.fila-personaje span { flex: 1; display: flex; flex-direction: column; }
+.fila-personaje small { color: var(--texto-suave); }
+.fila-personaje em { color: #f2b63d; font-style: normal; font-size: 13px; }
+
+.bandos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.bando {
+  display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; text-decoration: none;
+  background: #0b1124; border: 2px solid var(--panel-borde); border-radius: 10px; padding: 8px 6px; color: var(--texto);
+}
+.bando:hover { border-color: currentColor; }
+.bando canvas { image-rendering: pixelated; background: #12304f; border-radius: 6px; }
+.bando b { font-size: 15px; }
+.bando small { font-size: 11px; color: var(--texto-suave); line-height: 1.25; }
+
+.lista-mares { display: flex; flex-direction: column; gap: 8px; }
+.mar {
+  display: flex; justify-content: space-between; align-items: center; text-decoration: none; color: var(--texto);
+  background: #0b1124; border: 2px solid var(--panel-borde); border-radius: 10px; padding: 12px 14px;
+}
+.mar.actual { border-color: #f2b63d; }
+.mar small { color: var(--texto-suave); }
+
+@media (max-width: 420px) {
+  .pastilla-texto b { font-size: 16px; }
+  .pastilla-cambiar { padding: 6px 8px; font-size: 13px; }
+  .ficha-nombre { font-size: 18px; }
+  .bando small { display: none; }
+}
+@media (min-width: 900px) {
+  .flotantes { bottom: 50%; transform: translateY(50%); }
+}
+
+/* Móvil: el botón de la ficha baja bajo el texto y los flotantes suben */
+@media (max-width: 520px) {
+  .ficha { display: grid; grid-template-columns: 64px 1fr auto; row-gap: 8px; }
+  .ficha-avatar { width: 64px; height: 64px; }
+  .ficha > .boton-oro:not(.momentos) { grid-column: 1 / -1; width: 100%; }
+  .flotantes { bottom: calc(240px + env(safe-area-inset-bottom)); }
+  .etiqueta { font-size: 12px; }
+}
+.ficha-texto { line-height: 1.25; }
+@media (max-width: 420px) {
+  .barra-sup { grid-template-columns: 48px 1fr 48px; gap: 6px; padding: 0 8px; }
+  .btn-cuadro, .btn-perfil { width: 48px; height: 48px; padding: 11px; }
+  .pastilla-mar { gap: 6px; padding: 4px 6px 4px 4px; height: 48px; }
+  .pastilla-icono { width: 30px; height: 30px; padding: 6px; }
+  .pastilla-texto b { font-size: 15px; }
+  .pastilla-texto small { font-size: 10px; letter-spacing: 1px; }
+  .pastilla-cambiar { padding: 5px 7px; font-size: 12px; }
+}

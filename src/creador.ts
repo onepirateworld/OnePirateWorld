@@ -4,6 +4,7 @@ import './estilos.css';
 import './creador.css';
 import { Lienzo, azar } from './arte/lienzo';
 import { PALETA } from './arte/paleta';
+import { BANDOS, cuentaActual, guardarPersonaje, marActual, type Bando } from './cuenta';
 import {
   dibujarPersonaje, aspectoAlAzar, ASPECTO_BASE, OPCIONES, COLORES,
   type AspectoPersonaje, type Pelo,
@@ -85,7 +86,34 @@ function cambiar(f: (n: AspectoPersonaje) => void) {
   f(n);
   a = n;
   guardar(a);
-  render();
+  // --- Bando elegido en la pantalla principal
+const bandoParam = new URLSearchParams(location.search).get('bando') as Bando | null;
+const bando: Bando = bandoParam && bandoParam in BANDOS ? bandoParam : 'pirata';
+const pasoBando = document.querySelector<HTMLElement>('#paso-bando')!;
+pasoBando.innerHTML = `<a href="/?perfil=1">1 · ${BANDOS[bando].nombre} ✓</a>`;
+
+// --- Guardar: pide el nombre y suelta al personaje en el mundo
+const dlg = document.querySelector<HTMLDialogElement>('#dlg-nombre')!;
+const inputNombre = document.querySelector<HTMLInputElement>('#input-nombre')!;
+document.addEventListener('click', (e) => {
+  if ((e.target as HTMLElement).closest('#guardar')) {
+    if (!cuentaActual()) { location.href = '/?pacto=1'; return; }
+    document.querySelector('#dlg-bando')!.textContent = BANDOS[bando].nombre.toLowerCase();
+    dlg.showModal();
+    inputNombre.focus();
+  }
+});
+document.querySelector('#cancelar-nombre')!.addEventListener('click', () => dlg.close());
+document.querySelector<HTMLFormElement>('#form-nombre')!.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const nombre = inputNombre.value.trim();
+  if (!nombre) return;
+  guardarPersonaje({ nombre, bando, aspecto: a, mar: marActual() });
+  try { localStorage.removeItem(CLAVE_BORRADOR); } catch { /* nada */ }
+  location.href = `/?mar=${marActual()}&creado=1`;
+});
+
+render();
 }
 
 // ---------------------------------------------------------------------------
@@ -155,7 +183,7 @@ function render() {
       ${pestana > 0 ? `<button class="boton" data-ir="${pestana - 1}">← ${PESTANAS[pestana - 1].titulo}</button>` : '<span></span>'}
       ${pestana < PESTANAS.length - 1
         ? `<button class="boton" data-ir="${pestana + 1}">${PESTANAS[pestana + 1].titulo} →</button>`
-        : `<button class="boton" disabled title="Llegará en la fase 5">Siguiente paso: estilo de combate →</button>`}
+        : `<button class="boton" id="guardar">Guardar personaje ✓</button>`}
     </div>`;
 
   // Miniaturas: tu personaje con cada opción puesta
@@ -220,6 +248,33 @@ document.addEventListener('click', (e) => {
   else if (b.id === 'azar') cambiar((n) => Object.assign(n, aspectoAlAzar(azar(semilla++ * 7919), a.cuerpo)));
   else if (b.id === 'cero') cambiar((n) => Object.assign(n, copia(ASPECTO_BASE), { cuerpo: a.cuerpo }));
   else if (b.id === 'deshacer' && historial.length) { a = historial.pop()!; guardar(a); render(); }
+});
+
+// --- Bando elegido en la pantalla principal
+const bandoParam = new URLSearchParams(location.search).get('bando') as Bando | null;
+const bando: Bando = bandoParam && bandoParam in BANDOS ? bandoParam : 'pirata';
+const pasoBando = document.querySelector<HTMLElement>('#paso-bando')!;
+pasoBando.innerHTML = `<a href="/?perfil=1">1 · ${BANDOS[bando].nombre} ✓</a>`;
+
+// --- Guardar: pide el nombre y suelta al personaje en el mundo
+const dlg = document.querySelector<HTMLDialogElement>('#dlg-nombre')!;
+const inputNombre = document.querySelector<HTMLInputElement>('#input-nombre')!;
+document.addEventListener('click', (e) => {
+  if ((e.target as HTMLElement).closest('#guardar')) {
+    if (!cuentaActual()) { location.href = '/?pacto=1'; return; }
+    document.querySelector('#dlg-bando')!.textContent = BANDOS[bando].nombre.toLowerCase();
+    dlg.showModal();
+    inputNombre.focus();
+  }
+});
+document.querySelector('#cancelar-nombre')!.addEventListener('click', () => dlg.close());
+document.querySelector<HTMLFormElement>('#form-nombre')!.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const nombre = inputNombre.value.trim();
+  if (!nombre) return;
+  guardarPersonaje({ nombre, bando, aspecto: a, mar: marActual() });
+  try { localStorage.removeItem(CLAVE_BORRADOR); } catch { /* nada */ }
+  location.href = `/?mar=${marActual()}&creado=1`;
 });
 
 render();

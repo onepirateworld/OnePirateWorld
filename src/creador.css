@@ -86,3 +86,14 @@ canvas { image-rendering: pixelated; display: block; }
   .cabecera { margin: 8px; }
   .opciones { grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); }
 }
+
+.pasos li.hecho { background: #1f4a3a; color: var(--hueso); border-color: var(--tinta); }
+.pasos li.hecho a { color: inherit; text-decoration: none; }
+.volver { color: var(--oro); text-decoration: none; margin-right: 6px; }
+.dlg-nombre { max-width: 420px; width: calc(100% - 24px); }
+.dlg-nombre::backdrop { background: rgba(7, 11, 24, 0.7); }
+.dlg-nombre h2 { font-size: 22px; }
+.dlg-nombre input {
+  width: 100%; font: inherit; font-size: 18px; padding: 8px; margin-top: 4px;
+  border: 2px solid var(--madera); background: var(--hueso); color: var(--tinta);
+}

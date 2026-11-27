@@ -2,18 +2,88 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0b1124" />
     <title>Mundo pirata</title>
   </head>
-  <body>
-    <main style="max-width:560px;margin:15vh auto;padding:0 16px">
-      <div class="panel-pergamino">
-        <h1>Mundo pirata</h1>
-        <p>Fase 1: arte. El mundo llegará en la fase 2.</p>
-        <a class="boton" href="/nuevo/" style="display:inline-block;text-decoration:none">Crear personaje</a>
-        <a class="boton" href="/galeria/" style="display:inline-block;text-decoration:none">Ver la galería</a>
+  <body class="inicio">
+    <div id="mundo" class="mundo" aria-label="Planeta. Arrastra para girarlo y pellizca o usa la rueda para acercarte.">
+      <div id="etiquetas" class="etiquetas"></div>
+    </div>
+
+    <header class="barra-sup">
+      <button class="btn-cuadro" id="btn-mapa" title="Mapa de cerca"></button>
+      <button class="pastilla-mar" id="btn-mar">
+        <span class="pastilla-icono" id="ico-brujula"></span>
+        <span class="pastilla-texto">
+          <small>ESTÁS EN</small>
+          <b id="nombre-mar">Mar Esmeralda</b>
+          <span class="meta" title="Meta de la comunidad"><i id="meta-barra"></i></span>
+        </span>
+        <span class="pastilla-cambiar">Cambiar</span>
+      </button>
+      <button class="btn-perfil" id="btn-perfil" title="Tu cuenta"></button>
+    </header>
+
+    <div class="aviso" id="aviso" role="status" hidden></div>
+
+    <aside class="flotantes">
+      <button class="btn-cuadro" id="btn-envivo" title="En vivo"></button>
+      <button class="btn-cuadro activo" id="btn-globo" title="Planeta"></button>
+      <button class="btn-cuadro" id="btn-guia" title="Guía"></button>
+    </aside>
+
+    <section class="ficha" id="ficha"></section>
+
+    <nav class="barra-inf">
+      <button data-seccion="Noticias"><span class="ico" data-ico="noticias"></span>Noticias</button>
+      <button data-seccion="La Taberna"><span class="ico" data-ico="taberna"></span>Taberna</button>
+      <button class="mi-pirata" id="btn-mi-pirata"><span class="aro" id="avatar-nav"></span><span id="texto-mi-pirata">Mi pirata</span></button>
+      <button data-seccion="Tablones"><span class="ico" data-ico="tablones"></span>Tablones</button>
+      <button data-seccion="Más"><span class="ico" data-ico="mas"></span>Más</button>
+    </nav>
+
+    <!-- Firmar el pacto (crear cuenta) -->
+    <dialog id="dlg-pacto" class="dialogo">
+      <form method="dialog" id="form-pacto">
+        <h2>Firma el pacto</h2>
+        <p>Para soltar a tu personaje en el mundo necesitas una cuenta. Sin contraseñas.</p>
+        <label>¿Cómo te llamarán en los mares?
+          <input id="pacto-nombre" maxlength="20" required autocomplete="nickname" placeholder="Tu nombre de jugador" />
+        </label>
+        <button type="button" class="boton-grande google" id="pacto-google">Continuar con Google</button>
+        <div class="separador">o</div>
+        <label>Te mandamos un enlace mágico al correo
+          <input id="pacto-correo" type="email" autocomplete="email" placeholder="tu@correo.com" />
+        </label>
+        <button type="button" class="boton-grande" id="pacto-correo-btn">Enviar enlace</button>
+        <p class="nota-prueba">Modo de prueba: hasta conectar la base de datos (fase 9), la cuenta se guarda solo en este navegador y no se envía nada.</p>
+        <button type="button" class="cerrar" data-cerrar aria-label="Cerrar">✕</button>
+      </form>
+    </dialog>
+
+    <!-- Perfil: tus personajes y crear uno nuevo -->
+    <dialog id="dlg-perfil" class="dialogo">
+      <div>
+        <h2 id="perfil-titulo">Tu cuenta</h2>
+        <div id="perfil-lista"></div>
+        <h3>Crear un personaje nuevo</h3>
+        <div class="bandos" id="perfil-bandos"></div>
+        <button type="button" class="enlace" id="cerrar-sesion">Cerrar sesión</button>
+        <button type="button" class="cerrar" data-cerrar aria-label="Cerrar">✕</button>
       </div>
-    </main>
-    <script type="module">import '/src/estilos.css';</script>
+    </dialog>
+
+    <!-- Cambiar de mar (servidor) -->
+    <dialog id="dlg-mares" class="dialogo">
+      <div>
+        <h2>Elige tu mar</h2>
+        <p>Cada mar es un mundo aparte, con sus propios personajes, noticias y taberna.</p>
+        <div id="lista-mares" class="lista-mares"></div>
+        <button type="button" class="cerrar" data-cerrar aria-label="Cerrar">✕</button>
+      </div>
+    </dialog>
+
+    <script type="module" src="/src/inicio.ts"></script>
   </body>
 </html>
