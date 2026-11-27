@@ -8,6 +8,7 @@ export default defineConfig({
       input: {
         inicio: resolve(__dirname, 'index.html'),
         galeria: resolve(__dirname, 'galeria/index.html'),
+        nuevo: resolve(__dirname, 'nuevo/index.html'),
       },
     },
   },

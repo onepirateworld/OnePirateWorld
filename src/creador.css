@@ -1,0 +1,88 @@
+canvas { image-rendering: pixelated; display: block; }
+
+.cabecera {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  margin: 8px 16px;
+}
+.cabecera h1 { font-size: 24px; }
+.pasos { display: flex; gap: 6px; list-style: none; margin: 0; padding: 0; flex-wrap: wrap; font-size: 14px; }
+.pasos li { padding: 2px 8px; border: 2px solid var(--madera); color: var(--niebla); }
+.pasos li.actual { background: var(--oro); color: var(--tinta); border-color: var(--tinta); font-weight: 700; }
+
+.creador {
+  max-width: 1200px; margin: 0 auto; padding: 0 16px 48px;
+  display: grid; grid-template-columns: 340px 1fr; gap: 16px; align-items: start;
+}
+
+/* --- Vista previa */
+.vista { position: sticky; top: 8px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.escenario {
+  width: 100%; display: flex; justify-content: center; padding: 8px 0 14px;
+  background:
+    linear-gradient(to bottom, transparent 82%, var(--corteza) 82%, var(--corteza) 84%, var(--madera) 84%),
+    linear-gradient(to bottom, #5cc3d8, #2f8ac0 60%, #1d5a85);
+  border: 2px solid var(--tinta);
+}
+.fila-real { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--arena); }
+.acciones { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; }
+.acciones .boton { font-size: 14px; }
+.boton:disabled { opacity: 0.45; cursor: default; }
+#resumen {
+  width: 100%; margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; font-size: 13px;
+}
+#resumen dt { color: var(--oro); }
+#resumen dd { margin: 0; color: var(--hueso); }
+
+/* --- Editor */
+.pestanas { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 10px; }
+.pestana {
+  font: inherit; font-size: 15px; cursor: pointer;
+  background: var(--arena); color: var(--tinta);
+  border: 2px solid var(--madera); padding: 3px 10px;
+}
+.pestana.hecha::after { content: ' ✓'; color: #1f4a3a; }
+.pestana.activa { background: var(--madera); color: var(--hueso); border-color: var(--tinta); }
+.pestana.activa.hecha::after { color: var(--oro); }
+
+#panel h2 { font-size: 22px; }
+#panel h3 { font-size: 16px; margin: 14px 0 6px; }
+.nota { margin: 4px 0 8px; color: var(--madera); }
+
+.opciones { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 8px; margin-top: 8px; }
+.opcion {
+  font: inherit; font-size: 14px; cursor: pointer; color: var(--tinta);
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  background: var(--hueso); border: 2px solid var(--madera-clara); padding: 6px 4px;
+}
+.opcion:hover { border-color: var(--madera); }
+.opcion.sel { background: var(--oro); border-color: var(--tinta); box-shadow: inset 0 0 0 2px var(--tinta); }
+.opcion .mini { background: #5cc3d8; border: 2px solid var(--tinta); padding: 2px; }
+
+.colores { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.color { width: 30px; height: 30px; border: 2px solid var(--tinta); cursor: pointer; padding: 0; }
+.color.sel { outline: 3px solid var(--oro); outline-offset: 2px; }
+.chip {
+  font: inherit; font-size: 14px; cursor: pointer; height: 30px;
+  background: var(--hueso); color: var(--tinta); border: 2px solid var(--madera); padding: 0 8px;
+}
+.chip.sel { background: var(--madera); color: var(--hueso); border-color: var(--tinta); }
+
+.navegacion { display: flex; justify-content: space-between; gap: 8px; margin-top: 18px; flex-wrap: wrap; }
+
+.opcion .mini canvas { max-width: 100%; height: auto !important; }
+
+@media (max-width: 760px) {
+  .creador { grid-template-columns: 1fr; }
+  /* La vista previa se queda fija arriba mientras eliges */
+  .vista {
+    position: sticky; top: 0; z-index: 3;
+    flex-direction: row; justify-content: center; gap: 8px; padding: 0 4px;
+  }
+  .escenario { width: auto; padding: 4px 8px 6px; }
+  .escenario canvas { width: 128px !important; height: 128px !important; }
+  .fila-real, #resumen { display: none; }
+  .acciones { flex-direction: column; }
+  .acciones .boton { font-size: 13px; }
+  .cabecera { margin: 8px; }
+  .opciones { grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); }
+}

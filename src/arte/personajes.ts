@@ -6,12 +6,12 @@ import { C, SOMBRA, LUZ } from './paleta';
 // Eje de simetría: x = 15.5 (las parejas izquierda/derecha suman 31).
 
 export type Cuerpo = 'hombre' | 'mujer';
-export type Piel = 'muyClara' | 'clara' | 'media' | 'oscura' | 'muyOscura';
-export type Pelo = 'despeinado' | 'coleta' | 'rapado' | 'melena' | 'trenza' | 'mono';
+export type Piel = 'base' | 'muyClara' | 'clara' | 'media' | 'oscura' | 'muyOscura';
+export type Pelo = 'ninguno' | 'despeinado' | 'coleta' | 'rapado' | 'melena' | 'trenza' | 'mono';
 export type Rasgo = 'ninguno' | 'barba' | 'perilla' | 'bigote' | 'labios' | 'pecas' | 'lunar';
-export type Ropa = 'chaleco' | 'casaca' | 'rayas' | 'sinMangas';
-export type Pantalon = 'largo' | 'corto';
-export type Calzado = 'botasAltas' | 'botas' | 'sandalias';
+export type Ropa = 'ninguna' | 'chaleco' | 'casaca' | 'rayas' | 'sinMangas';
+export type Pantalon = 'ninguno' | 'largo' | 'corto';
+export type Calzado = 'descalzo' | 'botasAltas' | 'botas' | 'sandalias';
 export type Sombrero = 'ninguno' | 'tricornio' | 'bicornio' | 'paja' | 'panuelo' | 'gorro';
 export type Accesorio = 'parche' | 'aro' | 'garfio' | 'collar' | 'pipa' | 'panueloCuello';
 export type Cicatriz = 'mejilla' | 'ojo' | 'cruz' | 'frente' | 'barbilla';
@@ -41,13 +41,13 @@ export interface AspectoPersonaje {
 export const OPCIONES = {
   cuerpo: { hombre: 'Hombre', mujer: 'Mujer' } as Record<Cuerpo, string>,
   piel: { muyClara: 'Muy clara', clara: 'Clara', media: 'Morena', oscura: 'Oscura', muyOscura: 'Muy oscura' } as Record<Piel, string>,
-  peloHombre: { despeinado: 'Despeinado', coleta: 'Coleta de marinero', rapado: 'Rapado' } as Partial<Record<Pelo, string>>,
-  peloMujer: { melena: 'Melena suelta', trenza: 'Trenza', mono: 'Moño alto' } as Partial<Record<Pelo, string>>,
+  peloHombre: { ninguno: 'Sin pelo', despeinado: 'Despeinado', coleta: 'Coleta de marinero', rapado: 'Rapado' } as Partial<Record<Pelo, string>>,
+  peloMujer: { ninguno: 'Sin pelo', melena: 'Melena suelta', trenza: 'Trenza', mono: 'Moño alto' } as Partial<Record<Pelo, string>>,
   rasgoHombre: { ninguno: 'Ninguno', barba: 'Barba', perilla: 'Perilla', bigote: 'Bigote' } as Partial<Record<Rasgo, string>>,
   rasgoMujer: { ninguno: 'Ninguno', labios: 'Labios pintados', pecas: 'Pecas', lunar: 'Lunar' } as Partial<Record<Rasgo, string>>,
-  ropa: { chaleco: 'Camisa y chaleco', casaca: 'Casaca de capitán', rayas: 'Camiseta a rayas', sinMangas: 'Chaleco sin camisa' } as Record<Ropa, string>,
-  pantalon: { largo: 'Largo', corto: 'Bombacho corto' } as Record<Pantalon, string>,
-  calzado: { botasAltas: 'Botas altas', botas: 'Botas', sandalias: 'Sandalias' } as Record<Calzado, string>,
+  ropa: { ninguna: 'Ropa interior', chaleco: 'Camisa y chaleco', casaca: 'Casaca de capitán', rayas: 'Camiseta a rayas', sinMangas: 'Chaleco sin camisa' } as Record<Ropa, string>,
+  pantalon: { ninguno: 'Ropa interior', largo: 'Largo', corto: 'Bombacho corto' } as Record<Pantalon, string>,
+  calzado: { descalzo: 'Descalzo', botasAltas: 'Botas altas', botas: 'Botas', sandalias: 'Sandalias' } as Record<Calzado, string>,
   sombrero: { ninguno: 'Ninguno', tricornio: 'Tricornio', bicornio: 'Bicornio', paja: 'Sombrero de paja', panuelo: 'Pañuelo atado', gorro: 'Gorro de lana' } as Record<Sombrero, string>,
   accesorios: { parche: 'Parche', aro: 'Aro de oro', garfio: 'Garfio', collar: 'Collar de monedas', pipa: 'Pipa', panueloCuello: 'Pañuelo al cuello' } as Record<Accesorio, string>,
   cicatrices: { mejilla: 'En la mejilla', ojo: 'Sobre el ojo', cruz: 'En cruz', frente: 'En la frente', barbilla: 'En la barbilla' } as Record<Cicatriz, string>,
@@ -64,6 +64,7 @@ export const COLORES = {
 };
 
 const PIEL: Record<Piel, [number, number]> = {
+  base: [C.niebla, C.piedra], // maniquí sin color
   muyClara: [C.pergamino, C.pielClara],
   clara: [C.pielClara, C.pielMedia],
   media: [C.pielMedia, C.pielOscura],
@@ -112,10 +113,11 @@ export function dibujarPersonaje(a: AspectoPersonaje): Lienzo {
 
   // ---- 2. Piernas, pantalón y calzado
   const [li0, li1] = g.piernas.izq, [ld0, ld1] = g.piernas.der;
-  const finPantalon = a.pantalon === 'largo' ? 29 : 25;
-  L.rect(li0, 20, ld1 - li0 + 1, 2, a.colorPantalon);            // cadera
+  const sinPantalon = a.pantalon === 'ninguno';
+  const finPantalon = a.pantalon === 'largo' ? 29 : a.pantalon === 'corto' ? 25 : 21;
+  L.rect(li0, 20, ld1 - li0 + 1, 2, sinPantalon ? C.hueso : a.colorPantalon); // cadera (o calzón)
   for (let y = 22; y <= 29; y++) {
-    const c = y <= finPantalon ? a.colorPantalon : piel;
+    const c = y <= finPantalon && !sinPantalon ? a.colorPantalon : piel;
     L.rect(li0, y, li1 - li0 + 1, 1, c);
     L.rect(ld0, y, ld1 - ld0 + 1, 1, c);
   }
@@ -123,7 +125,9 @@ export function dibujarPersonaje(a: AspectoPersonaje): Lienzo {
   const pie = (x0: number, x1: number, haciaFuera: number) => {
     const ancho = x1 - x0 + 2;
     const xi = haciaFuera < 0 ? x0 - 1 : x0;
-    if (a.calzado === 'sandalias') {
+    if (a.calzado === 'descalzo') {
+      L.rect(xi, 29, ancho, 2, piel);
+    } else if (a.calzado === 'sandalias') {
       L.rect(xi, 29, ancho, 1, piel);
       L.rect(xi, 30, ancho, 1, a.colorCalzado);
       L.rect(x0, 28, x1 - x0 + 1, 1, a.colorCalzado);
@@ -162,6 +166,10 @@ export function dibujarPersonaje(a: AspectoPersonaje): Lienzo {
           c = y % 2 === 0 ? a.colorRopa : C.hueso;
           if (y === 11 && d <= 1.5) c = piel;
           break;
+        case 'ninguna':
+          c = piel;
+          if (mujer && d <= 4.5 && y >= 13 && y <= 15) c = C.hueso; // ropa interior
+          break;
         case 'sinMangas':
           c = d <= (mujer ? 1.5 : 2.5) ? piel : a.colorRopa;
           if (mujer && d <= 3.5 && y >= 13 && y <= 15) c = C.hueso; // top
@@ -170,7 +178,7 @@ export function dibujarPersonaje(a: AspectoPersonaje): Lienzo {
       L.px(x, y, c);
     }
   }
-  const manga: [number, number] = a.ropa === 'rayas' ? [B.y0, B.y0 + 2] : a.ropa === 'sinMangas' ? [B.y0, B.y0 - 1] : [B.y0, B.y1];
+  const manga: [number, number] = a.ropa === 'rayas' ? [B.y0, B.y0 + 2] : a.ropa === 'sinMangas' || a.ropa === 'ninguna' ? [B.y0, B.y0 - 1] : [B.y0, B.y1];
   const colorManga = a.ropa === 'chaleco' ? C.hueso : a.colorRopa;
   for (const bx of [B.izq, B.der]) {
     for (let y = B.y0; y <= B.y1; y++) {
@@ -180,7 +188,20 @@ export function dibujarPersonaje(a: AspectoPersonaje): Lienzo {
       L.rect(bx, y, 2, 1, c);
     }
     L.rect(bx, B.y1 + 1, 2, 2, piel);                              // mano
-    L.px(bx === B.izq ? bx + 1 : bx, 11, a.ropa === 'sinMangas' ? a.colorRopa : colorManga); // hombro
+    L.px(bx === B.izq ? bx + 1 : bx, 11, a.ropa === 'ninguna' ? piel : a.ropa === 'sinMangas' ? a.colorRopa : colorManga); // hombro
+  }
+  // Separación brazo/torso cuando ambos son piel
+  for (let y = B.y0; y <= B.y1; y++) {
+    const t = g.torso(y);
+    if (!t) continue;
+    if (L.get(t[0], y) === piel && L.get(B.izq + 1, y) === piel) L.px(t[0], y, pielS);
+    if (L.get(t[1], y) === piel && L.get(B.der, y) === piel) L.px(t[1], y, pielS);
+    if (L.get(B.der + 1, y) === piel) L.px(B.der + 1, y, pielS);
+  }
+  if (sinPantalon) { // calzón
+    const t = g.torso(19)!;
+    L.rect(t[0], 19, t[1] - t[0] + 1, 1, C.niebla);
+    L.rect(li0, 20, ld1 - li0 + 1, 2, C.hueso);
   }
   if (a.ropa === 'casaca') {
     for (const bx of [B.izq, B.der]) L.rect(bx, B.y1 - 1, 2, 2, C.oro); // puños
@@ -189,9 +210,11 @@ export function dibujarPersonaje(a: AspectoPersonaje): Lienzo {
     L.rect(li0 - 1, 25, 4, 1, C.oro); L.rect(ld1 - 2, 25, 4, 1, C.oro);
   }
   if (mujer) for (const x of [12, 13, 18, 19]) L.px(x, 15, SOMBRA[L.get(x, 15)] ?? 0);
-  const tf = g.torso(18)!;
-  L.rect(tf[0], 18, tf[1] - tf[0] + 1, 2, a.colorFaja);
-  L.px(19, 20, a.colorFaja); L.px(19, 21, a.colorFaja); L.px(20, 21, SOMBRA[a.colorFaja]);
+  if (a.colorFaja) { // 0 = sin faja
+    const tf = g.torso(18)!;
+    L.rect(tf[0], 18, tf[1] - tf[0] + 1, 2, a.colorFaja);
+    L.px(19, 20, a.colorFaja); L.px(19, 21, a.colorFaja); L.px(20, 21, SOMBRA[a.colorFaja]);
+  }
 
   // ---- 4. Cuello y cabeza (8x7, cara seria)
   L.rect(g.cuello[0], 10, g.cuello[1] - g.cuello[0] + 1, 1, pielS);
@@ -353,11 +376,19 @@ export function dibujarPersonaje(a: AspectoPersonaje): Lienzo {
   return L;
 }
 
+/** Punto de partida del creador: maniquí sin color, sin pelo y en ropa interior. */
+export const ASPECTO_BASE: AspectoPersonaje = {
+  cuerpo: 'hombre', piel: 'base', pelo: 'ninguno', colorPelo: C.corteza, rasgo: 'ninguno',
+  ropa: 'ninguna', colorRopa: C.granate, colorFaja: 0, pantalon: 'ninguno', colorPantalon: C.madera,
+  calzado: 'descalzo', colorCalzado: C.corteza, sombrero: 'ninguno', colorSombrero: C.granate,
+  accesorios: [], cicatrices: [],
+};
+
 /** Un aspecto al azar (para bots y el botón "al azar"). */
 export function aspectoAlAzar(r: () => number, cuerpo?: Cuerpo): AspectoPersonaje {
   const elige = <T,>(xs: readonly T[]) => xs[Math.floor(r() * xs.length)];
   const cu = cuerpo ?? elige(['hombre', 'mujer'] as const);
-  const pelos = Object.keys(cu === 'hombre' ? OPCIONES.peloHombre : OPCIONES.peloMujer) as Pelo[];
+  const pelos = (Object.keys(cu === 'hombre' ? OPCIONES.peloHombre : OPCIONES.peloMujer) as Pelo[]).filter((p) => p !== 'ninguno' || r() < 0.3);
   const rasgos = Object.keys(cu === 'hombre' ? OPCIONES.rasgoHombre : OPCIONES.rasgoMujer) as Rasgo[];
   const accs = (Object.keys(OPCIONES.accesorios) as Accesorio[]).filter(() => r() < 0.2);
   const cics = (Object.keys(OPCIONES.cicatrices) as Cicatriz[]).filter(() => r() < 0.15);
@@ -365,9 +396,9 @@ export function aspectoAlAzar(r: () => number, cuerpo?: Cuerpo): AspectoPersonaj
     cuerpo: cu,
     piel: elige(Object.keys(OPCIONES.piel) as Piel[]),
     pelo: elige(pelos), colorPelo: elige(COLORES.pelo), rasgo: elige(rasgos),
-    ropa: elige(Object.keys(OPCIONES.ropa) as Ropa[]), colorRopa: elige(COLORES.ropa), colorFaja: elige(COLORES.faja),
+    ropa: elige((Object.keys(OPCIONES.ropa) as Ropa[]).filter((x) => x !== 'ninguna')), colorRopa: elige(COLORES.ropa), colorFaja: elige(COLORES.faja),
     pantalon: elige(['largo', 'largo', 'corto'] as const), colorPantalon: elige(COLORES.pantalon),
-    calzado: elige(Object.keys(OPCIONES.calzado) as Calzado[]), colorCalzado: elige(COLORES.calzado),
+    calzado: elige((Object.keys(OPCIONES.calzado) as Calzado[]).filter((x) => x !== 'descalzo')), colorCalzado: elige(COLORES.calzado),
     sombrero: elige(Object.keys(OPCIONES.sombrero) as Sombrero[]), colorSombrero: elige(COLORES.sombrero),
     accesorios: accs, cicatrices: cics,
   };
