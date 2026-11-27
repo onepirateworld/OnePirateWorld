@@ -31,6 +31,7 @@ interface Pestana {
 
 const PESTANAS: Pestana[] = [
   { id: 'cuerpo', titulo: 'Cuerpo', clave: 'cuerpo', opciones: () => OPCIONES.cuerpo },
+  { id: 'complexion', titulo: 'Complexión', clave: 'complexion', opciones: () => OPCIONES.complexion },
   { id: 'piel', titulo: 'Piel', clave: 'piel', opciones: () => OPCIONES.piel },
   {
     id: 'pelo', titulo: 'Pelo', clave: 'pelo', cabeza: true,

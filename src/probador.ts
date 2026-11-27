@@ -109,16 +109,19 @@ export function montarMuestrario(raiz: HTMLElement) {
   const baseM: AspectoPersonaje = { ...structuredClone(baseH), cuerpo: 'mujer', pelo: 'melena', colorPelo: 8 };
 
   const filas: { titulo: string; items: { t: string; a: AspectoPersonaje }[] }[] = [
+    { titulo: 'Complexión', items: Object.entries(OPCIONES.complexion).flatMap(([v, t]) => [
+      { t: `${t} ♂`, a: { ...baseH, complexion: v as any, ropa: 'ninguna', colorFaja: 0 } }, { t: `${t} ♀`, a: { ...baseM, complexion: v as any, ropa: 'ninguna', colorFaja: 0 } },
+      { t: `${t} ♂ vestido`, a: { ...baseH, complexion: v as any } }]) },
     { titulo: 'Piel', items: Object.entries(OPCIONES.piel).map(([v, t]) => ({ t, a: { ...baseH, piel: v as any } })) },
     {
-      titulo: 'Pelo (3 de hombre, 3 de mujer)',
+      titulo: 'Pelo (hombre y mujer)',
       items: [
         ...Object.entries(OPCIONES.peloHombre).map(([v, t]) => ({ t: t!, a: { ...baseH, pelo: v as Pelo } })),
         ...Object.entries(OPCIONES.peloMujer).map(([v, t]) => ({ t: t!, a: { ...baseM, pelo: v as Pelo } })),
       ],
     },
     {
-      titulo: 'Cara (3 de hombre, 3 de mujer)',
+      titulo: 'Cara (hombre y mujer)',
       items: [
         ...Object.entries(OPCIONES.rasgoHombre).filter(([v]) => v !== 'ninguno').map(([v, t]) => ({ t: t!, a: { ...baseH, rasgo: v as Rasgo } })),
         ...Object.entries(OPCIONES.rasgoMujer).filter(([v]) => v !== 'ninguno').map(([v, t]) => ({ t: t!, a: { ...baseM, rasgo: v as Rasgo } })),
@@ -133,6 +136,10 @@ export function montarMuestrario(raiz: HTMLElement) {
       { t: 'Largo + botas', a: { ...baseH, calzado: 'botas' } },
       { t: 'Bombacho + sandalias', a: { ...baseH, pantalon: 'corto', calzado: 'sandalias' } },
       { t: 'Bombacho + botas', a: { ...baseM, pantalon: 'corto', calzado: 'botas' } },
+      { t: 'A rayas + zapatos', a: { ...baseH, pantalon: 'rayas', calzado: 'zapatos' } },
+      { t: 'Remendado + descalzo', a: { ...baseH, pantalon: 'rotos', calzado: 'descalzo' } },
+      { t: 'Bombacho largo + correas', a: { ...baseH, pantalon: 'ancho', calzado: 'botasHebilla' } },
+      { t: 'Bombacho largo ♀', a: { ...baseM, pantalon: 'ancho', calzado: 'botas' } },
     ] },
   ];
 
