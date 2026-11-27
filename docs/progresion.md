@@ -92,20 +92,26 @@ Las acciones ilegales suman **notoriedad**:
 ## 3. Rangos de la marina
 
 Los marines no tienen recompensa: tienen **méritos**. Para subir hacen falta los
-méritos **y** el nivel mínimo. Los rangos altos tienen **plazas limitadas por mar**
-(si no hay hueco, hay que esperar o ganárselo en un duelo de ascenso).
+méritos **y** el nivel mínimo. Los rangos altos tienen **plazas limitadas en cada
+uno de los cuatro mares** (Alba, Ocaso, Coral y Bruma): cada mar tiene su propia
+cadena de mando. Si no hay hueco, hay que esperar o ganárselo en un duelo de ascenso.
 
-| Rango | Méritos | Nivel mín. | Plazas por mar |
-|---|---|---|---|
-| Recluta | 0 | 1 | ∞ |
-| Marinero | 50 | 5 | ∞ |
-| Cabo | 150 | 10 | ∞ |
-| Sargento | 400 | 15 | ∞ |
-| Teniente | 1.000 | 20 | ∞ |
-| Capitán | 2.500 | 28 | 50 |
-| Comodoro | 6.000 | 35 | 20 |
-| Vicealmirante | 15.000 | 45 | 8 |
-| Almirante | 40.000 | 55 | 3 |
+| Rango | Méritos | Nivel mín. | Plazas en cada mar | Total por mundo |
+|---|---|---|---|---|
+| Recluta | 0 | 1 | ∞ | ∞ |
+| Marinero | 50 | 5 | ∞ | ∞ |
+| Cabo | 150 | 10 | ∞ | ∞ |
+| Sargento | 400 | 15 | ∞ | ∞ |
+| Teniente | 1.000 | 20 | ∞ | ∞ |
+| Capitán | 2.500 | 28 | 12 | 48 |
+| Comodoro | 6.000 | 35 | 5 | 20 |
+| Vicealmirante | 15.000 | 45 | 2 | 8 |
+| Almirante | 40.000 | 55 | **1** | **4** |
+
+- Cada **Almirante** manda en su mar: decide dónde patrulla su flota y qué piratas
+  son prioridad. Para ascender a Almirante hay que estar destinado en ese mar.
+- La Senda de las Mareas y la Senda Profunda no tienen Almirante propio: allí
+  van los mejores de los cuatro mares en misiones especiales.
 
 Méritos: misión cumplida 10–50 · patrulla 5 · capturar a un pirata = su recompensa
 ÷ 1 millón (mínimo 5) · defender una base 100. Desertar o perder contra un pirata
