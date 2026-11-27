@@ -99,6 +99,11 @@ const GEO: Record<Cuerpo, Geo> = {
 
 const dx = (x: number) => Math.abs(x - 15.5);
 
+/** Pinta un pequeño mapa de caracteres (cada carácter, un píxel). */
+function pintarMapa(L: Lienzo, ox: number, oy: number, filas: string[], colores: Record<string, number>) {
+  filas.forEach((f, y) => [...f].forEach((ch, x) => { if (colores[ch]) L.px(ox + x, oy + y, colores[ch]); }));
+}
+
 // Filas clave (sprite 32x32): cabeza 3-9, cuello 10, torso 11-19, piernas 20-29, suela 30.
 export function dibujarPersonaje(a: AspectoPersonaje): Lienzo {
   const L = new Lienzo(32, 32);
@@ -257,11 +262,17 @@ export function dibujarPersonaje(a: AspectoPersonaje): Lienzo {
   // ---- 5. Pelo de delante
   switch (a.pelo) {
     case 'despeinado':
-      L.rect(12, 1, 8, 4, pc); L.rect(11, 2, 10, 2, pc);
-      for (const x of [12, 14, 17, 19]) L.px(x, 0, pc);
-      L.px(11, 1, pc); L.px(20, 1, pc);
-      L.rect(12, 4, 1, 2, pc); L.rect(19, 4, 1, 2, pc);
-      L.px(15, 4, SOMBRA[pc]);
+      // Mechones de punta, estilo anime (dibujado a mano, píxel a píxel).
+      // '#' pelo, 's' sombra entre mechones, 'l' brillo. La columna 0 es x = 8.
+      pintarMapa(L, 8, 0, [
+        '...#..#...#.....',
+        '..###.##.###.#..',
+        '...#ll#s##ls##..',
+        '.#####s####s###.',
+        '##.###.##.###.##',
+        '...##..#...#....',
+        '...........#....',
+      ], { '#': pc, s: SOMBRA[pc], l: LUZ[pc] });
       break;
     case 'coleta':
       L.rect(13, 1, 6, 1, pc); L.rect(12, 2, 8, 2, pc);
