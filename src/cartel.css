@@ -1,0 +1,66 @@
+/* Hoja de vida en pergamino */
+.cartel-dlg {
+  padding: 0; border: none; background: transparent; width: min(400px, calc(100% - 24px));
+  max-height: calc(100dvh - 24px); overflow: auto; color: #3a2a1c;
+}
+.cartel-dlg::backdrop { background: rgba(7, 11, 24, 0.75); }
+.pergamino {
+  position: relative; padding: 18px 18px 20px; text-align: center;
+  background:
+    radial-gradient(circle at 20% 15%, rgba(160, 120, 70, 0.18), transparent 35%),
+    radial-gradient(circle at 80% 60%, rgba(160, 120, 70, 0.15), transparent 40%),
+    radial-gradient(circle at 30% 85%, rgba(160, 120, 70, 0.14), transparent 35%),
+    repeating-linear-gradient(0deg, rgba(120, 90, 50, 0.05) 0 2px, transparent 2px 5px),
+    #ecdcb8;
+  border: 3px solid #8a6a43; box-shadow: inset 0 0 40px rgba(110, 75, 35, 0.35), 0 6px 0 #4a3420;
+}
+.pergamino header { display: flex; justify-content: space-between; align-items: baseline; padding-right: 36px; }
+.cartel-titulo { white-space: nowrap; font-size: 22px; color: #8a4a1f; font-weight: 700; }
+.cartel-num { white-space: nowrap; font-size: 13px; color: #7a6248; letter-spacing: 1px; }
+.cartel-cerrar {
+  position: absolute; top: 12px; right: 12px; width: 30px; height: 30px; border-radius: 6px;
+  background: #8a6a43; color: #f6ead0; border: none; font-size: 14px;
+}
+.cartel-retrato {
+  width: 150px; height: 150px; margin: 12px auto 4px; border-radius: 50%;
+  border: 2px dashed #b08a5a; display: grid; place-items: center;
+}
+.cartel-retrato canvas { image-rendering: pixelated; }
+.cartel-nombre { font-size: 30px; margin: 4px 0 0; color: #2a1d12; overflow-wrap: anywhere; }
+.cartel-apodo { margin: 2px 0; font-size: 18px; color: #a4321f; font-weight: 700; }
+.cartel-bando { margin: 4px 0 12px; font-size: 15px; color: #5a4632; }
+.cartel-bando.bando-pirata::before { content: '☠ '; color: #a4321f; }
+.cartel-bando.bando-marine::before { content: '⚓ '; color: #2c4a8a; }
+.cartel-bando.bando-revolucionario::before { content: '✊ '; color: #3f7a3a; }
+.cartel-caja {
+  border: 2px solid #5a4632; outline: 1px solid #5a4632; outline-offset: 3px; margin: 8px 4px 14px; padding: 10px 10px 12px;
+  border-top-width: 4px; border-bottom-width: 4px;
+}
+.cartel-caja-fila { display: flex; justify-content: space-between; font-size: 13px; letter-spacing: 3px; font-weight: 700; }
+.cartel-caja-fila .rojo { color: #a4321f; }
+.cartel-cifra { display: block; font-size: 34px; margin: 8px 0 2px; color: #2a1d12; letter-spacing: 1px; }
+.cartel-cifra.larga { font-size: 27px; }
+.cartel-cifra.sin, .cartel-cifra.rango { font-size: 24px; }
+.cartel-caja small { color: #7a6248; font-size: 13px; }
+.cartel-sueno {
+  display: flex; gap: 10px; text-align: left; align-items: flex-start; margin: 8px 4px; padding: 10px 12px;
+  background: rgba(150, 115, 70, 0.16); border-radius: 8px;
+}
+.cartel-sueno .estrella { color: #c08a1f; font-size: 22px; line-height: 1; }
+.cartel-sueno small { color: #8a7258; letter-spacing: 2px; font-size: 12px; font-weight: 700; }
+.cartel-sueno p { margin: 2px 0 0; font-size: 15px; color: #2a1d12; }
+.cartel-sueno.fruta .estrella { color: #8a3fa8; }
+.cartel-cifras { display: grid; grid-template-columns: repeat(3, 1fr); margin: 12px 4px 6px; border-top: 2px dashed #b08a5a; border-bottom: 2px dashed #b08a5a; }
+.cartel-cifras div { padding: 10px 4px; display: flex; flex-direction: column; gap: 2px; }
+.cartel-cifras div + div { border-left: 2px dashed #b08a5a; }
+.cartel-cifras b { font-size: 22px; color: #2a1d12; }
+.cartel-cifras small { font-size: 11px; color: #8a7258; letter-spacing: 1px; }
+.cartel-rasgos { margin: 10px 0 4px; color: #8a4a1f; font-size: 16px; }
+.cartel-lugar { margin: 4px 0 0; color: #7a6248; font-size: 13px; }
+
+/* Botón de la ficha */
+.ficha-nombre-fila { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.btn-hoja {
+  flex: none; font: inherit; font-size: 12px; padding: 3px 7px; border-radius: 6px; cursor: pointer;
+  background: #ecdcb8; color: #5a3a1c; border: 2px solid #8a6a43; box-shadow: 0 2px 0 #4a3420;
+}

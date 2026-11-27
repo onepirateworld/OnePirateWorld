@@ -449,7 +449,7 @@ button { font-family: inherit; cursor: pointer; }
 @media (min-width: 900px) { .combate-arriba { max-width: 640px; } .combate-panel { max-width: 640px; } }
 
 /* --- Arsenal */
-.botones-fila { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+.botones-fila { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 8px; margin-top: 12px; }
 .items { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; }
 .item { background: #12304f; border: 2px solid var(--r, var(--panel-borde)); border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; gap: 3px; }
 .item b { font-size: 15px; }

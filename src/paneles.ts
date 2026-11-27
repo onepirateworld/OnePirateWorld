@@ -5,6 +5,7 @@ import { dibujarPersonaje, type AspectoPersonaje } from './arte/personajes';
 import { dibujarFruta, siluetaFruta } from './arte/frutas';
 import { FRUTAS, CATEGORIAS, RAREZAS, DEBILIDAD_COMUN } from './datos/frutas';
 import { RASGOS } from './datos/caracter';
+import { abrirCartel } from './cartel';
 import { LOGROS, NOMBRES_ESTADISTICAS, estadisticasIniciales, objetivosPara, type Estadisticas } from './datos/progreso';
 import {
   BANDOS, actualizarPersonaje, arsenalDe, cuentaActual, esModerador, marActual, personajeActivo, type PersonajeGuardado,
@@ -137,7 +138,7 @@ export function crearPaneles(acc: Acciones) {
         </div>
       </div>
 
-      <div class="botones-fila"><button class="boton-oro" data-ir="arsenal">🗡 Arsenal</button><button class="boton-oro" data-accion="entrenar">⚔ Entrenar</button></div>
+      <div class="botones-fila"><button class="boton-oro" data-accion="hoja">📜 Hoja de vida</button><button class="boton-oro" data-ir="arsenal">🗡 Arsenal</button><button class="boton-oro" data-accion="entrenar">⚔ Entrenar</button></div>
 
       <h3>Estadísticas</h3>
       <div class="barras">${(Object.keys(NOMBRES_ESTADISTICAS) as (keyof Estadisticas)[]).map((k) => `
@@ -493,6 +494,7 @@ export function crearPaneles(acc: Acciones) {
       else if (a === 'mares') acc.abrirMares();
       else if (a === 'salir') { cerrar(); acc.cerrarSesion(); }
       else if (a === 'entrenar') { cerrar(); acc.entrenar(); }
+      else if (a === 'hoja') { const p = personajeActivo(); if (p) abrirCartel(p); }
     }));
   }
 

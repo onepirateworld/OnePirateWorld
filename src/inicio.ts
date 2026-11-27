@@ -22,6 +22,7 @@ import { iniciarCombate } from './combate/pantalla';
 import { actualizarPersonaje, type PersonajeGuardado } from './cuenta';
 import type { Bot } from './mundo/habitantes';
 import { icono } from './iconos';
+import { abrirCartel } from './cartel';
 import {
   BANDOS, MARES, META_COMUNIDAD, cerrarSesion, cuentaActual, elegirActivo, firmarPacto, marActual,
   personajeActivo, personajes, type Bando,
@@ -116,7 +117,7 @@ function pintar() {
     ficha.append(cuerpo, boton('Crear personaje', abrirPerfil));
   } else {
     cuerpo.innerHTML = `
-      <b class="ficha-nombre">${esc(p.nombre)}</b>
+      <div class="ficha-nombre-fila"><b class="ficha-nombre">${esc(p.nombre)}</b><button class="btn-hoja" id="btn-hoja" title="Ver hoja de vida">📜 Ver</button></div>
       <span class="insignias">
         <span class="insignia bando-${p.bando}">${icono('bandera', '#f2b63d')} ${BANDOS[p.bando].nombre}</span>
         ${p.creador ? '<span class="insignia creador-ins">Creador</span>' : ''}
@@ -241,6 +242,7 @@ $('#btn-mapa').addEventListener('click', () => { if (!mapa?.visible) abrirMapa()
 $('#btn-localizar').innerHTML = icono('diana', '#f2b63d');
 $('#btn-localizar').addEventListener('click', localizar);
 document.addEventListener('click', (e) => { if ((e.target as HTMLElement).closest('#ficha-lugar')) localizar(); });
+document.addEventListener('click', (e) => { if ((e.target as HTMLElement).closest('#btn-hoja')) { const p = personajeActivo(); if (p) abrirCartel(p); } });
 const paneles = crearPaneles({
   aviso, localizar: () => localizar(), abrirPerfil: () => abrirPerfil(), abrirMares: () => abrirMares(),
   cerrarSesion: async () => { await cerrarSesion(); miEstado = null; pintar(); aviso('Sesión cerrada.'); }, rutaGaleria: ruta('galeria/index.html'),
