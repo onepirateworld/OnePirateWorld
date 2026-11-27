@@ -160,18 +160,28 @@ export function guardar(f: FilaPersonaje) {
   clearTimeout(temporizador);
   temporizador = window.setTimeout(enviarPendientes, 1500);
 }
-async function enviarPendientes() {
+/** Envía ya lo pendiente (antes de cambiar de página). Devuelve un error en texto o null. */
+export async function guardarAhora(): Promise<string | null> {
+  clearTimeout(temporizador);
+  return enviarPendientes();
+}
+async function enviarPendientes(): Promise<string | null> {
   const filas = [...pendientes.values()];
   pendientes.clear();
-  if (!filas.length || !estado.usuario) return;
+  if (!filas.length || !estado.usuario) return null;
   const { data, error } = await sb.from('personajes').upsert(filas.map((f) => ({ ...f, dueno: estado.usuario!.id }))).select();
-  if (error) { console.warn('No se pudo guardar en el servidor', error.message); return; }
+  if (error) {
+    console.warn('No se pudo guardar en el servidor', error.message);
+    for (const f of filas) if (!pendientes.has(f.id)) pendientes.set(f.id, f);   // se reintenta luego
+    return error.message;
+  }
   // El servidor puede corregir cosas (por ejemplo, los datos del creador)
   for (const f of (data ?? []) as FilaPersonaje[]) {
     const i = estado.mios.findIndex((x) => x.id === f.id);
     if (i >= 0) estado.mios[i] = { ...f, datos: estado.mios[i].datos };
   }
   escribir('srv.mios', estado.mios);
+  return null;
 }
 window.addEventListener('beforeunload', () => { if (pendientes.size) void enviarPendientes(); });
 

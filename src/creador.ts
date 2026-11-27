@@ -5,6 +5,7 @@ import './estilos.css';
 import './creador.css';
 import { Lienzo, azar } from './arte/lienzo';
 import { PALETA } from './arte/paleta';
+import { guardarAhora } from './servidor';
 import { BANDOS, cuentaActual, guardarPersonaje, marActual, type Bando } from './cuenta';
 import { MAX_RASGOS, RASGOS, puedeAnadir, suenosPara } from './datos/caracter';
 import { iniciar as iniciarServidor } from './servidor';
@@ -335,7 +336,7 @@ const pasoBando = document.querySelector<HTMLElement>('#paso-bando')!;
 pasoBando.innerHTML = `<a href="${portada('?perfil=1')}">1 · ${BANDOS[bando].nombre} ✓</a>`;
 
 // --- Soltar al mundo: comprueba que esté todo y guarda
-document.addEventListener('click', (e) => {
+document.addEventListener('click', async (e) => {
   if (!(e.target as HTMLElement).closest('#soltar')) return;
   const nombre = extra.nombre.trim();
   const sueno = textoSueno();
@@ -347,6 +348,14 @@ document.addEventListener('click', (e) => {
   }
   if (!cuentaActual()) { location.href = portada('?pacto=1'); return; }
   guardarPersonaje({ nombre, apodo: extra.apodo.trim() || undefined, bando, aspecto: a, rasgos: [...extra.rasgos], sueno, mar: marActual() });
+  const boton = document.querySelector<HTMLButtonElement>('#soltar')!;
+  boton.disabled = true; boton.textContent = 'Guardando…';
+  const error = await guardarAhora();
+  if (error) {
+    boton.disabled = false; boton.textContent = 'Soltar al mundo ⚓';
+    document.querySelector('#vista-nombre')!.innerHTML = `<span class="falta">No se pudo guardar: ${error}</span>`;
+    return;
+  }
   try { localStorage.removeItem(CLAVE_BORRADOR); localStorage.removeItem(CLAVE_EXTRA); } catch { /* nada */ }
   location.href = portada(`?mar=${marActual()}&creado=1`);
 });
