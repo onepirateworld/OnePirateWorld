@@ -1,5 +1,9 @@
 import './estilos.css';
 import './galeria.css';
+import { montarProbador, montarMuestrario } from './probador';
+
+montarProbador(document.getElementById('probador')!);
+montarMuestrario(document.getElementById('muestrario')!);
 
 interface Item { id: string; nombre: string; archivo: string; ancho: number; alto: number; descripcion?: string; meta?: Record<string, any> }
 interface Grupo { id: string; titulo: string; fondo: string; items: Item[] }

@@ -168,26 +168,50 @@
       "fondo": "pergamino",
       "items": [
         {
-          "id": "pirata",
-          "nombre": "Pirata",
-          "descripcion": "Tricornio, chaleco abierto y faja roja. Parche en el ojo.",
-          "archivo": "personajes/pirata.png",
+          "id": "capitan",
+          "nombre": "Capitán de casaca",
+          "descripcion": "Tricornio, casaca con solapas doradas, barba y parche.",
+          "archivo": "personajes/capitan.png",
           "ancho": 32,
           "alto": 32
         },
         {
-          "id": "marine",
-          "nombre": "Marine",
-          "descripcion": "Gorra blanca con ancla, abrigo azul con botones dorados.",
-          "archivo": "personajes/marine.png",
+          "id": "grumete",
+          "nombre": "Grumete de paja",
+          "descripcion": "Sombrero de paja, chaleco sin camisa, bombacho y sandalias.",
+          "archivo": "personajes/grumete.png",
           "ancho": 32,
           "alto": 32
         },
         {
-          "id": "revolucionario",
-          "nombre": "Revolucionario",
-          "descripcion": "Capucha verde, pañuelo que tapa la boca y túnica de viaje.",
-          "archivo": "personajes/revolucionario.png",
+          "id": "contramaestre",
+          "nombre": "Contramaestre",
+          "descripcion": "Rapado, bigote, camiseta a rayas, garfio y pipa.",
+          "archivo": "personajes/contramaestre.png",
+          "ancho": 32,
+          "alto": 32
+        },
+        {
+          "id": "capitana",
+          "nombre": "Capitana del bicornio",
+          "descripcion": "Melena roja, bicornio de capitana y casaca azul.",
+          "archivo": "personajes/capitana.png",
+          "ancho": 32,
+          "alto": 32
+        },
+        {
+          "id": "artillera",
+          "nombre": "Artillera",
+          "descripcion": "Trenza, pañuelo atado a la cabeza, camisa y chaleco verde.",
+          "archivo": "personajes/artillera.png",
+          "ancho": 32,
+          "alto": 32
+        },
+        {
+          "id": "navegante",
+          "nombre": "Navegante",
+          "descripcion": "Moño alto, chaleco sin camisa, bombacho y lunar.",
+          "archivo": "personajes/navegante.png",
           "ancho": 32,
           "alto": 32
         }
