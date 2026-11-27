@@ -1,0 +1,521 @@
+{
+  "paleta": [
+    {
+      "id": 1,
+      "nombre": "Tinta",
+      "hex": "#1a1423"
+    },
+    {
+      "id": 2,
+      "nombre": "Noche",
+      "hex": "#2b2d4f"
+    },
+    {
+      "id": 3,
+      "nombre": "Sombra violeta",
+      "hex": "#4a3a6b"
+    },
+    {
+      "id": 4,
+      "nombre": "Piedra",
+      "hex": "#6b6a7d"
+    },
+    {
+      "id": 5,
+      "nombre": "Niebla",
+      "hex": "#a9a7b8"
+    },
+    {
+      "id": 6,
+      "nombre": "Hueso",
+      "hex": "#f2ecdc"
+    },
+    {
+      "id": 7,
+      "nombre": "Corteza",
+      "hex": "#4a2c22"
+    },
+    {
+      "id": 8,
+      "nombre": "Madera",
+      "hex": "#7a4a2e"
+    },
+    {
+      "id": 9,
+      "nombre": "Madera clara",
+      "hex": "#b07a45"
+    },
+    {
+      "id": 10,
+      "nombre": "Arena",
+      "hex": "#e0c088"
+    },
+    {
+      "id": 11,
+      "nombre": "Pergamino",
+      "hex": "#f0dcae"
+    },
+    {
+      "id": 12,
+      "nombre": "Piel oscura",
+      "hex": "#5e3a2a"
+    },
+    {
+      "id": 13,
+      "nombre": "Piel media",
+      "hex": "#a86b48"
+    },
+    {
+      "id": 14,
+      "nombre": "Piel clara",
+      "hex": "#e8b58f"
+    },
+    {
+      "id": 15,
+      "nombre": "Granate",
+      "hex": "#7d2230"
+    },
+    {
+      "id": 16,
+      "nombre": "Rojo",
+      "hex": "#c43a3a"
+    },
+    {
+      "id": 17,
+      "nombre": "Naranja",
+      "hex": "#e77b33"
+    },
+    {
+      "id": 18,
+      "nombre": "Oro",
+      "hex": "#f2b63d"
+    },
+    {
+      "id": 19,
+      "nombre": "Limón",
+      "hex": "#f7e27a"
+    },
+    {
+      "id": 20,
+      "nombre": "Selva",
+      "hex": "#1f4a3a"
+    },
+    {
+      "id": 21,
+      "nombre": "Hoja",
+      "hex": "#3d8a4a"
+    },
+    {
+      "id": 22,
+      "nombre": "Brote",
+      "hex": "#8cc85a"
+    },
+    {
+      "id": 23,
+      "nombre": "Abismo",
+      "hex": "#12304f"
+    },
+    {
+      "id": 24,
+      "nombre": "Mar hondo",
+      "hex": "#1d5a85"
+    },
+    {
+      "id": 25,
+      "nombre": "Mar",
+      "hex": "#2f8ac0"
+    },
+    {
+      "id": 26,
+      "nombre": "Bajío",
+      "hex": "#5cc3d8"
+    },
+    {
+      "id": 27,
+      "nombre": "Espuma",
+      "hex": "#b8ecef"
+    },
+    {
+      "id": 28,
+      "nombre": "Azul marina",
+      "hex": "#2c4a8a"
+    },
+    {
+      "id": 29,
+      "nombre": "Coral",
+      "hex": "#e88ba0"
+    },
+    {
+      "id": 30,
+      "nombre": "Magenta",
+      "hex": "#a33a7a"
+    },
+    {
+      "id": 31,
+      "nombre": "Violeta",
+      "hex": "#7a4ac0"
+    },
+    {
+      "id": 32,
+      "nombre": "Lila",
+      "hex": "#b89ae0"
+    }
+  ],
+  "grupos": [
+    {
+      "id": "personajes",
+      "titulo": "Personajes",
+      "fondo": "pergamino",
+      "items": [
+        {
+          "id": "pirata",
+          "nombre": "Pirata",
+          "descripcion": "Tricornio, chaleco abierto y faja roja. Parche en el ojo.",
+          "archivo": "personajes/pirata.png",
+          "ancho": 32,
+          "alto": 32
+        },
+        {
+          "id": "marine",
+          "nombre": "Marine",
+          "descripcion": "Gorra blanca con ancla, abrigo azul con botones dorados.",
+          "archivo": "personajes/marine.png",
+          "ancho": 32,
+          "alto": 32
+        },
+        {
+          "id": "revolucionario",
+          "nombre": "Revolucionario",
+          "descripcion": "Capucha verde, pañuelo que tapa la boca y túnica de viaje.",
+          "archivo": "personajes/revolucionario.png",
+          "ancho": 32,
+          "alto": 32
+        }
+      ]
+    },
+    {
+      "id": "barcos",
+      "titulo": "Barcos",
+      "fondo": "mar",
+      "items": [
+        {
+          "id": "barca",
+          "nombre": "Barca",
+          "descripcion": "El primer barco: una vela, dos remos y mucha fe.",
+          "archivo": "barcos/barca.png",
+          "ancho": 32,
+          "alto": 24
+        },
+        {
+          "id": "carabela",
+          "nombre": "Carabela",
+          "descripcion": "Rápida y ágil. Vela latina y dos mástiles.",
+          "archivo": "barcos/carabela.png",
+          "ancho": 48,
+          "alto": 40
+        },
+        {
+          "id": "galeon",
+          "nombre": "Galeón",
+          "descripcion": "Tres mástiles, ocho cañones y castillo de popa.",
+          "archivo": "barcos/galeon.png",
+          "ancho": 64,
+          "alto": 56
+        }
+      ]
+    },
+    {
+      "id": "islas",
+      "titulo": "Islas",
+      "fondo": "mar",
+      "items": [
+        {
+          "id": "isla-tropical",
+          "nombre": "Cayo Palmera",
+          "descripcion": "Tropical. Muelle de madera y cabaña de pescadores.",
+          "archivo": "islas/isla-tropical.png",
+          "ancho": 64,
+          "alto": 64
+        },
+        {
+          "id": "isla-nevada",
+          "nombre": "Escarcha Alta",
+          "descripcion": "Nevada. Pinos y un pico helado en el centro.",
+          "archivo": "islas/isla-nevada.png",
+          "ancho": 64,
+          "alto": 64
+        },
+        {
+          "id": "isla-volcanica",
+          "nombre": "Fragua Negra",
+          "descripcion": "Volcánica. Ríos de lava y playas de piedra oscura.",
+          "archivo": "islas/isla-volcanica.png",
+          "ancho": 64,
+          "alto": 64
+        },
+        {
+          "id": "isla-desierto",
+          "nombre": "Dunas de Sal",
+          "descripcion": "Desierto. Oasis y una torre en ruinas.",
+          "archivo": "islas/isla-desierto.png",
+          "ancho": 64,
+          "alto": 64
+        },
+        {
+          "id": "isla-flotante",
+          "nombre": "Peñón del Cielo",
+          "descripcion": "Flotante. Un templo antiguo sobre una roca que vuela.",
+          "archivo": "islas/isla-flotante.png",
+          "ancho": 64,
+          "alto": 64
+        }
+      ]
+    },
+    {
+      "id": "frutas",
+      "titulo": "Frutas del poder",
+      "fondo": "pergamino",
+      "items": [
+        {
+          "id": "muelle",
+          "nombre": "Fruta Muelle",
+          "descripcion": "El cuerpo se vuelve un resorte: se comprime y sale disparado.",
+          "archivo": "frutas/muelle.png",
+          "ancho": 24,
+          "alto": 24,
+          "meta": {
+            "categoria": "Talladas",
+            "rareza": "Rara",
+            "colorRareza": "#5cc3d8",
+            "tecnicas": [
+              "Salto de Ballesta",
+              "Puño Retráctil",
+              "Rebote Loco"
+            ],
+            "debilidad": "El frío intenso lo deja rígido y sin rebote.",
+            "silueta": "frutas/siluetas/muelle.png"
+          }
+        },
+        {
+          "id": "espejo",
+          "nombre": "Fruta Espejo",
+          "descripcion": "Crea superficies de espejo que devuelven golpes y luz.",
+          "archivo": "frutas/espejo.png",
+          "ancho": 24,
+          "alto": 24,
+          "meta": {
+            "categoria": "Talladas",
+            "rareza": "Épica",
+            "colorRareza": "#b89ae0",
+            "tecnicas": [
+              "Muro de Azogue",
+              "Reflejo Devuelto",
+              "Laberinto de Plata"
+            ],
+            "debilidad": "Si rompen su espejo principal, el portador se agrieta también.",
+            "silueta": "frutas/siluetas/espejo.png"
+          }
+        },
+        {
+          "id": "eco",
+          "nombre": "Fruta Eco",
+          "descripcion": "Guarda sonidos dentro del cuerpo y los suelta multiplicados.",
+          "archivo": "frutas/eco.png",
+          "ancho": 24,
+          "alto": 24,
+          "meta": {
+            "categoria": "Talladas",
+            "rareza": "Rara",
+            "colorRareza": "#5cc3d8",
+            "tecnicas": [
+              "Grito Guardado",
+              "Tambor de Pecho",
+              "Oído de Murciélago"
+            ],
+            "debilidad": "En silencio total (niebla espesa, nieve) se queda sin munición.",
+            "silueta": "frutas/siluetas/eco.png"
+          }
+        },
+        {
+          "id": "raiz",
+          "nombre": "Fruta Raíz",
+          "descripcion": "Le brotan raíces del cuerpo que agarran, trepan y anclan.",
+          "archivo": "frutas/raiz.png",
+          "ancho": 24,
+          "alto": 24,
+          "meta": {
+            "categoria": "Talladas",
+            "rareza": "Común",
+            "colorRareza": "#a9a7b8",
+            "tecnicas": [
+              "Lazo de Raíz",
+              "Ancla Viva",
+              "Bosque en Puño"
+            ],
+            "debilidad": "El fuego y la sequía marchitan sus raíces.",
+            "silueta": "frutas/siluetas/raiz.png"
+          }
+        },
+        {
+          "id": "jaguar",
+          "nombre": "Fruta Fiera modelo Jaguar",
+          "descripcion": "Se transforma en jaguar o en un híbrido mitad hombre, mitad felino.",
+          "archivo": "frutas/jaguar.png",
+          "ancho": 24,
+          "alto": 24,
+          "meta": {
+            "categoria": "Salvajes",
+            "rareza": "Rara",
+            "colorRareza": "#5cc3d8",
+            "tecnicas": [
+              "Zarpazo Moteado",
+              "Acecho Nocturno",
+              "Salto de Rama"
+            ],
+            "debilidad": "Mojado pierde casi toda su velocidad.",
+            "silueta": "frutas/siluetas/jaguar.png"
+          }
+        },
+        {
+          "id": "pulpo",
+          "nombre": "Fruta Fiera modelo Pulpo",
+          "descripcion": "Ocho brazos con ventosas, piel que cambia de color y tinta.",
+          "archivo": "frutas/pulpo.png",
+          "ancho": 24,
+          "alto": 24,
+          "meta": {
+            "categoria": "Salvajes",
+            "rareza": "Épica",
+            "colorRareza": "#b89ae0",
+            "tecnicas": [
+              "Tinta Ciega",
+              "Ocho Nudos",
+              "Ventosa de Hierro"
+            ],
+            "debilidad": "Se reseca enseguida en zonas de desierto o volcán.",
+            "silueta": "frutas/siluetas/pulpo.png"
+          }
+        },
+        {
+          "id": "halcon",
+          "nombre": "Fruta Fiera modelo Halcón",
+          "descripcion": "Alas, vista de largo alcance y picados a gran velocidad.",
+          "archivo": "frutas/halcon.png",
+          "ancho": 24,
+          "alto": 24,
+          "meta": {
+            "categoria": "Salvajes",
+            "rareza": "Rara",
+            "colorRareza": "#5cc3d8",
+            "tecnicas": [
+              "Picado de Halcón",
+              "Ojo de Altura",
+              "Garra Cortavientos"
+            ],
+            "debilidad": "El viento de tormenta lo tira al suelo.",
+            "silueta": "frutas/siluetas/halcon.png"
+          }
+        },
+        {
+          "id": "ceniza",
+          "nombre": "Fruta Ceniza",
+          "descripcion": "El cuerpo se convierte en ceniza ardiente que quema y ciega.",
+          "archivo": "frutas/ceniza.png",
+          "ancho": 24,
+          "alto": 24,
+          "meta": {
+            "categoria": "Primordiales",
+            "rareza": "Legendaria",
+            "colorRareza": "#f2b63d",
+            "tecnicas": [
+              "Nube Ardiente",
+              "Lluvia Gris",
+              "Brasa Dormida"
+            ],
+            "debilidad": "El agua la vuelve barro pesado y lento.",
+            "silueta": "frutas/siluetas/ceniza.png"
+          }
+        },
+        {
+          "id": "niebla",
+          "nombre": "Fruta Niebla",
+          "descripcion": "Se disuelve en niebla: atraviesa golpes y esconde barcos enteros.",
+          "archivo": "frutas/niebla.png",
+          "ancho": 24,
+          "alto": 24,
+          "meta": {
+            "categoria": "Primordiales",
+            "rareza": "Épica",
+            "colorRareza": "#b89ae0",
+            "tecnicas": [
+              "Velo Blanco",
+              "Paso de Bruma",
+              "Abrazo Húmedo"
+            ],
+            "debilidad": "El viento fuerte la dispersa y le cuesta volver a juntarse.",
+            "silueta": "frutas/siluetas/niebla.png"
+          }
+        },
+        {
+          "id": "ambar",
+          "nombre": "Fruta Ámbar",
+          "descripcion": "Resina dorada que se endurece y atrapa todo lo que toca.",
+          "archivo": "frutas/ambar.png",
+          "ancho": 24,
+          "alto": 24,
+          "meta": {
+            "categoria": "Primordiales",
+            "rareza": "Legendaria",
+            "colorRareza": "#f2b63d",
+            "tecnicas": [
+              "Gota Eterna",
+              "Prisión de Miel",
+              "Coraza Dorada"
+            ],
+            "debilidad": "El calor la ablanda y la vuelve pegajosa para él mismo.",
+            "silueta": "frutas/siluetas/ambar.png"
+          }
+        }
+      ]
+    },
+    {
+      "id": "ui",
+      "titulo": "Interfaz",
+      "fondo": "noche",
+      "items": [
+        {
+          "id": "panel-pergamino",
+          "nombre": "Panel pergamino",
+          "descripcion": "Fondo de fichas y textos. 9 trozos, borde 8 px.",
+          "archivo": "ui/panel-pergamino.png",
+          "ancho": 24,
+          "alto": 24
+        },
+        {
+          "id": "panel-madera",
+          "nombre": "Panel madera",
+          "descripcion": "Marcos de menú y barras. 9 trozos, borde 8 px.",
+          "archivo": "ui/panel-madera.png",
+          "ancho": 24,
+          "alto": 24
+        },
+        {
+          "id": "boton",
+          "nombre": "Botón",
+          "descripcion": "Botón de madera. 9 trozos, borde 6 px.",
+          "archivo": "ui/boton.png",
+          "ancho": 24,
+          "alto": 24
+        },
+        {
+          "id": "boton-pulsado",
+          "nombre": "Botón pulsado",
+          "descripcion": "Estado al pulsar.",
+          "archivo": "ui/boton-pulsado.png",
+          "ancho": 24,
+          "alto": 24
+        }
+      ]
+    }
+  ]
+}
