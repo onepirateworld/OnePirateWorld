@@ -61,3 +61,4 @@ img, canvas { image-rendering: pixelated; }
 .boton:active, .boton.activo { border-image-source: url('/assets/ui/boton-pulsado.png'); color: var(--hueso); }
 
 h1, h2, h3 { font-weight: 700; margin: 0; }
+[hidden] { display: none !important; }

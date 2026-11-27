@@ -217,3 +217,54 @@ button { font-family: inherit; cursor: pointer; }
   .pastilla-texto small { font-size: 10px; letter-spacing: 1px; }
   .pastilla-cambiar { padding: 5px 7px; font-size: 12px; }
 }
+
+/* --- Mapa 2D */
+.mapa { position: fixed; inset: 0; opacity: 0; pointer-events: none; transition: opacity 0.35s; background: #1d5a85; }
+.mapa.activo { opacity: 1; pointer-events: auto; }
+.en-mapa .mundo { opacity: 0; pointer-events: none; transition: opacity 0.35s; }
+.mapa-lienzo { width: 100%; height: 100%; display: block; image-rendering: pixelated; touch-action: none; cursor: grab; }
+.mapa-lienzo:active { cursor: grabbing; }
+.mapa-etiquetas { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.mapa-etq { position: absolute; left: 0; top: 0; white-space: nowrap; text-align: center; line-height: 1.1;
+  text-shadow: 2px 0 #0b1124, -2px 0 #0b1124, 0 2px #0b1124, 0 -2px #0b1124; }
+.etq-isla { font-size: 13px; font-weight: 700; color: var(--texto); }
+.etq-isla small { display: block; font-size: 11px; font-weight: 400; color: #f2b63d; }
+.etq-zona { font-size: 15px; font-weight: 700; color: var(--texto); opacity: 0.85; }
+.etq-mareas, .etq-profunda { color: #f7e27a; }
+.etq-espinazo { color: #e88ba0; letter-spacing: 3px; text-transform: uppercase; font-size: 12px; }
+.etq-yo { z-index: 2; }
+.pin-yo {
+  display: inline-block; background: #f2b63d; color: #1a1423; font-weight: 700; font-size: 13px; padding: 2px 8px;
+  border: 2px solid #1a1423; border-radius: 8px; text-shadow: none; animation: flotar 1.6s ease-in-out infinite;
+}
+@keyframes flotar { 50% { transform: translateY(-3px); } }
+
+/* --- Marcadores en el planeta */
+.marca { position: absolute; left: 0; top: 0; opacity: 0; pointer-events: none; }
+.marca-bot { width: 6px; height: 6px; border: 1px solid #0b1124; }
+.marca-yo {
+  display: flex; flex-direction: column; align-items: center; z-index: 2;
+}
+.marca-yo canvas { image-rendering: pixelated; background: #12304f; border: 2px solid #f2b63d; border-radius: 50%; }
+.marca-yo::after { content: ''; width: 0; height: 0; border: 6px solid transparent; border-top-color: #f2b63d; }
+.marca-texto { order: -1; background: #f2b63d; color: #1a1423; font-weight: 700; font-size: 12px; padding: 0 6px; border-radius: 6px; margin-bottom: 2px; }
+
+/* --- Ubicación en la ficha y tarjeta de personaje/isla */
+.ficha-lugar {
+  display: inline-flex; align-items: center; gap: 6px; background: none; border: none; padding: 0; color: #f2b63d;
+  font-size: 13px; text-align: left; text-decoration: underline; text-underline-offset: 3px;
+}
+.ficha-lugar .icono { width: 14px; height: 14px; flex: none; }
+.tarjeta {
+  position: fixed; left: 10px; right: 10px; bottom: calc(210px + env(safe-area-inset-bottom)); z-index: 6;
+  max-width: 460px; margin: 0 auto; display: flex; gap: 12px; align-items: center; padding: 10px 44px 10px 10px;
+  background: var(--panel); border: 2px solid #f2b63d; border-radius: 14px; box-shadow: 0 4px 0 var(--panel-sombra);
+}
+.tarjeta canvas { image-rendering: pixelated; background: #12304f; border-radius: 8px; flex: none; }
+.tarjeta div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.tarjeta b { font-size: 18px; }
+.tarjeta em { color: #f2b63d; font-style: normal; font-size: 14px; }
+.tarjeta small { color: var(--texto-suave); font-size: 13px; }
+.tarjeta .sueno-txt { color: var(--acento); }
+.tarjeta-cerrar { position: absolute; top: 8px; right: 8px; width: 30px; height: 30px; border-radius: 8px; border: none; background: #2b2d4f; color: var(--texto); }
+@media (max-width: 520px) { .tarjeta { bottom: calc(250px + env(safe-area-inset-bottom)); } }

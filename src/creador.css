@@ -97,3 +97,42 @@ canvas { image-rendering: pixelated; display: block; }
   width: 100%; font: inherit; font-size: 18px; padding: 8px; margin-top: 4px;
   border: 2px solid var(--madera); background: var(--hueso); color: var(--tinta);
 }
+
+/* Pasos navegables */
+.pasos li button { all: unset; cursor: pointer; }
+.pasos li.actual button { cursor: default; }
+.pasos li:has(button):hover:not(.actual) { border-color: var(--oro); }
+
+/* Paso 3: carácter */
+.aviso-rasgo { min-height: 1.3em; color: var(--rojo); margin: 0 0 6px; font-weight: 700; }
+.rasgos { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+.rasgo {
+  font: inherit; text-align: left; cursor: pointer; color: var(--tinta);
+  display: flex; flex-direction: column; gap: 4px;
+  background: var(--hueso); border: 2px solid var(--madera-clara); padding: 8px 10px;
+}
+.rasgo b { font-size: 18px; }
+.rasgo .ventaja { color: #1f4a3a; font-size: 14px; }
+.rasgo .desventaja { color: #7d2230; font-size: 14px; }
+.rasgo:hover { border-color: var(--madera); }
+.rasgo.sel { background: var(--oro); border-color: var(--tinta); box-shadow: inset 0 0 0 2px var(--tinta); }
+.rasgo.sel b::after { content: ' ✓'; }
+.rasgo.bloqueado { opacity: 0.5; }
+
+/* Paso 4: sueño y nombre */
+.suenos { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; }
+.sueno {
+  font: inherit; font-size: 15px; text-align: left; cursor: pointer; color: var(--tinta);
+  background: var(--hueso); border: 2px solid var(--madera-clara); padding: 8px 10px; line-height: 1.3;
+}
+.sueno.sel { background: var(--oro); border-color: var(--tinta); box-shadow: inset 0 0 0 2px var(--tinta); }
+.campos { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; margin-top: 12px; }
+.campo { display: flex; flex-direction: column; gap: 4px; font-weight: 700; margin-top: 10px; }
+.campo small { font-weight: 400; color: var(--madera); }
+.campo input, .campo textarea {
+  font: inherit; font-size: 17px; font-weight: 400; padding: 8px;
+  border: 2px solid var(--madera); background: var(--hueso); color: var(--tinta); resize: vertical;
+}
+.campo input:focus, .campo textarea:focus { outline: 2px solid var(--oro); }
+.vista-nombre { min-height: 1.4em; font-size: 18px; margin: 10px 0 0; }
+.vista-nombre .falta { color: var(--rojo); font-weight: 700; }

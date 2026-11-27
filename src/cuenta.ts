@@ -15,6 +15,11 @@ export interface PersonajeGuardado {
   nombre: string;
   bando: Bando;
   aspecto: AspectoPersonaje;
+  rasgos: string[];
+  sueno: string;
+  apodo?: string;
+  /** Isla donde está ahora (si falta, se le asigna una al cargar). */
+  islaId?: number;
   nivel: number;
   doblones: number;
   mar: number;
@@ -45,7 +50,10 @@ export function cerrarSesion() {
   try { localStorage.removeItem('cuenta'); } catch { /* nada */ }
 }
 
-export const personajes = () => leer<PersonajeGuardado[]>('personajes', []);
+export const personajes = () => leer<PersonajeGuardado[]>('personajes', []).map((p) => ({ ...p, rasgos: p.rasgos ?? [], sueno: p.sueno ?? '' }));
+export function actualizarPersonaje(p: PersonajeGuardado) {
+  escribir('personajes', personajes().map((x) => (x.id === p.id ? p : x)));
+}
 export function guardarPersonaje(p: Omit<PersonajeGuardado, 'id' | 'nivel' | 'doblones' | 'creado'>): PersonajeGuardado {
   const nuevo: PersonajeGuardado = { ...p, id: Math.random().toString(36).slice(2, 10), nivel: 1, doblones: 100, creado: Date.now() };
   escribir('personajes', [...personajes(), nuevo]);

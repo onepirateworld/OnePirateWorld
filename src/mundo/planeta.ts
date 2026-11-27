@@ -31,14 +31,22 @@ function texturaDe(L: Lienzo) {
 
 export interface Etiqueta { texto: string; lat: number; lon: number; tipo: 'mar' | 'ruta' | 'continente' | 'calma' }
 
+export interface MarcadorGlobo { id: string; lat: number; lon: number; esMio: boolean; color: string; cabeza?: HTMLCanvasElement }
+
 export interface Planeta {
   islas: Isla[];
+  /** Latitud y longitud del punto del planeta que hay en el centro de la pantalla. */
+  centroVista(): { lat: number; lon: number };
+  /** Gira (y acerca o aleja) la cámara hasta mirar a ese punto. */
+  irA(lat: number, lon: number, distancia?: number, alTerminar?: () => void): void;
+  pausar(): void;
+  reanudar(): void;
   /** Cambia cuántos píxeles de pantalla mide cada píxel del render. */
   setPixel(n: number): void;
   destruir(): void;
 }
 
-export function crearPlaneta(contenedor: HTMLElement, capaEtiquetas: HTMLElement, opciones: { alAcercar?: (cerca: boolean) => void } = {}): Planeta {
+export function crearPlaneta(contenedor: HTMLElement, capaEtiquetas: HTMLElement, opciones: { alAcercar?: (cerca: boolean) => void; marcadores?: () => MarcadorGlobo[] } = {}): Planeta {
   let tamPixel = window.innerWidth < 700 ? 2 : 3;
 
   const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true, powerPreference: 'low-power' });
@@ -162,6 +170,8 @@ export function crearPlaneta(contenedor: HTMLElement, capaEtiquetas: HTMLElement
   const reloj = new THREE.Clock();
   const tmp = new THREE.Vector3();
   let cercaAntes = false;
+  const elMarcadores = new Map<string, HTMLElement>();
+  let vuelo: { de: THREE.Vector3; a: THREE.Vector3; dDe: number; dA: number; t0: number; dur: number; fin?: () => void } | null = null;
   let vivo = true;
   function bucle() {
     if (!vivo) return;
@@ -183,6 +193,36 @@ export function crearPlaneta(contenedor: HTMLElement, capaEtiquetas: HTMLElement
       e.el.style.transform = `translate(${((s.x + 1) / 2) * w}px, ${((1 - s.y) / 2) * h}px) translate(-50%, -50%)`;
     }
 
+    // Marcadores de personajes
+    const lista = opciones.marcadores?.() ?? [];
+    const vistos = new Set<string>();
+    for (const m of lista) {
+      vistos.add(m.id);
+      let el = elMarcadores.get(m.id);
+      if (!el) {
+        el = document.createElement('div');
+        el.className = m.esMio ? 'marca marca-yo' : 'marca marca-bot';
+        if (m.esMio) { el.innerHTML = '<span class="marca-texto">Tú</span>'; if (m.cabeza) el.prepend(m.cabeza); }
+        else el.style.background = m.color;
+        capaEtiquetas.append(el);
+        elMarcadores.set(m.id, el);
+      }
+      const p = posicion(m.lat, m.lon, 1.01);
+      const cara = p.clone().normalize().dot(dirCam);
+      if (cara < 0.15) { el.style.opacity = '0'; continue; }
+      const s = p.project(camara);
+      el.style.opacity = String(Math.min(1, (cara - 0.15) * 5));
+      el.style.transform = `translate(${((s.x + 1) / 2) * w}px, ${((1 - s.y) / 2) * h}px) translate(-50%, ${m.esMio ? '-100%' : '-50%'})`;
+    }
+    for (const [id, el] of elMarcadores) if (!vistos.has(id)) { el.remove(); elMarcadores.delete(id); }
+
+    // Animación de la cámara (irA)
+    if (vuelo) {
+      const f = Math.min(1, (performance.now() - vuelo.t0) / vuelo.dur), sm = f * f * (3 - 2 * f);
+      camara.position.copy(vuelo.de).lerp(vuelo.a, sm).normalize().multiplyScalar(vuelo.dDe + (vuelo.dA - vuelo.dDe) * sm);
+      if (f >= 1) { const fin = vuelo.fin; vuelo = null; fin?.(); }
+    }
+
     const cerca = camara.position.length() < 2.1;
     if (cerca !== cercaAntes) { cercaAntes = cerca; opciones.alAcercar?.(cerca); }
   }
@@ -190,6 +230,22 @@ export function crearPlaneta(contenedor: HTMLElement, capaEtiquetas: HTMLElement
 
   return {
     islas,
+    centroVista() {
+      const v = camara.position.clone().normalize();
+      const lat = Math.asin(v.y) * 180 / Math.PI;
+      let phi = Math.atan2(v.z, -v.x);
+      if (phi < 0) phi += Math.PI * 2;
+      return { lat, lon: (phi / (Math.PI * 2)) * 360 - 180 };
+    },
+    irA(lat, lon, distancia, alTerminar) {
+      controles.autoRotate = false;
+      clearTimeout(reanudar);
+      const dDe = camara.position.length();
+      vuelo = { de: camara.position.clone().normalize(), a: posicion(lat, lon).normalize(), dDe, dA: distancia ?? dDe, t0: performance.now(), dur: 900, fin: alTerminar };
+      reanudar = window.setTimeout(() => (controles.autoRotate = true), 9000);
+    },
+    pausar() { vivo = false; },
+    reanudar() { if (!vivo) { vivo = true; cercaAntes = camara.position.length() < 2.1; bucle(); } },
     setPixel(n) { tamPixel = n; redimensionar(); },
     destruir() { vivo = false; renderer.dispose(); lienzo.remove(); capaEtiquetas.innerHTML = ''; },
   };

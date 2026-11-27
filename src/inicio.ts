@@ -5,7 +5,10 @@ import './inicio.css';
 import { Lienzo } from './arte/lienzo';
 import { C } from './arte/paleta';
 import { dibujarPersonaje, ASPECTO_BASE, PERSONAJES_PRUEBA, type AspectoPersonaje } from './arte/personajes';
-import { crearPlaneta } from './mundo/planeta';
+import { crearPlaneta, type Planeta } from './mundo/planeta';
+import { crearMapa, type Mapa, type Marcador } from './mundo/mapa';
+import { botsDelMar, islaDePersonaje, islasDelMundo, nombreZona, posicionBot, type IslaMundo } from './mundo/habitantes';
+import { RASGOS } from './datos/caracter';
 import { icono } from './iconos';
 import {
   BANDOS, MARES, META_COMUNIDAD, cerrarSesion, cuentaActual, elegirActivo, firmarPacto, marActual,
@@ -104,7 +107,8 @@ function pintar() {
         <span class="insignia bando-${p.bando}">${icono('bandera', '#f2b63d')} ${BANDOS[p.bando].nombre}</span>
         <span class="insignia oro">${icono('moneda', '#f2b63d')} ${p.doblones}</span>
         <span class="insignia">Nv. ${p.nivel}</span>
-      </span>`;
+      </span>
+      <button class="ficha-lugar" id="ficha-lugar">${icono('diana', '#f2b63d')} En ${esc(islaDePersonaje(p).nombre)} · ${esc(nombreZona(islaDePersonaje(p).zona))}</button>`;
     const momentos = boton('', () => aviso('Momentos clave: llegarán con el motor de simulación (fase 6).'));
     momentos.classList.add('momentos');
     momentos.title = 'Momentos clave pendientes';
@@ -200,10 +204,13 @@ document.querySelectorAll<HTMLElement>('[data-ico]').forEach((el) => (el.innerHT
 $('#btn-perfil').addEventListener('click', abrirPerfil);
 $('#btn-mi-pirata').addEventListener('click', () => (personajeActivo() ? aviso('La ficha de tu personaje llegará con el motor de simulación (fase 6).') : abrirPerfil()));
 $('#btn-mar').addEventListener('click', abrirMares);
-$('#btn-mapa').addEventListener('click', () => aviso('El mapa de cerca llega en la fase 3. De momento, gira y acerca el planeta.'));
+$('#btn-mapa').addEventListener('click', () => { if (!mapa?.visible) abrirMapa(); });
+$('#btn-localizar').innerHTML = icono('diana', '#f2b63d');
+$('#btn-localizar').addEventListener('click', localizar);
+document.addEventListener('click', (e) => { if ((e.target as HTMLElement).closest('#ficha-lugar')) localizar(); });
 $('#btn-envivo').addEventListener('click', () => aviso('«En vivo» mostrará lo que pasa en el mundo ahora mismo (fase 6).'));
 $('#btn-guia').addEventListener('click', () => aviso('La Guía del juego llega en la fase 10.'));
-$('#btn-globo').addEventListener('click', () => aviso('Arrastra para girar el planeta. Pellizca o usa la rueda para acercarte.'));
+$('#btn-globo').addEventListener('click', () => (mapa?.visible ? volverAlGlobo() : aviso('Arrastra para girar el planeta. Pellizca o usa la rueda para acercarte.')));
 document.querySelectorAll<HTMLButtonElement>('[data-seccion]').forEach((b) =>
   b.addEventListener('click', () => aviso(`${b.dataset.seccion}: llega en la fase 10.`)));
 
@@ -216,8 +223,105 @@ if (params.has('pacto')) abrirPacto();
 if (params.has('perfil')) abrirPerfil();
 if (params.has('creado')) aviso('¡Tu personaje ya navega por el mundo!');
 
+// ---------------------------------------------------------------------------
+// Planeta, mapa y personajes
+
+let planeta: Planeta | null = null;
+let mapa: Mapa | null = null;
+let cabezaMia: { id: string; cv: HTMLCanvasElement } | null = null;
+
+/** Todos los personajes visibles en este mar: los bots y tu personaje. */
+function marcadores(): Marcador[] {
+  const ahora = Date.now();
+  const lista: Marcador[] = botsDelMar(marActual()).map((b) => ({
+    id: b.id, nombre: b.apodo ? `${b.nombre} «${b.apodo}»` : b.nombre, bando: b.bando, aspecto: b.aspecto,
+    posicion: posicionBot(b, ahora), barco: b.barco, esMio: false,
+  }));
+  const p = personajeActivo();
+  if (p && cuentaActual()) {
+    const isla = islaDePersonaje(p);
+    lista.push({ id: p.id, nombre: p.nombre, bando: p.bando, aspecto: p.aspecto, barco: 'barca', esMio: true,
+      posicion: { lat: isla.lat, lon: isla.lon, navegando: false, islaId: isla.id, rumbo: 1 } });
+  }
+  return lista;
+}
+
+function abrirMapa(lat?: number, lon?: number, zoom?: number) {
+  if (!planeta || !mapa) return;
+  const c = lat === undefined ? planeta.centroVista() : { lat, lon: lon! };
+  planeta.pausar();
+  document.body.classList.add('en-mapa');
+  $('#btn-globo').classList.remove('activo');
+  $('#btn-mapa').classList.add('activo');
+  mapa.mostrar(c.lat, c.lon, zoom);
+}
+function volverAlGlobo(lat?: number, lon?: number) {
+  if (!planeta || !mapa) return;
+  mapa.ocultar();
+  ocultarTarjeta();
+  document.body.classList.remove('en-mapa');
+  $('#btn-globo').classList.add('activo');
+  $('#btn-mapa').classList.remove('activo');
+  planeta.reanudar();
+  if (lat !== undefined) planeta.irA(lat, lon!, 2.7);
+}
+function localizar() {
+  const p = personajeActivo();
+  if (!p || !cuentaActual()) { aviso('Aún no tienes personaje. Firma el pacto y crea uno.'); return; }
+  const isla = islaDePersonaje(p);
+  if (mapa?.visible) mapa.centrarEn(isla.lat, isla.lon, mapa.zoomIsla(isla));
+  else planeta?.irA(isla.lat, isla.lon, 2.3, () => abrirMapa(isla.lat, isla.lon, mapa!.zoomIsla(isla)));
+  aviso(`${p.nombre} está en ${isla.nombre} (${nombreZona(isla.zona)}).`);
+}
+
+// Tarjeta al tocar un personaje o una isla del mapa
+function ocultarTarjeta() { $('#tarjeta').hidden = true; }
+function mostrarTarjeta(m: Marcador | null, isla: IslaMundo | null) {
+  const t = $('#tarjeta');
+  if (!m && !isla) { t.hidden = true; return; }
+  t.innerHTML = '';
+  if (m) {
+    const bot = botsDelMar(marActual()).find((b) => b.id === m.id);
+    const p = m.esMio ? personajeActivo() : null;
+    const rasgos = (bot?.rasgos ?? p?.rasgos ?? []).map((id) => RASGOS.find((r) => r.id === id)?.nombre).filter(Boolean).join(', ');
+    const lugar = m.posicion.navegando ? 'Navegando' : `En ${islasDelMundo()[m.posicion.islaId!].nombre}`;
+    t.append(aCanvas(dibujarPersonaje(m.aspecto), 2));
+    t.insertAdjacentHTML('beforeend', `<div>
+      <b>${esc(m.nombre)}${m.esMio ? ' <em>(tú)</em>' : ''}</b>
+      <span class="${'bando-' + m.bando}">${BANDOS[m.bando].nombre} · Nv. ${bot?.nivel ?? p?.nivel ?? 1}</span>
+      <small>${esc(lugar)}${rasgos ? ` · ${esc(rasgos)}` : ''}</small>
+      ${p?.sueno ? `<small class="sueno-txt">Sueño: ${esc(p.sueno)}</small>` : ''}
+    </div>`);
+  } else if (isla) {
+    const biomas: Record<string, string> = { tropical: 'Tropical', nevada: 'Nevada', volcanica: 'Volcánica', desierto: 'Desierto', flotante: 'Flotante', ciudad: 'Ciudad', ruinas: 'Ruinas' };
+    const especial = { base: 'Hay una base de la marina.', taberna: 'Tiene taberna.', maestro: 'Dicen que aquí vive un maestro.', tesoro: 'Se habla de un tesoro escondido.' };
+    const aqui = marcadores().filter((x) => !x.posicion.navegando && x.posicion.islaId === isla.id).length;
+    t.insertAdjacentHTML('beforeend', `<div>
+      <b>${esc(isla.nombre)}</b>
+      <span>${biomas[isla.bioma]} · ${esc(nombreZona(isla.zona))}</span>
+      <small>${isla.especial ? especial[isla.especial] + ' ' : ''}${aqui ? `${aqui} personaje${aqui > 1 ? 's' : ''} aquí ahora.` : 'Nadie a la vista.'}</small>
+    </div>`);
+  }
+  const cerrar = document.createElement('button');
+  cerrar.className = 'tarjeta-cerrar'; cerrar.textContent = '✕'; cerrar.setAttribute('aria-label', 'Cerrar');
+  cerrar.addEventListener('click', ocultarTarjeta);
+  t.append(cerrar);
+  t.hidden = false;
+}
+
 requestAnimationFrame(() => {
-  crearPlaneta($('#mundo'), $('#etiquetas'), {
-    alAcercar: (cerca) => cerca && aviso('Muy pronto: al acercarte verás el mapa de la zona (fase 3).'),
+  planeta = crearPlaneta($('#mundo'), $('#etiquetas'), {
+    alAcercar: (cerca) => { if (cerca && !mapa?.visible) abrirMapa(); },
+    marcadores: () => marcadores().map((m) => {
+      if (m.esMio && cabezaMia?.id !== m.id) cabezaMia = { id: m.id, cv: cabeza(m.aspecto, 1.4) };
+      return { id: m.id, lat: m.posicion.lat, lon: m.posicion.lon, esMio: m.esMio,
+        color: m.bando === 'pirata' ? '#e88ba0' : m.bando === 'marine' ? '#5cc3d8' : '#8cc85a', cabeza: m.esMio ? cabezaMia!.cv : undefined };
+    }),
   });
+  mapa = crearMapa($('#mapa'), islasDelMundo(), {
+    marcadores,
+    alAlejar: (lat, lon) => volverAlGlobo(lat, lon),
+    alTocar: mostrarTarjeta,
+  });
+  if (params.has('creado')) setTimeout(localizar, 1200);
 });

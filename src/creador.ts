@@ -6,6 +6,7 @@ import './creador.css';
 import { Lienzo, azar } from './arte/lienzo';
 import { PALETA } from './arte/paleta';
 import { BANDOS, cuentaActual, guardarPersonaje, marActual, type Bando } from './cuenta';
+import { MAX_RASGOS, RASGOS, puedeAnadir, suenosPara } from './datos/caracter';
 import {
   dibujarPersonaje, aspectoAlAzar, ASPECTO_BASE, OPCIONES, COLORES,
   type AspectoPersonaje, type Pelo,
@@ -127,12 +128,100 @@ const pestanasEl = $('#pestanas');
 const panelEl = $('#panel');
 const resumenEl = $('#resumen');
 
+// ---------------------------------------------------------------------------
+// Pasos 3 y 4: carácter y sueño (con borrador propio)
+
+type Paso = 'aspecto' | 'caracter' | 'sueno';
+let paso: Paso = 'aspecto';
+interface Extra { rasgos: string[]; sueno: string; suenoPropio: string; nombre: string; apodo: string }
+const CLAVE_EXTRA = 'creador.extra';
+let extra: Extra = (() => {
+  const base: Extra = { rasgos: [], sueno: '', suenoPropio: '', nombre: '', apodo: '' };
+  try { return { ...base, ...JSON.parse(localStorage.getItem(CLAVE_EXTRA) ?? '{}') }; } catch { return base; }
+})();
+const guardarExtra = () => { try { localStorage.setItem(CLAVE_EXTRA, JSON.stringify(extra)); } catch { /* nada */ } };
+let mensajeRasgo = '';
+
 function render() {
   const L = dibujarPersonaje(a);
   aCanvas(L, 9, vistaGrande);
   aCanvas(L, 2, vistaReal);
   $<HTMLButtonElement>('#deshacer').disabled = historial.length === 0;
+  document.querySelectorAll<HTMLButtonElement>('[data-paso]').forEach((b) => {
+    const li = b.parentElement!;
+    li.classList.toggle('actual', b.dataset.paso === paso);
+    li.classList.toggle('hecho', b.dataset.paso === 'caracter' ? extra.rasgos.length === MAX_RASGOS : b.dataset.paso === 'aspecto' && paso !== 'aspecto');
+  });
+  $('.acciones').hidden = paso !== 'aspecto';
+  pestanasEl.hidden = paso !== 'aspecto';
+  resumenEl.innerHTML = resumen().map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('');
+  if (paso === 'caracter') return renderCaracter();
+  if (paso === 'sueno') return renderSueno();
+  renderAspecto();
+}
 
+function renderCaracter() {
+  panelEl.innerHTML = `
+    <h2>Carácter</h2>
+    <p class="nota">Elige <b>${MAX_RASGOS} rasgos</b>. Deciden cómo se comporta tu personaje cuando tú no estás. Llevas ${extra.rasgos.length} de ${MAX_RASGOS}.</p>
+    <p class="aviso-rasgo" role="status">${esc(mensajeRasgo)}</p>
+    <div class="rasgos">
+      ${RASGOS.map((r) => {
+        const sel = extra.rasgos.includes(r.id);
+        const bloqueado = !sel && puedeAnadir(extra.rasgos, r.id) !== null;
+        return `<button class="rasgo ${sel ? 'sel' : ''} ${bloqueado ? 'bloqueado' : ''}" data-rasgo="${r.id}" aria-pressed="${sel}">
+          <b>${r.nombre}</b>
+          <span class="ventaja">▲ ${esc(r.ventaja)}</span>
+          <span class="desventaja">▼ ${esc(r.desventaja)}</span>
+        </button>`;
+      }).join('')}
+    </div>
+    <div class="navegacion">
+      <button class="boton" data-paso="aspecto">← Aspecto</button>
+      <button class="boton" data-paso="sueno" ${extra.rasgos.length < MAX_RASGOS ? 'disabled title="Elige 3 rasgos primero"' : ''}>Sueño →</button>
+    </div>`;
+}
+
+function renderSueno() {
+  const lista = suenosPara(bando);
+  const propio = extra.sueno === 'propio';
+  panelEl.innerHTML = `
+    <h2>Sueño y nombre</h2>
+    <p class="nota">El sueño es el gran objetivo de su vida. Todo lo que haga le acercará (o no) a cumplirlo.</p>
+    <div class="suenos" role="radiogroup" aria-label="Sueño">
+      ${lista.map((x) => `<button class="sueno ${extra.sueno === x.id ? 'sel' : ''}" role="radio" aria-checked="${extra.sueno === x.id}" data-sueno="${x.id}">${esc(x.texto)}</button>`).join('')}
+      <button class="sueno ${propio ? 'sel' : ''}" role="radio" aria-checked="${propio}" data-sueno="propio">✎ Escribir el mío</button>
+    </div>
+    ${propio ? `<label class="campo">Su sueño<textarea id="sueno-propio" maxlength="120" rows="2" placeholder="Quiere...">${esc(extra.suenoPropio)}</textarea></label>` : ''}
+    <div class="campos">
+      <label class="campo">Nombre<input id="campo-nombre" maxlength="24" value="${esc(extra.nombre)}" placeholder="Nombre del personaje" autocomplete="off" /></label>
+      <label class="campo">Apodo <small>(opcional)</small><input id="campo-apodo" maxlength="24" value="${esc(extra.apodo)}" placeholder="el Rojo, Manos de Hierro..." autocomplete="off" /></label>
+    </div>
+    <p class="vista-nombre" id="vista-nombre"></p>
+    <div class="navegacion">
+      <button class="boton" data-paso="caracter">← Carácter</button>
+      <button class="boton" id="soltar">Soltar al mundo ⚓</button>
+    </div>`;
+  actualizarVistaNombre();
+  const enlazar = (id: string, k: 'nombre' | 'apodo' | 'suenoPropio') => {
+    const el = panelEl.querySelector<HTMLInputElement | HTMLTextAreaElement>(`#${id}`);
+    el?.addEventListener('input', () => { extra[k] = el.value; guardarExtra(); actualizarVistaNombre(); });
+  };
+  enlazar('campo-nombre', 'nombre'); enlazar('campo-apodo', 'apodo'); enlazar('sueno-propio', 'suenoPropio');
+}
+
+function textoSueno() {
+  if (extra.sueno === 'propio') return extra.suenoPropio.trim();
+  return suenosPara(bando).find((x) => x.id === extra.sueno)?.texto ?? '';
+}
+function actualizarVistaNombre() {
+  const el = document.querySelector('#vista-nombre');
+  if (!el) return;
+  const n = extra.nombre.trim();
+  el.innerHTML = n ? `Le conocerán como <b>${esc(n)}${extra.apodo.trim() ? ` «${esc(extra.apodo.trim())}»` : ''}</b>` : '';
+}
+
+function renderAspecto() {
   pestanasEl.innerHTML = PESTANAS.map((p, i) =>
     `<button class="pestana ${i === pestana ? 'activa' : ''} ${hecha(p) ? 'hecha' : ''}" data-pestana="${i}">${p.titulo}</button>`).join('');
 
@@ -157,7 +246,7 @@ function render() {
       ${pestana > 0 ? `<button class="boton" data-ir="${pestana - 1}">← ${PESTANAS[pestana - 1].titulo}</button>` : '<span></span>'}
       ${pestana < PESTANAS.length - 1
         ? `<button class="boton" data-ir="${pestana + 1}">${PESTANAS[pestana + 1].titulo} →</button>`
-        : `<button class="boton" id="guardar">Guardar personaje ✓</button>`}
+        : `<button class="boton" data-paso="caracter">Siguiente: Carácter →</button>`}
     </div>`;
 
   // Miniaturas: tu personaje con cada opción puesta
@@ -169,8 +258,6 @@ function render() {
     if (p.clave === 'cuerpo') ajustarCuerpo(asp);
     b.querySelector('.mini')!.append(miniatura(asp, !!p.cabeza));
   });
-
-  resumenEl.innerHTML = resumen().map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('');
 }
 
 function ajustarCuerpo(n: AspectoPersonaje) {
@@ -196,6 +283,8 @@ function resumen(): [string, string][] {
     ['Sombrero', OPCIONES.sombrero[a.sombrero]],
     ['Accesorios', a.accesorios.map((x) => OPCIONES.accesorios[x]).join(', ') || 'Ninguno'],
     ['Cicatrices', a.cicatrices.map((x) => OPCIONES.cicatrices[x]).join(', ') || 'Ninguna'],
+    ['Carácter', extra.rasgos.map((x) => RASGOS.find((r) => r.id === x)!.nombre).join(', ') || 'Sin elegir'],
+    ['Sueño', textoSueno() || 'Sin elegir'],
   ];
 }
 
@@ -204,6 +293,17 @@ document.addEventListener('click', (e) => {
   if (!b || b.disabled) return;
   const d = b.dataset;
   const p = PESTANAS[pestana];
+  if (d.paso) {
+    if (d.paso === 'sueno' && extra.rasgos.length < MAX_RASGOS) { paso = 'caracter'; mensajeRasgo = 'Elige 3 rasgos antes de pasar al sueño.'; render(); return; }
+    paso = d.paso as Paso; mensajeRasgo = ''; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); return;
+  }
+  if (d.rasgo) {
+    const i = extra.rasgos.indexOf(d.rasgo);
+    if (i >= 0) { extra.rasgos.splice(i, 1); mensajeRasgo = ''; }
+    else { const motivo = puedeAnadir(extra.rasgos, d.rasgo); if (motivo) mensajeRasgo = motivo; else { extra.rasgos.push(d.rasgo); mensajeRasgo = ''; } }
+    guardarExtra(); render(); return;
+  }
+  if (d.sueno) { extra.sueno = d.sueno; guardarExtra(); render(); if (d.sueno === 'propio') document.querySelector<HTMLTextAreaElement>('#sueno-propio')?.focus(); return; }
   if (d.pestana !== undefined) { pestana = Number(d.pestana); render(); }
   else if (d.ir !== undefined) { pestana = Number(d.ir); render(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
   else if (b.classList.contains('opcion')) {
@@ -230,24 +330,20 @@ const bando: Bando = bandoParam && bandoParam in BANDOS ? bandoParam : 'pirata';
 const pasoBando = document.querySelector<HTMLElement>('#paso-bando')!;
 pasoBando.innerHTML = `<a href="${portada('?perfil=1')}">1 · ${BANDOS[bando].nombre} ✓</a>`;
 
-// --- Guardar: pide el nombre y suelta al personaje en el mundo
-const dlg = document.querySelector<HTMLDialogElement>('#dlg-nombre')!;
-const inputNombre = document.querySelector<HTMLInputElement>('#input-nombre')!;
+// --- Soltar al mundo: comprueba que esté todo y guarda
 document.addEventListener('click', (e) => {
-  if ((e.target as HTMLElement).closest('#guardar')) {
-    if (!cuentaActual()) { location.href = portada('?pacto=1'); return; }
-    document.querySelector('#dlg-bando')!.textContent = BANDOS[bando].nombre.toLowerCase();
-    dlg.showModal();
-    inputNombre.focus();
+  if (!(e.target as HTMLElement).closest('#soltar')) return;
+  const nombre = extra.nombre.trim();
+  const sueno = textoSueno();
+  const faltan = [!nombre && 'un nombre', !sueno && 'un sueño', extra.rasgos.length < MAX_RASGOS && `${MAX_RASGOS} rasgos`].filter(Boolean);
+  if (faltan.length) {
+    const el = document.querySelector('#vista-nombre')!;
+    el.innerHTML = `<span class="falta">Falta ${faltan.join(' y ')}.</span>`;
+    return;
   }
-});
-document.querySelector('#cancelar-nombre')!.addEventListener('click', () => dlg.close());
-document.querySelector<HTMLFormElement>('#form-nombre')!.addEventListener('submit', (e) => {
-  e.preventDefault();
-  const nombre = inputNombre.value.trim();
-  if (!nombre) return;
-  guardarPersonaje({ nombre, bando, aspecto: a, mar: marActual() });
-  try { localStorage.removeItem(CLAVE_BORRADOR); } catch { /* nada */ }
+  if (!cuentaActual()) { location.href = portada('?pacto=1'); return; }
+  guardarPersonaje({ nombre, apodo: extra.apodo.trim() || undefined, bando, aspecto: a, rasgos: [...extra.rasgos], sueno, mar: marActual() });
+  try { localStorage.removeItem(CLAVE_BORRADOR); localStorage.removeItem(CLAVE_EXTRA); } catch { /* nada */ }
   location.href = portada(`?mar=${marActual()}&creado=1`);
 });
 
