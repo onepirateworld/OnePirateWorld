@@ -7,6 +7,10 @@ import { Lienzo, azar } from './arte/lienzo';
 import { PALETA } from './arte/paleta';
 import { BANDOS, cuentaActual, guardarPersonaje, marActual, type Bando } from './cuenta';
 import { MAX_RASGOS, RASGOS, puedeAnadir, suenosPara } from './datos/caracter';
+import { iniciar as iniciarServidor } from './servidor';
+
+// Recupera la sesión para poder guardar el personaje en el servidor
+await iniciarServidor(marActual());
 import {
   dibujarPersonaje, aspectoAlAzar, ASPECTO_BASE, OPCIONES, COLORES,
   type AspectoPersonaje, type Pelo,

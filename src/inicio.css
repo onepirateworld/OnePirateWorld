@@ -517,3 +517,7 @@ button { font-family: inherit; cursor: pointer; }
   .tarjeta { bottom: calc(320px + env(safe-area-inset-bottom)); }
 }
 @media (min-width: 521px) { .tarjeta { bottom: calc(260px + env(safe-area-inset-bottom)); } }
+.jugador-tag { color: #f7e27a; }
+.pacto-estado { min-height: 1.2em; color: var(--texto); }
+.bot-tag { color: var(--acento); margin-left: 4px; }
+.chat li.oculto { opacity: 0.5; border: 1px dashed #c43a3a; }

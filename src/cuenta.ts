@@ -1,6 +1,6 @@
-// Cuenta y personajes del jugador.
-// MODO DE PRUEBA: hasta conectar Supabase (fase 9) todo se guarda en este navegador.
+// Cuenta y personajes del jugador, guardados en el servidor (Supabase) con copia local.
 import type { AspectoPersonaje } from './arte/personajes';
+import { enviarEnlace, estado, guardar, salir, type FilaPersonaje } from './servidor';
 import { CATALOGO_ARMAS, CATALOGO_HABILIDADES, arsenalInicial, type Arsenal } from './datos/arsenal';
 
 export type Bando = 'pirata' | 'marine' | 'revolucionario';
@@ -10,7 +10,7 @@ export const BANDOS: Record<Bando, { nombre: string; descripcion: string }> = {
   revolucionario: { nombre: 'Revolucionario', descripcion: 'Lucha en la sombra contra los poderosos. Sabotea y libera islas.' },
 };
 
-export interface Cuenta { nombre: string; metodo: 'google' | 'correo'; correo?: string; creada: number }
+export interface Cuenta { nombre: string; metodo: 'correo'; correo?: string; creada: number }
 export interface PersonajeGuardado {
   id: string;
   nombre: string;
@@ -29,7 +29,7 @@ export interface PersonajeGuardado {
   fruta?: string;
   recompensa?: number;
   barco?: 'barca' | 'carabela' | 'galeon';
-  /** Personaje del modo creador (solo en este navegador). */
+  /** Personaje de una cuenta con rol de creador. */
   creador?: boolean;
   /** Lo que está haciendo ahora (ver mundo/vida.ts). */
   accion?: import('./mundo/vida').AccionPersonaje;
@@ -57,24 +57,40 @@ function escribir(clave: string, v: unknown) {
   try { localStorage.setItem(clave, JSON.stringify(v)); } catch { /* sin almacenamiento */ }
 }
 
-export const cuentaActual = () => leer<Cuenta | null>('cuenta', null);
-export function firmarPacto(nombre: string, metodo: Cuenta['metodo'], correo?: string): Cuenta {
-  const c: Cuenta = { nombre, metodo, correo, creada: Date.now() };
-  escribir('cuenta', c);
-  return c;
+// --- Conversión entre el personaje del juego y la fila del servidor ---------
+function filaAPersonaje(f: FilaPersonaje): PersonajeGuardado {
+  const d = f.datos as Partial<PersonajeGuardado>;
+  return {
+    ...d, rasgos: d.rasgos ?? [], sueno: d.sueno ?? '', aspecto: d.aspecto!,
+    id: f.id, nombre: f.nombre, apodo: f.apodo ?? undefined, bando: f.bando as Bando, nivel: f.nivel,
+    doblones: Number(f.doblones), recompensa: Number(f.recompensa), creador: f.creador, mar: f.mar, creado: Date.parse(f.creado),
+  };
 }
-export function cerrarSesion() {
-  try { localStorage.removeItem('cuenta'); } catch { /* nada */ }
+function personajeAFila(p: PersonajeGuardado): FilaPersonaje {
+  const { id, nombre, apodo, bando, nivel, doblones, recompensa, creador, mar, creado, ...datos } = p;
+  return {
+    id, dueno: estado.usuario?.id ?? '', mar, nombre, apodo: apodo ?? null, bando, datos, nivel: Math.min(80, nivel),
+    doblones, recompensa: recompensa ?? 0, creador: !!creador, creado: new Date(creado).toISOString(),
+  };
 }
 
-export const personajes = () => leer<PersonajeGuardado[]>('personajes', []).map((p) => ({ ...p, rasgos: p.rasgos ?? [], sueno: p.sueno ?? '' }));
-export function actualizarPersonaje(p: PersonajeGuardado) {
-  escribir('personajes', personajes().map((x) => (x.id === p.id ? p : x)));
+// --- Cuenta (ahora con el servidor: inicio de sesión por enlace al correo) --
+export function cuentaActual(): Cuenta | null {
+  if (!estado.usuario) return null;
+  return { nombre: estado.perfil?.nombre ?? 'Marinero', metodo: 'correo', correo: estado.usuario.email, creada: Date.parse(estado.usuario.created_at) };
 }
+/** Manda el enlace de acceso al correo. Devuelve un error en texto o null si ha ido bien. */
+export const firmarPacto = (nombre: string, correo: string) => enviarEnlace(correo, nombre);
+export async function cerrarSesion() { await salir(); }
+
+export const personajes = (): PersonajeGuardado[] => estado.mios.map(filaAPersonaje);
+/** Personajes de otros jugadores en este mar (para verlos en el mapa). */
+export const personajesDeOtros = (): PersonajeGuardado[] => [...estado.otros.values()].filter((f) => (f.datos as { aspecto?: unknown }).aspecto).map(filaAPersonaje);
+export function actualizarPersonaje(p: PersonajeGuardado) { guardar(personajeAFila(p)); }
 export function guardarPersonaje(p: Omit<PersonajeGuardado, 'id' | 'nivel' | 'doblones' | 'creado'>): PersonajeGuardado {
-  let nuevo: PersonajeGuardado = { ...p, id: Math.random().toString(36).slice(2, 10), nivel: 1, doblones: 100, creado: Date.now(), arsenal: arsenalInicial(), barco: 'barca' };
+  let nuevo: PersonajeGuardado = { ...p, id: crypto.randomUUID().slice(0, 12), nivel: 1, doblones: 100, creado: Date.now(), arsenal: arsenalInicial(), barco: 'barca' };
   if (modoCreador()) nuevo = { ...nuevo, ...equipoCreador() };
-  escribir('personajes', [...personajes(), nuevo]);
+  guardar(personajeAFila(nuevo));
   escribir('activo', nuevo.id);
   return nuevo;
 }
@@ -85,6 +101,16 @@ export function personajeActivo(): PersonajeGuardado | null {
 }
 export const elegirActivo = (id: string) => escribir('activo', id);
 
+/** Sube al servidor los personajes que se crearon en la versión de prueba (solo en el navegador). */
+export function migrarLocales() {
+  if (!estado.usuario) return 0;
+  const viejos = leer<PersonajeGuardado[]>('personajes', []);
+  if (!viejos.length) return 0;
+  for (const p of viejos) if (!estado.mios.some((f) => f.id === p.id)) guardar(personajeAFila({ ...p, creador: false }));
+  try { localStorage.removeItem('personajes'); } catch { /* nada */ }
+  return viejos.length;
+}
+
 export function marActual(): number {
   const q = Number(new URLSearchParams(location.search).get('mar'));
   if (MARES.some((m) => m.id === q)) return q;
@@ -94,17 +120,12 @@ export function marActual(): number {
 export const arsenalDe = (p: PersonajeGuardado): Arsenal => p.arsenal ?? arsenalInicial();
 
 // ---------------------------------------------------------------------------
-// Modo creador (de prueba): se activa SOLO en este navegador abriendo el juego con
-// ?modo=creador. Cuando haya servidor (fase 9), el rol de creador irá en la base de
-// datos, ligado a la cuenta, y no se podrá activar desde el navegador.
+// Modo creador: lo decide el servidor según el rol de la cuenta (tabla perfiles).
+// No se puede activar desde el navegador.
 
 export const RECOMPENSA_MAXIMA = 9_999_999_999;
-export function modoCreador(): boolean {
-  try {
-    if (new URLSearchParams(location.search).get('modo') === 'creador') localStorage.setItem('modoCreador', '1');
-    return localStorage.getItem('modoCreador') === '1';
-  } catch { return false; }
-}
+export const modoCreador = (): boolean => estado.perfil?.rol === 'creador';
+export const esModerador = (): boolean => estado.perfil?.rol === 'moderador' || estado.perfil?.rol === 'creador';
 export function equipoCreador(): Partial<PersonajeGuardado> {
   return {
     creador: true, nivel: 80, doblones: 999_999_999, recompensa: RECOMPENSA_MAXIMA, barco: 'galeon', fruta: 'ceniza',

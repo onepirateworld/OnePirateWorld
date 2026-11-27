@@ -7,13 +7,14 @@ import { FRUTAS, CATEGORIAS, RAREZAS, DEBILIDAD_COMUN } from './datos/frutas';
 import { RASGOS } from './datos/caracter';
 import { LOGROS, NOMBRES_ESTADISTICAS, estadisticasIniciales, objetivosPara, type Estadisticas } from './datos/progreso';
 import {
-  BANDOS, actualizarPersonaje, arsenalDe, cuentaActual, marActual, personajeActivo, type PersonajeGuardado,
+  BANDOS, actualizarPersonaje, arsenalDe, cuentaActual, esModerador, marActual, personajeActivo, type PersonajeGuardado,
 } from './cuenta';
 import {
   CATALOGO_ARMAS, CATALOGO_HABILIDADES, MAX_EQUIPADAS, MEJORA_POR_PUNTO, NIVEL_MAX, arma, habilidadUsable, precioForja, precioHabilidad,
   puntosLibres, type Arsenal, type Estadistica,
 } from './datos/arsenal';
 import { TECNICAS_FRUTA } from './combate/tecnicas';
+import { cargarMensajes, enviarMensaje, escucharMensajes, estado as estadoServidor, ocultarMensaje, reportar, type FilaMensaje } from './servidor';
 import { botsDelMar, islaDePersonaje, islasDelMundo, nombreZona, posicionBot, type Bot } from './mundo/habitantes';
 import { cronica, frutasDelMar, formatoDoblones, haceCuanto, rangoDe, recompensa, type Suceso } from './mundo/cronica';
 import { icono } from './iconos';
@@ -73,6 +74,7 @@ export function crearPaneles(acc: Acciones) {
   volver.addEventListener('click', () => { const ant = pila.pop(); if (ant) abrir(ant, false); });
 
   function cerrar() {
+    limpiarChat?.(); limpiarChat = null;
     hoja.hidden = true; actual = null; pila.length = 0;
     document.body.classList.remove('con-hoja');
     document.querySelectorAll('.barra-inf button').forEach((b) => b.classList.remove('activo'));
@@ -241,7 +243,7 @@ export function crearPaneles(acc: Acciones) {
         <details class="normas-chat"><summary>Normas de la taberna</summary>
           <ul><li>Respeto: nada de insultos, acoso ni odio.</li><li>Nada de datos personales (tuyos ni de nadie).</li><li>Sin spam: como mucho 5 mensajes por minuto.</li><li>Los mensajes se borran a los 90 días.</li><li>Puedes reportar y silenciar a quien quieras.</li></ul>
         </details>
-        <p class="nota-hoja">De momento la taberna funciona solo en tu navegador; el chat en tiempo real con todos llega con el servidor (fase 9).</p>
+        <p class="nota-hoja">Chat en tiempo real con todos los jugadores de este mar. Con 3 reportes, un mensaje se oculta hasta que lo revise la moderación.</p>
         <ul class="chat" id="chat"></ul>
         <div class="silenciados" id="silenciados"></div>
         ${cuenta ? `<form class="chat-form" id="chat-form"><input id="chat-texto" maxlength="200" autocomplete="off" placeholder="Di algo en la taberna..." /><button class="boton-oro">Enviar</button></form>`
@@ -500,14 +502,8 @@ export function crearPaneles(acc: Acciones) {
 // ---------------------------------------------------------------------------
 // Chat de la taberna (local hasta tener servidor)
 
-interface Mensaje { id: string; autor: string; texto: string; t: number; bot?: boolean; mio?: boolean }
+interface Mensaje { id: string; autor: string; texto: string; t: number; bot?: boolean; mio?: boolean; oculto?: boolean }
 
-const PALABRAS_PROHIBIDAS = ['idiota', 'imbécil', 'imbecil', 'estúpido', 'estupido', 'gilipollas', 'subnormal', 'puta', 'puto', 'mierda', 'cabrón', 'cabron', 'pendejo', 'mamón', 'tonto del culo'];
-function filtrar(t: string) {
-  let s = t;
-  for (const p of PALABRAS_PROHIBIDAS) s = s.replace(new RegExp(p, 'gi'), (m) => '*'.repeat(m.length));
-  return s;
-}
 const FRASES_BOT = ['¿Alguien ha visto un barco con velas negras por el Mar del Alba?', 'Busco tripulación. Sé cocinar y pelear un poco.', 'Dicen que en Cayo Ballena hay un maestro de espada.',
   '¡Una ronda para todos, invito yo!', 'Cuidado con la marina, hoy hay muchos barcos en la zona.', 'He oído que alguien encontró una fruta rara cerca de las ruinas.',
   'Mañana zarpo hacia la Senda de las Mareas. Deseadme suerte.', '¿Qué tal las tormentas por el Ocaso?', 'Alguien me debe 300 doblones y sabe quién es.',
@@ -516,56 +512,67 @@ const FRASES_BOT = ['¿Alguien ha visto un barco con velas negras por el Mar del
 function leer<T>(k: string, d: T): T { try { const t = localStorage.getItem(k); return t ? JSON.parse(t) : d; } catch { return d; } }
 function escribir(k: string, v: unknown) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* nada */ } }
 
+let limpiarChat: (() => void) | null = null;
+
 function montarChat(el: HTMLElement, mar: number) {
-  const clave = `taberna.${mar}`;
-  const NOVENTA_DIAS = 90 * 24 * 3600_000;
+  limpiarChat?.();
   const lista = el.querySelector<HTMLElement>('#chat')!;
   const silEl = el.querySelector<HTMLElement>('#silenciados')!;
-  const ahora = Date.now();
-  // Mensajes de bots: uno cada 4 minutos, iguales para todos
+  // Algún bot también habla, para que la taberna no esté vacía (uno cada 4 minutos)
   const bots = botsDelMar(mar);
+  const ahora = Date.now();
   const deBots: Mensaje[] = [];
-  for (let i = 0; i < 14; i++) {
+  for (let i = 0; i < 8; i++) {
     const slot = Math.floor(ahora / 240_000) - i;
     const b = bots[(slot * 7919) % bots.length];
     deBots.push({ id: `b${slot}`, autor: nombreBot(b), texto: FRASES_BOT[(slot * 31) % FRASES_BOT.length], t: slot * 240_000, bot: true });
   }
+  let reales: FilaMensaje[] = [];
+  const miId = estadoServidor.usuario?.id;
+  const moderador = esModerador();
   const pintar = () => {
-    const mios = leer<Mensaje[]>(clave, []).filter((m) => ahora - m.t < NOVENTA_DIAS);
     const silenciados = leer<string[]>('taberna.silenciados', []);
     const reportados = leer<string[]>('taberna.reportados', []);
-    const todos = [...deBots, ...mios].sort((a, b) => a.t - b.t).filter((m) => !silenciados.includes(m.autor));
-    lista.innerHTML = todos.map((m) => reportados.includes(m.id)
-      ? `<li class="reportado">Mensaje reportado. Lo revisará la moderación.</li>`
-      : `<li class="${m.mio ? 'mio' : ''}"><b>${esc(m.autor)}</b><small>${haceCuanto(m.t)}</small><p>${esc(m.texto)}</p>
-        ${m.mio ? '' : `<span class="acciones-msg"><button data-reportar="${m.id}">Reportar</button><button data-silenciar="${esc(m.autor)}">Silenciar</button></span>`}</li>`).join('');
-    silEl.innerHTML = silenciados.length ? `Silenciados: ${silenciados.map((s) => `<button data-quitar="${esc(s)}">${esc(s)} ✕</button>`).join(' ')}` : '';
+    const todos: Mensaje[] = [
+      ...deBots,
+      ...reales.map((m) => ({ id: String(m.id), autor: m.autor_nombre, texto: m.texto, t: Date.parse(m.creado), mio: m.autor === miId, oculto: m.oculto })),
+    ].sort((a, b) => a.t - b.t).filter((m) => !silenciados.includes(m.autor));
+    lista.innerHTML = todos.map((m) => reportados.includes(m.id) || (m.oculto && !moderador)
+      ? `<li class="reportado">Mensaje oculto: lo revisará la moderación.</li>`
+      : `<li class="${m.mio ? 'mio' : ''} ${m.oculto ? 'oculto' : ''}"><b>${esc(m.autor)}</b>${m.bot ? '<small class="bot-tag">bot</small>' : ''}<small>${haceCuanto(m.t)}</small><p>${esc(m.texto)}</p>
+        ${m.mio || m.bot ? '' : `<span class="acciones-msg"><button data-reportar="${m.id}">Reportar</button><button data-silenciar="${esc(m.autor)}">Silenciar</button>${moderador ? `<button data-ocultar="${m.id}">Ocultar (moderador)</button>` : ''}</span>`}</li>`).join('');
+    silEl.innerHTML = silenciados.length ? `Silenciados: ${silenciados.map((x) => `<button data-quitar="${esc(x)}">${esc(x)} ✕</button>`).join(' ')}` : '';
     el.scrollTop = el.scrollHeight;   // baja hasta el último mensaje
   };
-  el.addEventListener('click', (e) => {
+  el.addEventListener('click', async (e) => {
     const b = (e.target as HTMLElement).closest('button');
     if (!b) return;
-    if (b.dataset.reportar) { escribir('taberna.reportados', [...leer<string[]>('taberna.reportados', []), b.dataset.reportar]); pintar(); }
-    else if (b.dataset.silenciar) { escribir('taberna.silenciados', [...new Set([...leer<string[]>('taberna.silenciados', []), b.dataset.silenciar])]); pintar(); }
-    else if (b.dataset.quitar) { escribir('taberna.silenciados', leer<string[]>('taberna.silenciados', []).filter((s) => s !== b.dataset.quitar)); pintar(); }
+    if (b.dataset.reportar) {
+      escribir('taberna.reportados', [...leer<string[]>('taberna.reportados', []), b.dataset.reportar]);
+      if (/^\d+$/.test(b.dataset.reportar)) await reportar(Number(b.dataset.reportar));
+      pintar();
+    } else if (b.dataset.silenciar) { escribir('taberna.silenciados', [...new Set([...leer<string[]>('taberna.silenciados', []), b.dataset.silenciar])]); pintar(); }
+    else if (b.dataset.quitar) { escribir('taberna.silenciados', leer<string[]>('taberna.silenciados', []).filter((x) => x !== b.dataset.quitar)); pintar(); }
+    else if (b.dataset.ocultar) { await ocultarMensaje(Number(b.dataset.ocultar)); reales = reales.map((m) => (String(m.id) === b.dataset.ocultar ? { ...m, oculto: true } : m)); pintar(); }
   });
   const form = el.querySelector<HTMLFormElement>('#chat-form');
-  form?.addEventListener('submit', (e) => {
+  form?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const input = el.querySelector<HTMLInputElement>('#chat-texto')!;
     const texto = input.value.trim();
     if (!texto) return;
-    const mios = leer<Mensaje[]>(clave, []);
-    const ultimoMinuto = mios.filter((m) => Date.now() - m.t < 60_000).length;
-    if (ultimoMinuto >= 5) { input.setCustomValidity('Como mucho 5 mensajes por minuto. Espera un poco.'); input.reportValidity(); setTimeout(() => input.setCustomValidity(''), 2500); return; }
     const p = personajeActivo();
-    const autor = p?.nombre ?? cuentaActual()?.nombre ?? 'Tú';
-    mios.push({ id: `m${Date.now()}`, autor, texto: filtrar(texto), t: Date.now(), mio: true });
-    escribir(clave, mios.slice(-200));
+    const autor = p?.nombre ?? cuentaActual()?.nombre ?? 'Marinero';
+    input.disabled = true;
+    const error = await enviarMensaje(mar, autor, texto);
+    input.disabled = false;
+    if (error) { input.setCustomValidity(error); input.reportValidity(); setTimeout(() => input.setCustomValidity(''), 2500); return; }
     input.value = '';
-    pintar();
+    input.focus();
   });
   pintar();
+  void cargarMensajes(mar).then((m) => { reales = m; pintar(); });
+  limpiarChat = escucharMensajes(mar, (m) => { if (!reales.some((x) => x.id === m.id)) { reales.push(m); pintar(); } });
 }
 
 void islasDelMundo;

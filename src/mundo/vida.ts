@@ -148,6 +148,7 @@ export function posicionPersonaje(p: PersonajeGuardado, ahora = Date.now()): Pos
     const f = Math.min(1, Math.max(0, (ahora - a.desde) / (a.hasta - a.desde)));
     return travesia(A, B, f);
   }
-  const isla = islaDePersonaje(p);
+  // Si el viaje ya acabó (por ejemplo, el de otro jugador que aún no ha vuelto), está en el destino
+  const isla = a?.tipo === 'viajar' && a.destino !== undefined && ahora >= a.hasta ? islasDelMundo()[a.destino] : islaDePersonaje(p);
   return { lat: isla.lat, lon: isla.lon, navegando: false, islaId: isla.id, rumbo: 1 };
 }

@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@fontsource/pixelify-sans": "^5.1.0",
+    "@supabase/supabase-js": "^2.45.4",
     "three": "^0.170.0"
   },
   "private": true,

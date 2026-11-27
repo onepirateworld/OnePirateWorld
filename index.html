@@ -63,13 +63,12 @@
         <label>¿Cómo te llamarán en los mares?
           <input id="pacto-nombre" maxlength="20" required autocomplete="nickname" placeholder="Tu nombre de jugador" />
         </label>
-        <button type="button" class="boton-grande google" id="pacto-google">Continuar con Google</button>
-        <div class="separador">o</div>
-        <label>Te mandamos un enlace mágico al correo
-          <input id="pacto-correo" type="email" autocomplete="email" placeholder="tu@correo.com" />
+        <label>Tu correo (te mandamos un enlace para entrar)
+          <input id="pacto-correo" type="email" required autocomplete="email" placeholder="tu@correo.com" />
         </label>
-        <button type="button" class="boton-grande" id="pacto-correo-btn">Enviar enlace</button>
-        <p class="nota-prueba">Modo de prueba: hasta conectar la base de datos (fase 9), la cuenta se guarda solo en este navegador y no se envía nada.</p>
+        <button type="submit" class="boton-grande" id="pacto-correo-btn">Enviar enlace</button>
+        <p class="pacto-estado" id="pacto-estado" role="status"></p>
+        <p class="nota-hoja">Abre el enlace del correo en este mismo navegador. El correo puede llegar en inglés y tardar un minuto; mira también en spam.</p>
         <button type="button" class="cerrar" data-cerrar aria-label="Cerrar">✕</button>
       </form>
     </dialog>

@@ -14,7 +14,8 @@ import { crearLuchador } from './combate/motor';
 import { arsenalBot } from './datos/arsenal';
 import { frutasDelMar } from './mundo/cronica';
 import { azar } from './arte/lienzo';
-import { arsenalDe, modoCreador } from './cuenta';
+import { arsenalDe, migrarLocales, modoCreador, personajesDeOtros } from './cuenta';
+import { iniciar as iniciarServidor } from './servidor';
 import { TEXTO_ACCION, avanzarVida, islasCercanas, mandar, posicionPersonaje, segundosViaje } from './mundo/vida';
 import { ZONAS } from './mundo/geografia';
 import { iniciarCombate } from './combate/pantalla';
@@ -161,21 +162,20 @@ function abrirPacto() {
   abrir('#dlg-pacto');
   $<HTMLInputElement>('#pacto-nombre').focus();
 }
-function completarPacto(metodo: 'google' | 'correo') {
+async function completarPacto() {
   const nombre = $<HTMLInputElement>('#pacto-nombre').value.trim();
+  const inCorreo = $<HTMLInputElement>('#pacto-correo');
   if (!nombre) { $<HTMLInputElement>('#pacto-nombre').reportValidity(); return; }
-  const correo = $<HTMLInputElement>('#pacto-correo').value.trim();
-  if (metodo === 'correo' && !$<HTMLInputElement>('#pacto-correo').checkValidity()) { $<HTMLInputElement>('#pacto-correo').reportValidity(); return; }
-  if (metodo === 'correo' && !correo) { $<HTMLInputElement>('#pacto-correo').focus(); return; }
-  firmarPacto(nombre, metodo, correo || undefined);
-  $<HTMLDialogElement>('#dlg-pacto').close();
-  aviso(`¡Pacto firmado! Bienvenido a los mares, ${nombre}.`);
-  pintar();
-  abrirPerfil();
+  if (!inCorreo.value.trim() || !inCorreo.checkValidity()) { inCorreo.reportValidity(); return; }
+  const estadoEl = $('#pacto-estado');
+  const boton = $<HTMLButtonElement>('#pacto-correo-btn');
+  boton.disabled = true; estadoEl.textContent = 'Enviando…';
+  const error = await firmarPacto(nombre, inCorreo.value.trim());
+  boton.disabled = false;
+  estadoEl.innerHTML = error ? `<span class="peligro">${esc(error)}</span>`
+    : `✉️ ¡Listo! Te hemos mandado un enlace a <b>${esc(inCorreo.value.trim())}</b>. Ábrelo y volverás aquí con tu cuenta.`;
 }
-$('#pacto-google').addEventListener('click', () => completarPacto('google'));
-$('#pacto-correo-btn').addEventListener('click', () => completarPacto('correo'));
-$('#form-pacto').addEventListener('submit', (e) => { e.preventDefault(); completarPacto('google'); });
+$('#form-pacto').addEventListener('submit', (e) => { e.preventDefault(); void completarPacto(); });
 
 function abrirPerfil() {
   const cuenta = cuentaActual();
@@ -205,7 +205,7 @@ function abrirPerfil() {
   }
   if (!$<HTMLDialogElement>('#dlg-perfil').open) abrir('#dlg-perfil');
 }
-$('#cerrar-sesion').addEventListener('click', () => { cerrarSesion(); $<HTMLDialogElement>('#dlg-perfil').close(); pintar(); aviso('Sesión cerrada.'); });
+$('#cerrar-sesion').addEventListener('click', async () => { await cerrarSesion(); $<HTMLDialogElement>('#dlg-perfil').close(); miEstado = null; pintar(); aviso('Sesión cerrada.'); });
 
 function abrirMares() {
   const actual = marActual();
@@ -235,7 +235,7 @@ $('#btn-localizar').addEventListener('click', localizar);
 document.addEventListener('click', (e) => { if ((e.target as HTMLElement).closest('#ficha-lugar')) localizar(); });
 const paneles = crearPaneles({
   aviso, localizar: () => localizar(), abrirPerfil: () => abrirPerfil(), abrirMares: () => abrirMares(),
-  cerrarSesion: () => { cerrarSesion(); pintar(); aviso('Sesión cerrada.'); }, rutaGaleria: ruta('galeria/index.html'),
+  cerrarSesion: async () => { await cerrarSesion(); miEstado = null; pintar(); aviso('Sesión cerrada.'); }, rutaGaleria: ruta('galeria/index.html'),
   entrenar: () => {
     const p = personajeActivo();
     if (!p) return;
@@ -256,10 +256,15 @@ $('#btn-globo').addEventListener('click', () => (mapa?.visible ? volverAlGlobo()
 // ---------------------------------------------------------------------------
 // Arranque
 
-const enModoCreador = modoCreador();   // ?modo=creador lo activa en este navegador
+// Conecta con el servidor antes de pintar (también recoge la sesión al volver del enlace del correo)
+const volviendoDelCorreo = location.hash.includes('access_token');
+await iniciarServidor(marActual());
+if (volviendoDelCorreo) history.replaceState(null, '', location.pathname + location.search);
+const migrados = migrarLocales();
 pintar();
+if (volviendoDelCorreo && cuentaActual()) aviso(`¡Pacto firmado! Bienvenido a los mares, ${cuentaActual()!.nombre}.${modoCreador() ? ' Tu cuenta tiene el rol de Creador.' : ''}`);
+if (migrados) aviso(`Hemos subido a tu cuenta ${migrados} personaje${migrados > 1 ? 's' : ''} que tenías en este navegador.`);
 const params = new URLSearchParams(location.search);
-if (params.get('modo') === 'creador' && enModoCreador) aviso('Modo creador activado en este navegador. Tus nuevos personajes saldrán con todo al máximo.');
 if (params.has('pacto')) abrirPacto();
 if (params.has('perfil')) abrirPerfil();
 if (params.has('creado')) aviso('¡Tu personaje ya navega por el mundo!');
@@ -279,6 +284,12 @@ function marcadores(): Marcador[] {
     posicion: posicionBot(b, ahora), barco: b.barco, esMio: false,
   }));
   const p = personajeActivo();
+  // Los personajes de los demás jugadores de este mar
+  for (const o of personajesDeOtros()) {
+    const tipo = o.accion && ahora < o.accion.hasta ? o.accion.tipo : 'pasear';
+    lista.push({ id: `j-${o.id}`, nombre: o.apodo ? `${o.nombre} «${o.apodo}»` : o.nombre, bando: o.bando, aspecto: o.aspecto, barco: o.barco ?? 'barca',
+      esMio: false, posicion: posicionPersonaje(o, ahora), quieto: tipo === 'entrenar' || tipo === 'descansar', actividad: TEXTO_ACCION[tipo] });
+  }
   const yo = miEstado && cuentaActual() && p?.id === miEstado.id ? miEstado : null;
   if (yo) {
     const tipo = yo.accion?.tipo ?? 'pasear';
@@ -391,13 +402,14 @@ function mostrarTarjeta(m: Marcador | null, isla: IslaMundo | null) {
   t.innerHTML = '';
   if (m) {
     const bot = botsDelMar(marActual()).find((b) => b.id === m.id);
-    const p = m.esMio ? personajeActivo() : null;
+    const otro = m.id.startsWith('j-') ? personajesDeOtros().find((x) => `j-${x.id}` === m.id) : null;
+    const p = m.esMio ? personajeActivo() : otro ?? null;
     const rasgos = (bot?.rasgos ?? p?.rasgos ?? []).map((id) => RASGOS.find((r) => r.id === id)?.nombre).filter(Boolean).join(', ');
     const lugar = m.posicion.navegando ? 'Navegando' : `En ${islasDelMundo()[m.posicion.islaId!].nombre}`;
     t.append(aCanvas(dibujarPersonaje(m.aspecto), 2));
     t.insertAdjacentHTML('beforeend', `<div>
       <b>${esc(m.nombre)}${m.esMio ? ' <em>(tú)</em>' : ''}</b>
-      <span class="${'bando-' + m.bando}">${BANDOS[m.bando].nombre} · Nv. ${bot?.nivel ?? p?.nivel ?? 1}</span>
+      <span class="${'bando-' + m.bando}">${otro ? '<b class="jugador-tag">Jugador</b> · ' : ''}${p?.creador ? '<b class="creador">Creador</b> · ' : ''}${BANDOS[m.bando].nombre} · Nv. ${bot?.nivel ?? p?.nivel ?? 1}</span>
       <small>${esc(lugar)}${rasgos ? ` · ${esc(rasgos)}` : ''}</small>
       ${p?.sueno ? `<small class="sueno-txt">Sueño: ${esc(p.sueno)}</small>` : ''}
     </div>`);

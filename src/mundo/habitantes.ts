@@ -4,7 +4,7 @@
 import { azar } from '../arte/lienzo';
 import { aspectoAlAzar, type AspectoPersonaje } from '../arte/personajes';
 import { RASGOS, puedeAnadir } from '../datos/caracter';
-import { actualizarPersonaje, type Bando, type PersonajeGuardado } from '../cuenta';
+import { actualizarPersonaje, personajes, type Bando, type PersonajeGuardado } from '../cuenta';
 import { generarIslas, ZONAS, type IdZona, type Isla } from './geografia';
 import { nombreIsla, nombrePersona } from './nombres';
 
@@ -127,7 +127,7 @@ export function islaDePersonaje(p: PersonajeGuardado): IslaMundo {
   const mar = MARES_INICIO[Math.floor(r() * MARES_INICIO.length)];
   const candidatas = islas.filter((i) => i.zona === mar && i.bioma !== 'flotante');
   const isla = candidatas[Math.floor(r() * candidatas.length)];
-  actualizarPersonaje({ ...p, islaId: isla.id });
+  if (personajes().some((x) => x.id === p.id)) actualizarPersonaje({ ...p, islaId: isla.id });   // solo los míos
   return isla;
 }
 
