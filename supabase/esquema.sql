@@ -92,6 +92,8 @@ begin
   else
     new.recompensa := least(new.recompensa, 9999999999);
   end if;
+  -- Los marines nunca tienen recompensa (cuentan capturas)
+  if new.bando = 'marine' then new.recompensa := 0; end if;
   new.actualizado := now();
   return new;
 end $$;

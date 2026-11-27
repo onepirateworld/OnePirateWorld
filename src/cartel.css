@@ -64,3 +64,8 @@
   flex: none; font: inherit; font-size: 12px; padding: 3px 7px; border-radius: 6px; cursor: pointer;
   background: #ecdcb8; color: #5a3a1c; border: 2px solid #8a6a43; box-shadow: 0 2px 0 #4a3420;
 }
+
+.cartel-caja-fila .azul { color: #2c4a8a; }
+.capturas { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; border-top: 2px dashed #b08a5a; padding-top: 10px; }
+.capturas b { display: block; font-size: 30px; color: #2a1d12; }
+.capturas small { color: #7a6248; font-size: 12px; }

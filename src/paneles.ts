@@ -132,7 +132,8 @@ export function crearPaneles(acc: Acciones) {
           <b class="perfil-nombre">${esc(p.nombre)}${p.apodo ? ` <span>«${esc(p.apodo)}»</span>` : ''}</b>
           <span class="bando-${p.bando}">${BANDOS[p.bando].nombre}${p.creador ? ' · <b class="creador">Creador</b>' : p.bando === 'marine' ? ` · ${rangoDe(p.nivel)}` : ''} · Nv. ${p.nivel}</span>
           <span class="oro">${icono('moneda', '#f2b63d')} ${p.creador ? '∞' : formatoDoblones(p.doblones)} doblones</span>
-          ${p.recompensa ? `<span class="recompensa-txt">Recompensa: ${formatoDoblones(p.recompensa)} doblones</span>` : ''}
+          ${p.bando === 'marine' ? `<span class="recompensa-txt">Capturas: ${p.capturas?.pirata ?? 0} piratas · ${p.capturas?.revolucionario ?? 0} revolucionarios</span>`
+            : p.recompensa ? `<span class="recompensa-txt">Recompensa: ${formatoDoblones(p.recompensa)} doblones</span>` : ''}
           ${p.fruta ? `<span class="fruta-txt">Fruta: ${esc(FRUTAS.find((f) => f.id === p.fruta)!.nombre)}</span>` : ''}
           <button class="enlace-oro" data-accion="localizar">${icono('diana', '#f2b63d')} En ${esc(isla.nombre)} · ${esc(nombreZona(isla.zona))}</button>
         </div>

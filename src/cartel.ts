@@ -40,12 +40,14 @@ export function abrirCartel(p: PersonajeGuardado) {
   const fruta = p.fruta ? FRUTAS.find((f) => f.id === p.fruta) : null;
   const dias = Math.max(1, Math.ceil((Date.now() - p.creado) / 86_400_000));
   const mar = MARES.find((m) => m.id === p.mar)?.nombre ?? '';
-  const recompensa = p.recompensa ?? 0;
+  const recompensa = p.bando === 'marine' ? 0 : p.recompensa ?? 0;
+  const capturas = p.capturas ?? { pirata: 0, revolucionario: 0 };
   const cifra = recompensa.toLocaleString('es-ES');
 
   const cartel = p.bando === 'marine'
-    ? `<div class="cartel-caja marina"><div class="cartel-caja-fila"><span>AL SERVICIO</span><span>DE LA MARINA</span></div>
-         <b class="cartel-cifra rango">${esc(tituloDe(p))}</b></div>`
+    ? `<div class="cartel-caja marina"><div class="cartel-caja-fila"><span>AL SERVICIO</span><span class="azul">DE LA MARINA</span></div>
+         <b class="cartel-cifra rango">${esc(tituloDe(p))}</b>
+         <div class="capturas"><div><b>${capturas.pirata}</b><small>piratas capturados</small></div><div><b>${capturas.revolucionario}</b><small>revolucionarios capturados</small></div></div></div>`
     : `<div class="cartel-caja"><div class="cartel-caja-fila"><span>SE BUSCA</span><span class="rojo">VIVO O MUERTO</span></div>
          ${recompensa ? `<b class="cartel-cifra ${cifra.length > 11 ? 'larga' : ''}">${cifra}</b><small>doblones${recompensa >= 1_000_000 ? ` · ${formatoDoblones(recompensa)}` : ''}</small>`
            : '<b class="cartel-cifra sin">Sin recompensa</b><small>Aún nadie paga por su cabeza.</small>'}</div>`;

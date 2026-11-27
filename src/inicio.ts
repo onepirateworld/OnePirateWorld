@@ -382,12 +382,17 @@ async function pelearCon(bot: Bot, motivo: string) {
       const lineas: string[] = [];
       let { nivel, doblones } = yo;
       let xp = yo.xp ?? 0;
+      let capturas = yo.capturas ?? { pirata: 0, revolucionario: 0 };
       if (ganador === 0) {
         const ganaXp = 20 + 5 * nivelRival, ganaOro = 40 + 10 * nivelRival;
         xp += ganaXp; doblones += ganaOro;
         lineas.push(`¡${yo.nombre} gana el combate!`, `+${ganaXp} de experiencia y +${ganaOro} doblones.`);
         while (xp >= 50 * nivel * nivel) { xp -= 50 * nivel * nivel; nivel++; lineas.push(`¡${yo.nombre} sube a nivel ${nivel}!`); }
-        registro.push([Date.now(), `Venció a ${bot.nombre} en ${isla.nombre}.`]);
+        if (yo.bando === 'marine' && bot.bando !== 'marine') {
+          capturas = { ...capturas, [bot.bando]: capturas[bot.bando] + 1 };
+          lineas.push(`${bot.nombre} queda capturado y bajo custodia de la Marina.`);
+          registro.push([Date.now(), `Capturó a ${bot.nombre} (${bot.bando === 'pirata' ? 'pirata' : 'revolucionario'}) en ${isla.nombre}.`]);
+        } else registro.push([Date.now(), `Venció a ${bot.nombre} en ${isla.nombre}.`]);
       } else if (ganador === 1) {
         const pierde = Math.floor(doblones * 0.1);
         doblones -= pierde; xp += 5;
@@ -396,7 +401,7 @@ async function pelearCon(bot: Bot, motivo: string) {
       } else {
         registro.push([Date.now(), `Escapó por los pelos de ${bot.nombre}.`]);
       }
-      actualizarPersonaje({ ...yo, nivel, xp, doblones, registro: registro.slice(-30) });
+      actualizarPersonaje({ ...yo, nivel, xp, doblones, registro: registro.slice(-30), ...(yo.bando === 'marine' ? { capturas } : {}) });
       return lineas;
     },
   });

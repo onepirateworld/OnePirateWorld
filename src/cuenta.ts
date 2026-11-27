@@ -28,6 +28,8 @@ export interface PersonajeGuardado {
   /** Fruta del poder que se ha comido. */
   fruta?: string;
   recompensa?: number;
+  /** Solo marines: piratas y revolucionarios que ha capturado. */
+  capturas?: { pirata: number; revolucionario: number };
   barco?: 'barca' | 'carabela' | 'galeon';
   /** Personaje de una cuenta con rol de creador. */
   creador?: boolean;
@@ -63,14 +65,14 @@ function filaAPersonaje(f: FilaPersonaje): PersonajeGuardado {
   return {
     ...d, rasgos: d.rasgos ?? [], sueno: d.sueno ?? '', aspecto: d.aspecto!,
     id: f.id, nombre: f.nombre, apodo: f.apodo ?? undefined, bando: f.bando as Bando, nivel: f.nivel,
-    doblones: Number(f.doblones), recompensa: Number(f.recompensa), creador: f.creador, mar: f.mar, creado: Date.parse(f.creado),
+    doblones: Number(f.doblones), recompensa: f.bando === 'marine' ? 0 : Number(f.recompensa), creador: f.creador, mar: f.mar, creado: Date.parse(f.creado),
   };
 }
 function personajeAFila(p: PersonajeGuardado): FilaPersonaje {
   const { id, nombre, apodo, bando, nivel, doblones, recompensa, creador, mar, creado, ...datos } = p;
   return {
     id, dueno: estado.usuario?.id ?? '', mar, nombre, apodo: apodo ?? null, bando, datos, nivel: Math.min(80, nivel),
-    doblones, recompensa: recompensa ?? 0, creador: !!creador, creado: new Date(creado).toISOString(),
+    doblones, recompensa: bando === 'marine' ? 0 : recompensa ?? 0, creador: !!creador, creado: new Date(creado).toISOString(),
   };
 }
 
