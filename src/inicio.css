@@ -533,3 +533,15 @@ button { font-family: inherit; cursor: pointer; }
 .boton-oro.apagado { opacity: 0.5; pointer-events: none; }
 a.boton-oro { display: inline-block; text-decoration: none; }
 .saldo svg { width: 22px; height: 22px; flex: none; }
+
+/* Logo */
+.portada-carga {
+  position: fixed; inset: 0; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+  background: #151c4a; transition: opacity 0.6s;
+}
+.portada-carga img { width: min(560px, 90vw); height: auto; }
+.portada-carga span { color: #f2c94c; font-size: 16px; letter-spacing: 2px; animation: parpadeo 1.2s infinite alternate; }
+.portada-carga.fuera { opacity: 0; pointer-events: none; }
+@keyframes parpadeo { from { opacity: 0.35; } to { opacity: 1; } }
+.logo-pacto { display: block; width: 100%; height: auto; border-radius: 10px; margin-bottom: 8px; }
+.logo-mas { display: block; width: 100%; height: auto; border-radius: 12px; margin-bottom: 12px; }

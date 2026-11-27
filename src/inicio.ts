@@ -274,6 +274,11 @@ await iniciarServidor(marActual());
 if (volviendoDelCorreo) history.replaceState(null, '', location.pathname + location.search);
 const migrados = migrarLocales();
 pintar();
+// Quita la portada con el logo (se deja ver al menos un momento)
+{
+  const carga = document.querySelector<HTMLElement>('#portada-carga');
+  if (carga) setTimeout(() => { carga.classList.add('fuera'); setTimeout(() => carga.remove(), 700); }, Math.max(0, 1100 - performance.now()));
+}
 if (new URLSearchParams(location.search).has('sastre')) aviso('¡Como nuevo! El sastre ha hecho un buen trabajo.');
 if (volviendoDelCorreo && cuentaActual()) aviso(`¡Pacto firmado! Bienvenido a los mares.${modoCreador() ? ' Tu cuenta tiene el rol de Creador.' : ''}`);
 if (migrados) aviso(`Hemos subido a tu cuenta ${migrados} personaje${migrados > 1 ? 's' : ''} que tenías en este navegador.`);

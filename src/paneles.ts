@@ -301,7 +301,7 @@ export function crearPaneles(acc: Acciones) {
     ];
     return {
       titulo: 'Más',
-      html: `<div class="rejilla-mas">${items.map(([id, t, s]) => `<button data-ir="${id}"><b>${t}</b><small>${s}</small></button>`).join('')}
+      html: `<img class="logo-mas" src="${ruta('assets/logo/logo-banner.jpg')}" alt="OnePirateWorld" /><div class="rejilla-mas">${items.map(([id, t, s]) => `<button data-ir="${id}"><b>${t}</b><small>${s}</small></button>`).join('')}
         <button data-accion="mares"><b>Cambiar de mar</b><small>Mar ${marActual()}</small></button>
         <a href="${acc.rutaGaleria}"><b>Galería de arte</b><small>Todos los dibujos</small></a>
         ${cuentaActual() ? '<button data-accion="salir"><b>Cerrar sesión</b><small>Salir de tu cuenta</small></button>' : ''}</div>`,
