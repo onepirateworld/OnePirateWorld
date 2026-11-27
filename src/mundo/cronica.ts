@@ -24,28 +24,21 @@ const nombre = (b: Bot) => (b.apodo ? `${b.nombre} «${b.apodo}»` : b.nombre);
 export function recompensa(b: Bot): number {
   if (b.bando === 'marine') return 0;
   let h = 0; for (const ch of b.id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-  const base = b.nivel * b.nivel * 1200 * (b.bando === 'revolucionario' ? 1.4 : 1);
-  return Math.round((base * (0.6 + (h % 100) / 100)) / 1000) * 1000;
+  const base = b.nivel * b.nivel * 60 * (b.bando === 'revolucionario' ? 1.4 : 1);
+  return Math.round((base * (0.6 + (h % 100) / 100)) / 500) * 500;
 }
 
 export const RANGOS = ['Recluta', 'Marinero', 'Cabo', 'Sargento', 'Teniente', 'Capitán', 'Comodoro', 'Vicealmirante', 'Almirante'];
 export const rangoDe = (nivel: number) => RANGOS[Math.min(RANGOS.length - 1, Math.floor(nivel / 7))];
 
-export const formatoDoblones = (n: number) => n.toLocaleString('es-ES');
+/** 950.000 · 4,3 M · 1.200 M: con millones se usa «M» para que se lea fácil. */
+export const formatoDoblones = (n: number) =>
+  n >= 1_000_000 ? `${(n / 1_000_000).toLocaleString('es-ES', { maximumFractionDigits: n >= 100_000_000 ? 0 : 1 })} M` : n.toLocaleString('es-ES');
 
-// --- Frutas: los bots más fuertes ya tienen alguna (una de cada por mundo)
-
-export function frutasDelMar(mar: number): Map<string, string> {
-  const bots = [...botsDelMar(mar)].sort((a, b) => b.nivel - a.nivel);
-  const r = azar(mar * 4441);
-  const libres = [...FRUTAS];
-  const duenos = new Map<string, string>(); // idFruta -> idBot
-  for (const b of bots.slice(0, 4)) {
-    const i = Math.floor(r() * libres.length);
-    duenos.set(libres[i].id, b.id);
-    libres.splice(i, 1);
-  }
-  return duenos;
+// --- Frutas: los bots NO tienen frutas. Solo las consiguen los jugadores (muy difícil).
+// idFruta -> id del dueño. De momento vacío hasta que existan las búsquedas de frutas.
+export function frutasDelMar(_mar: number): Map<string, string> {
+  return new Map();
 }
 
 // --- Sucesos

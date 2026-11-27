@@ -273,7 +273,7 @@ export function crearPaneles(acc: Acciones) {
       <div data-vista="frutas" hidden><ol class="ranking">${[...frutas.entries()].map(([fid, bid], i) => {
         const b = bots.find((x) => x.id === bid)!; const f = FRUTAS.find((x) => x.id === fid)!;
         return fila(i, b, esc(f.nombre));
-      }).join('')}</ol><p class="nota-hoja">${frutas.size} de ${FRUTAS.length} frutas encontradas en este mar.</p></div>`;
+      }).join('')}</ol><p class="nota-hoja">${frutas.size} de ${FRUTAS.length} frutas encontradas en este mar. Solo los jugadores pueden conseguirlas, y no es fácil.</p></div>`;
     return {
       titulo: 'Tablones', html, despues: (el: HTMLElement) => {
         ponerSprites(el, new Map(todos.map((b) => [`b-${b.id}`, cara(b.aspecto, 1.6)])));
