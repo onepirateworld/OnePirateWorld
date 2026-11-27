@@ -129,7 +129,15 @@ function pintar() {
     momentos.innerHTML = '<span class="chispa">✦</span><span class="cuenta">0</span>';
     const accion = document.createElement('button');
     accion.className = 'ficha-accion'; accion.id = 'ficha-accion';
-    ficha.append(cuerpo, momentos, accion);
+    const ordenes = document.createElement('div');
+    ordenes.className = 'ordenes'; ordenes.id = 'ordenes';
+    ordenes.innerHTML = `
+      <button data-orden="navegar"><span>⛵</span>Navegar</button>
+      <button data-orden="pelear"><span>⚔</span>Pelear</button>
+      <button data-orden="entrenar"><span>💪</span>Entrenar</button>
+      <button data-orden="explorar"><span>🔍</span>Explorar</button>
+      <button data-orden="descansar"><span>💤</span>Descansar</button>`;
+    ficha.append(cuerpo, momentos, accion, ordenes);
     lineaAccion();
   }
 }
@@ -410,6 +418,14 @@ function mostrarTarjeta(m: Marcador | null, isla: IslaMundo | null) {
       <span>${biomas[isla.bioma]} · ${esc(nombreZona(isla.zona))}</span>
       <small>${isla.especial ? especial[isla.especial] + ' ' : ''}${aqui ? `${aqui} personaje${aqui > 1 ? 's' : ''} aquí ahora.` : 'Nadie a la vista.'}</small>
     </div>`);
+    const yo = miEstado;
+    if (yo && cuentaActual() && !navegandoAhora(yo) && islaDePersonaje(yo).id !== isla.id) {
+      const b = document.createElement('button');
+      b.className = 'boton-oro boton-pelear';
+      b.textContent = `⛵ Navegar aquí (${mmss(segundosViaje(islaDePersonaje(yo), isla) * 1000)})`;
+      b.addEventListener('click', () => { ocultarTarjeta(); zarpar(isla); });
+      t.append(b);
+    }
   }
   const cerrar = document.createElement('button');
   cerrar.className = 'tarjeta-cerrar'; cerrar.textContent = '✕'; cerrar.setAttribute('aria-label', 'Cerrar');
@@ -451,7 +467,46 @@ function lineaAccion() {
   if (lugar) lugar.textContent = a.tipo === 'viajar' ? `Navegando hacia ${islasDelMundo()[a.destino!].nombre}` : `En ${isla.nombre} · ${nombreZona(isla.zona)}`;
 }
 
-function abrirDecidir() {
+const navegandoAhora = (p: PersonajeGuardado) => p.accion?.tipo === 'viajar' && Date.now() < p.accion.hasta;
+let eligiendoDestino = false;
+
+function zarpar(destino: IslaMundo) {
+  const p = miEstado;
+  if (!p) return;
+  if (navegandoAhora(p)) { aviso(`${p.nombre} ya está navegando. Espera a que llegue.`); return; }
+  if (destino.id === islaDePersonaje(p).id) { aviso(`${p.nombre} ya está en ${destino.nombre}. Toca otra isla.`); return; }
+  miEstado = mandar(p, 'viajar', destino);
+  eligiendoDestino = false;
+  document.body.classList.remove('eligiendo-destino');
+  lineaAccion();
+  const peligro = ZONAS[destino.zona].nivelMinimo > p.nivel;
+  aviso(`${p.nombre} zarpa hacia ${destino.nombre}.${peligro ? ' ¡Cuidado, es una zona de nivel alto!' : ''}`);
+  if (mapa?.visible) mapa.seguir(p.id); else localizar();
+}
+
+/** Las órdenes directas de la ficha. */
+function ordenar(orden: string) {
+  const p = miEstado;
+  if (!p) return;
+  if (navegandoAhora(p)) { aviso(`${p.nombre} está navegando: no puede hacer otra cosa hasta llegar.`); return; }
+  const isla = islaDePersonaje(p);
+  if (orden === 'navegar') { abrirDecidir('navegar'); return; }
+  if (orden === 'pelear') {
+    const rival = botsDelMar(marActual()).find((b) => { const pos = posicionBot(b); return !pos.navegando && pos.islaId === isla.id && esRival(p.bando, b.bando); });
+    if (!rival) { aviso(`No hay rivales en ${isla.nombre}. Prueba a navegar a otra isla.`); return; }
+    pelearCon(rival, `${p.nombre} busca pelea y encuentra a ${rival.nombre}.`);
+    return;
+  }
+  miEstado = mandar(p, orden as 'entrenar' | 'explorar' | 'descansar');
+  lineaAccion();
+  aviso(`${p.nombre}: ¡a ${orden === 'entrenar' ? 'entrenar' : orden === 'explorar' ? 'explorar' : 'descansar'}!`);
+}
+document.addEventListener('click', (e) => {
+  const b = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-orden]');
+  if (b) ordenar(b.dataset.orden!);
+});
+
+function abrirDecidir(modo: 'todo' | 'navegar' = 'todo') {
   const p = miEstado;
   if (!p) return;
   const isla = islaDePersonaje(p);
@@ -459,6 +514,32 @@ function abrirDecidir() {
   const navegando = a.tipo === 'viajar' && Date.now() < a.hasta;
   const rivales = botsDelMar(marActual()).filter((b) => { const pos = posicionBot(b); return !pos.navegando && pos.islaId === isla.id && esRival(p.bando, b.bando); });
   const cuerpo = $('#decidir-cuerpo');
+  if (modo === 'navegar') {
+    $('#dlg-decidir h2').textContent = '¿A dónde navega?';
+    cuerpo.innerHTML = `<p>Elige una isla cercana o <b>toca cualquier isla del mapa</b>.</p>
+      <div class="destinos">${islasCercanas(isla, 8).map((d) => {
+        const peligro = ZONAS[d.zona].nivelMinimo > p.nivel;
+        return `<button data-zarpar="${d.id}"><b>${esc(d.nombre)}</b><small>${esc(nombreZona(d.zona))} · ${mmss(segundosViaje(isla, d) * 1000)} de viaje${peligro ? ` · <span class="peligro">⚠ nivel ${ZONAS[d.zona].nivelMinimo}</span>` : ''}</small></button>`;
+      }).join('')}</div>
+      <button class="boton-grande" id="elegir-en-mapa" style="margin-top:10px">🗺 Elegir en el mapa</button>`;
+    cuerpo.querySelector('#elegir-en-mapa')!.addEventListener('click', () => {
+      $<HTMLDialogElement>('#dlg-decidir').close();
+      eligiendoDestino = true;
+      document.body.classList.add('eligiendo-destino');
+      // Alejamos el mapa para que se vean las islas de alrededor
+      const zoomVer = (mapa?.zoomIsla(isla) ?? 200) / 16;
+      mapa?.seguir(null);
+      if (!mapa?.visible) abrirMapa(isla.lat, isla.lon, zoomVer); else mapa.centrarEn(isla.lat, isla.lon, zoomVer);
+      aviso('Toca la isla a la que quieres navegar.');
+    });
+    cuerpo.querySelectorAll<HTMLButtonElement>('[data-zarpar]').forEach((b) => b.addEventListener('click', () => {
+      $<HTMLDialogElement>('#dlg-decidir').close();
+      zarpar(islasDelMundo()[Number(b.dataset.zarpar)]);
+    }));
+    abrir('#dlg-decidir');
+    return;
+  }
+  $('#dlg-decidir h2').textContent = '¿Qué hace?';
   cuerpo.innerHTML = `
     <p>Ahora: <b>${TEXTO_ACCION[a.tipo]}</b> ${a.tipo === 'viajar' ? `hacia ${esc(islasDelMundo()[a.destino!].nombre)}` : `en ${esc(isla.nombre)}`} (${mmss(a.hasta - Date.now())}).
       ${a.mandada ? 'Se lo has mandado tú.' : 'Lo ha decidido él solo.'}</p>
@@ -485,12 +566,8 @@ function abrirDecidir() {
     aviso(`${p.nombre}: ${TEXTO_ACCION[que as 'entrenar'].toLowerCase()}.`);
   }));
   cuerpo.querySelectorAll<HTMLButtonElement>('[data-zarpar]').forEach((b) => b.addEventListener('click', () => {
-    const destino = islasDelMundo()[Number(b.dataset.zarpar)];
     $<HTMLDialogElement>('#dlg-decidir').close();
-    miEstado = mandar(p, 'viajar', destino);
-    lineaAccion();
-    aviso(`${p.nombre} zarpa hacia ${destino.nombre}.`);
-    if (mapa?.visible) mapa.seguir(p.id);
+    zarpar(islasDelMundo()[Number(b.dataset.zarpar)]);
   }));
   abrir('#dlg-decidir');
 }
@@ -511,7 +588,10 @@ requestAnimationFrame(() => {
   mapa = crearMapa($('#mapa'), islasDelMundo(), {
     marcadores,
     alAlejar: (lat, lon) => volverAlGlobo(lat, lon),
-    alTocar: mostrarTarjeta,
+    alTocar: (m, isla) => {
+      if (eligiendoDestino && isla) { zarpar(isla); return; }
+      mostrarTarjeta(m, isla);
+    },
   });
   if (params.has('creado')) setTimeout(localizar, 1200);
 });

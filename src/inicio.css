@@ -496,3 +496,24 @@ button { font-family: inherit; cursor: pointer; }
 .resumen-lista { padding-left: 18px; color: var(--texto); line-height: 1.5; margin: 8px 0 14px; }
 .ficha { flex-wrap: wrap; }
 .ficha .ficha-accion { flex-basis: 100%; grid-column: 1 / -1; padding: 6px 10px; font-size: 14px; }
+
+/* --- Órdenes directas al personaje */
+.ordenes { flex-basis: 100%; grid-column: 1 / -1; display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; }
+.ordenes button {
+  display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 5px 2px;
+  background: #2c4a8a; color: var(--texto); border: 2px solid #5cc3d8; border-radius: 10px; font-size: 12px; font-weight: 700;
+  box-shadow: 0 3px 0 var(--panel-sombra);
+}
+.ordenes button span { font-size: 18px; line-height: 1.1; }
+.ordenes button:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--panel-sombra); }
+.ordenes [data-orden="navegar"] { background: #f2b63d; color: #1a1423; border-color: #f7e27a; }
+.eligiendo-destino .mapa-lienzo { cursor: crosshair; }
+.eligiendo-destino .mapa::after {
+  content: 'Toca una isla para navegar hasta ella'; position: absolute; left: 50%; top: calc(80px + env(safe-area-inset-top)); transform: translateX(-50%);
+  background: #f2b63d; color: #1a1423; font-weight: 700; padding: 6px 12px; border-radius: 10px; pointer-events: none; white-space: nowrap;
+}
+@media (max-width: 520px) {
+  .flotantes { bottom: calc(310px + env(safe-area-inset-bottom)); }
+  .tarjeta { bottom: calc(320px + env(safe-area-inset-bottom)); }
+}
+@media (min-width: 521px) { .tarjeta { bottom: calc(260px + env(safe-area-inset-bottom)); } }
