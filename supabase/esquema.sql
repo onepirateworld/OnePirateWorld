@@ -83,7 +83,7 @@ create policy "borrar los mios" on public.personajes for delete using (auth.uid(
 
 -- Lo de "creador" solo lo decide el servidor según el rol de la cuenta
 create or replace function public.marcar_creador() returns trigger language plpgsql security definer set search_path = public as $$
-declare es_creador boolean;
+declare es_creador boolean; antes record;
 begin
   select rol = 'creador' into es_creador from public.perfiles where id = new.dueno;
   new.creador := coalesce(es_creador, false);
@@ -94,6 +94,20 @@ begin
   end if;
   -- Los marines nunca tienen recompensa (cuentan capturas)
   if new.bando = 'marine' then new.recompensa := 0; end if;
+  -- Antitrampas: nadie (salvo el creador) puede subirse el dinero o el nivel de golpe
+  -- (Guardar desde el juego es «insertar o actualizar»: comparamos con la fila que ya exista)
+  if not new.creador then
+    select doblones, nivel, recompensa into antes from public.personajes where id = new.id;
+    if not found then
+      new.doblones := least(new.doblones, 1000);
+      new.nivel := least(new.nivel, 5);
+      new.recompensa := 0;
+    else
+      new.doblones := least(new.doblones, antes.doblones + 1500);
+      new.nivel := least(new.nivel, antes.nivel + 2);
+      new.recompensa := least(new.recompensa, antes.recompensa + 5000000);
+    end if;
+  end if;
   new.actualizado := now();
   return new;
 end $$;

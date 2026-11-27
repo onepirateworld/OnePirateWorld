@@ -29,7 +29,8 @@ export interface Luchador {
   critico: number;
   esquivaBase: number;
   mejoras: { fuerza: number; resistencia: number; velocidad: number };
-  pociones: number;
+  pociones: number;      // tragos de grog (curan 25%)
+  botiquines: number;    // botiquines (curan 50%)
   // Estado del turno
   bloqueo: number;
   devuelve: number;
@@ -39,7 +40,7 @@ export interface Luchador {
   usadas: Set<string>;
 }
 
-export function crearLuchador(d: { nombre: string; bando: Bando; aspecto: AspectoPersonaje; nivel: number; rasgos: string[]; arsenal: Arsenal; fruta?: string; creador?: boolean }): Luchador {
+export function crearLuchador(d: { nombre: string; bando: Bando; aspecto: AspectoPersonaje; nivel: number; rasgos: string[]; arsenal: Arsenal; fruta?: string; creador?: boolean; bolsa?: { grog: number; botiquin: number } }): Luchador {
   const e = estadisticasIniciales(d.rasgos, d.nivel);
   for (const [k, n] of Object.entries(d.arsenal.mejoras) as [Estadistica, number][]) (e as any)[k] += MEJORA_POR_PUNTO[k].cantidad * n;
   const pasiva = (id: string) => (d.arsenal.equipadas.includes(id) ? d.arsenal.habilidades[id] ?? 0 : 0);
@@ -52,7 +53,7 @@ export function crearLuchador(d: { nombre: string; bando: Bando; aspecto: Aspect
     arma: d.arsenal.principal, vida: vidaMax, vidaMax, energia: 100,
     fuerza, resistencia, velocidad, tecnica,
     critico: 0.06 + 0.03 * pasiva('ojo-critico'), esquivaBase: (d.rasgos.includes('astuto') ? 0.05 : 0) + 0.05 * pasiva('pies-ligeros'),
-    mejoras: { fuerza: 0, resistencia: 0, velocidad: 0 }, pociones: d.creador ? 9 : 1,
+    mejoras: { fuerza: 0, resistencia: 0, velocidad: 0 }, pociones: d.creador ? 9 : d.bolsa?.grog ?? 1, botiquines: d.creador ? 9 : d.bolsa?.botiquin ?? 0,
     bloqueo: 0, devuelve: 0, esquiva: 0, sinGuardia: 0, cegado: { cantidad: 0, turnos: 0 }, usadas: new Set(),
   };
 }
@@ -80,7 +81,7 @@ export type Accion =
   | { tipo: 'tecnica'; tecnica: Tecnica; deArma: boolean }
   | { tipo: 'defender' }
   | { tipo: 'arma'; arma: string }
-  | { tipo: 'objeto' }
+  | { tipo: 'objeto'; item?: 'grog' | 'botiquin' }
   | { tipo: 'huir' };
 
 /** Lo que pasa en un turno, paso a paso, para que la pantalla lo anime. */
@@ -109,7 +110,8 @@ export class Combate {
     const curas = habs.filter((t) => t.efectos?.cura);
     if (yo.vida < yo.vidaMax * (valiente ? 0.15 : 0.3)) {
       if (curas.length) return { tipo: 'tecnica', tecnica: curas[0], deArma: false };
-      if (yo.pociones > 0) return { tipo: 'objeto' };
+      if (yo.botiquines > 0) return { tipo: 'objeto', item: 'botiquin' };
+      if (yo.pociones > 0) return { tipo: 'objeto', item: 'grog' };
     }
     const defensas = habs.filter((t) => t.efectos?.bloqueo || t.efectos?.esquiva);
     if (defensas.length && this.r() < (prudente ? 0.3 : 0.15)) return { tipo: 'tecnica', tecnica: defensas[Math.floor(this.r() * defensas.length)], deArma: false };
@@ -158,11 +160,14 @@ export class Combate {
         pasos.push({ tipo: 'arma', quien: i }, { tipo: 'texto', texto: `${yo.nombre} saca su ${arma(a.arma).nombre.toLowerCase()}.` });
         return;
       case 'objeto': {
-        if (yo.pociones <= 0) { pasos.push({ tipo: 'texto', texto: `${yo.nombre} busca en la bolsa... ¡no queda nada!` }); return; }
-        yo.pociones--;
-        const cura = Math.min(yo.vidaMax - yo.vida, Math.round(yo.vidaMax * 0.25));
+        let item = a.item ?? (yo.pociones > 0 ? 'grog' : 'botiquin');
+        if (item === 'grog' && yo.pociones <= 0) item = 'botiquin';
+        if (item === 'botiquin' && yo.botiquines <= 0) item = 'grog';
+        if (item === 'grog' ? yo.pociones <= 0 : yo.botiquines <= 0) { pasos.push({ tipo: 'texto', texto: `${yo.nombre} busca en la bolsa... ¡no queda nada!` }); return; }
+        if (item === 'grog') yo.pociones--; else yo.botiquines--;
+        const cura = Math.min(yo.vidaMax - yo.vida, Math.round(yo.vidaMax * (item === 'grog' ? 0.25 : 0.5)));
         yo.vida += cura;
-        pasos.push({ tipo: 'texto', texto: `${yo.nombre} bebe un trago de grog.` }, { tipo: 'anim', quien: i, anim: { forma: 'cura', color: 18 }, mov: 'quieto' }, { tipo: 'cura', quien: i, cantidad: cura });
+        pasos.push({ tipo: 'texto', texto: item === 'grog' ? `${yo.nombre} bebe un trago de grog.` : `${yo.nombre} se venda las heridas con un botiquín.` }, { tipo: 'anim', quien: i, anim: { forma: 'cura', color: 18 }, mov: 'quieto' }, { tipo: 'cura', quien: i, cantidad: cura });
         return;
       }
       case 'huir': {

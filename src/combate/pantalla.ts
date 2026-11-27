@@ -172,7 +172,7 @@ export async function iniciarCombate(
   }
 
   // --- Menús
-  type Vista = 'principal' | 'atacar' | 'habilidad' | 'fruta' | 'arma';
+  type Vista = 'principal' | 'atacar' | 'habilidad' | 'fruta' | 'arma' | 'bolsa';
   let enMenu: Tecnica[] = [];
   const botonTecnica = (t: Tecnica, i: number) => `<button data-t="${i}" ${t.energia > jugador.energia ? 'disabled' : ''}><b>${t.nombre}</b><small>${t.poder ? `Poder ${t.poder}${t.golpes ? ` ×${t.golpes}` : ''}` : esc(t.descripcion)} · ${t.energia ? `${t.energia} energía` : 'Gratis'}</small></button>`;
   let menuArma = true;
@@ -185,11 +185,17 @@ export async function iniciarCombate(
         <button data-m="atacar">Atacar</button><button data-m="habilidad">Habilidad</button>
         ${fruta ? '<button data-m="fruta" class="fruta">Fruta</button>' : ''}
         <button data-m="defender">Defender</button><button data-m="arma">Arma</button>
-        <button data-m="objeto">Bolsa <small>${jugador.pociones}</small></button>
+        <button data-m="bolsa">Bolsa <small>${jugador.pociones + jugador.botiquines}</small></button>
         <button data-m="huir" class="huir">Huir</button>`;
       return;
     }
     menu.className = 'combate-menu tecnicas';
+    if (vista === 'bolsa') {
+      menu.innerHTML = `<button data-o="grog" ${jugador.pociones ? '' : 'disabled'}><b>Grog ×${jugador.pociones}</b><small>Cura un 25% de la vida</small></button>
+        <button data-o="botiquin" ${jugador.botiquines ? '' : 'disabled'}><b>Botiquín ×${jugador.botiquines}</b><small>Cura un 50% de la vida</small></button>
+        <button data-m="volver" class="volver">← Volver</button>`;
+      return;
+    }
     if (vista === 'arma') {
       menu.innerHTML = armasParaCambiar(jugador).map((a) => `<button data-a="${a}" ${a === jugador.arma ? 'disabled' : ''}><b>${arma(a).nombre}</b><small>${a === jugador.arma ? 'En la mano' : 'Gasta el turno'}</small></button>`).join('')
         + '<button data-m="volver" class="volver">← Volver</button>';
@@ -205,7 +211,8 @@ export async function iniciarCombate(
     const b = (e.target as HTMLElement).closest('button');
     if (!b || b.disabled) return;
     const d = b.dataset;
-    if (d.m === 'atacar' || d.m === 'habilidad' || d.m === 'fruta' || d.m === 'arma') mostrarMenu(d.m);
+    if (d.m === 'atacar' || d.m === 'habilidad' || d.m === 'fruta' || d.m === 'arma' || d.m === 'bolsa') mostrarMenu(d.m);
+    else if (d.o) elegir({ tipo: 'objeto', item: d.o as 'grog' | 'botiquin' });
     else if (d.m === 'volver') mostrarMenu('principal');
     else if (d.m === 'defender') elegir({ tipo: 'defender' });
     else if (d.m === 'objeto') elegir({ tipo: 'objeto' });

@@ -1,6 +1,7 @@
 // Paneles de la pantalla principal: Mi pirata, Noticias, Taberna, Tablones, Más, En vivo...
 // Se abren en una hoja sobre el mapa. Lo que aún no existe aparece bloqueado.
 import { Lienzo } from './arte/lienzo';
+import { C } from './arte/paleta';
 import { dibujarPersonaje, type AspectoPersonaje } from './arte/personajes';
 import { dibujarFruta, siluetaFruta } from './arte/frutas';
 import { FRUTAS, CATEGORIAS, RAREZAS, DEBILIDAD_COMUN } from './datos/frutas';
@@ -19,8 +20,11 @@ import { cargarMensajes, enviarMensaje, escucharMensajes, estado as estadoServid
 import { botsDelMar, islaDePersonaje, islasDelMundo, nombreZona, posicionBot, type Bot } from './mundo/habitantes';
 import { cronica, frutasDelMar, formatoDoblones, haceCuanto, rangoDe, recompensa, type Suceso } from './mundo/cronica';
 import { icono } from './iconos';
+import { ruta } from './rutas';
+import { BARCOS_PRUEBA } from './arte/barcos';
+import { BARCOS, PRECIO_SASTRE, PROVISIONES, bolsaDe, type IdBarco } from './datos/tienda';
 
-export type IdPanel = 'arsenal' | 'mi-pirata' | 'noticias' | 'taberna' | 'tablones' | 'mas' | 'en-vivo' | 'se-busca' | 'cofre' | 'compendio' | 'guia' | 'normas' | 'privacidad';
+export type IdPanel = 'arsenal' | 'mi-pirata' | 'noticias' | 'taberna' | 'tablones' | 'mas' | 'en-vivo' | 'se-busca' | 'cofre' | 'compendio' | 'guia' | 'normas' | 'privacidad' | 'tienda';
 
 interface Acciones {
   aviso(t: string): void;
@@ -66,7 +70,7 @@ function bloqueado(titulo: string, texto: string) {
 export function crearPaneles(acc: Acciones) {
   const hoja = document.querySelector<HTMLElement>('#hoja')!;
   const titulo = hoja.querySelector<HTMLElement>('.hoja-titulo')!;
-  const cuerpo = hoja.querySelector<HTMLElement>('.hoja-cuerpo')!;
+  let cuerpo = hoja.querySelector<HTMLElement>('.hoja-cuerpo')!;
   const volver = hoja.querySelector<HTMLButtonElement>('.hoja-volver')!;
   let actual: IdPanel | null = null;
   const pila: IdPanel[] = [];
@@ -90,6 +94,9 @@ export function crearPaneles(acc: Acciones) {
     document.body.classList.add('con-hoja');
     document.querySelectorAll<HTMLElement>('.barra-inf button').forEach((b) => b.classList.toggle('activo', b.dataset.panel === id));
     volver.hidden = pila.length === 0;
+    // Contenedor nuevo en cada apertura: así no se acumulan los «clics» de la vez anterior
+    const limpio = cuerpo.cloneNode(false) as HTMLElement;
+    cuerpo.replaceWith(limpio); cuerpo = limpio;
     cuerpo.scrollTop = 0;
     const r = PANELES[id]();
     titulo.textContent = r.titulo;
@@ -112,6 +119,7 @@ export function crearPaneles(acc: Acciones) {
     guia,
     normas,
     privacidad,
+    tienda,
   };
 
   // --- Mi pirata --------------------------------------------------------------
@@ -139,7 +147,7 @@ export function crearPaneles(acc: Acciones) {
         </div>
       </div>
 
-      <div class="botones-fila"><button class="boton-oro" data-accion="hoja">📜 Hoja de vida</button><button class="boton-oro" data-ir="arsenal">🗡 Arsenal</button><button class="boton-oro" data-accion="entrenar">⚔ Entrenar</button></div>
+      <div class="botones-fila"><button class="boton-oro" data-accion="hoja">📜 Hoja de vida</button><button class="boton-oro" data-ir="tienda">🛒 Tienda</button><button class="boton-oro" data-ir="arsenal">🗡 Arsenal</button><button class="boton-oro" data-accion="entrenar">⚔ Entrenar</button></div>
 
       <h3>Estadísticas</h3>
       <div class="barras">${(Object.keys(NOMBRES_ESTADISTICAS) as (keyof Estadisticas)[]).map((k) => `
@@ -169,7 +177,8 @@ export function crearPaneles(acc: Acciones) {
 
       <h3>Equipo</h3>
       <div class="ranuras">
-        <div class="ranura"><b>Barco</b><small>Barca de remos</small></div>
+        <div class="ranura"><b>Barco</b><small>${esc(BARCOS.find((x) => x.id === (p.barco ?? 'barca'))!.nombre)}</small></div>
+        <div class="ranura"><b>Bolsa</b><small>${bolsaDe(p).grog} grog · ${bolsaDe(p).botiquin} botiquines</small></div>
         ${bloqueado('Arma', 'Consíguela en combates, tesoros o tiendas.')}
         ${bloqueado('Ropa especial', 'Mejora tu defensa. Llegará con el equipo.')}
         ${bloqueado('Fruta del poder', 'Ninguna. Si encuentras una, decidirás si te la comes.')}
@@ -287,7 +296,7 @@ export function crearPaneles(acc: Acciones) {
   // --- Más --------------------------------------------------------------------
   function mas() {
     const items: [string, string, string][] = [
-      ['arsenal', 'Arsenal', 'Armas, habilidades y mejoras'], ['se-busca', 'Se busca', 'Los carteles del día'], ['cofre', 'Cofre', 'Objetos, tesoros y logros'], ['compendio', 'Compendio', 'Las frutas del poder'],
+      ['tienda', 'Tienda', 'Provisiones, barcos y sastre'], ['arsenal', 'Arsenal', 'Armas, habilidades y mejoras'], ['se-busca', 'Se busca', 'Los carteles del día'], ['cofre', 'Cofre', 'Objetos, tesoros y logros'], ['compendio', 'Compendio', 'Las frutas del poder'],
       ['guia', 'Guía', 'Cómo funciona el juego'], ['normas', 'Normas', 'Para convivir en los mares'], ['privacidad', 'Privacidad', 'Qué datos guardamos'],
     ];
     return {
@@ -313,6 +322,74 @@ export function crearPaneles(acc: Acciones) {
         <div class="carteles">${bots.map((b) => `<div class="cartel"><span class="cartel-titulo">SE BUSCA</span><i data-sprite="b-${b.id}"></i><b>${esc(b.nombre)}</b>${b.apodo ? `<small>«${esc(b.apodo)}»</small>` : ''}<span class="cartel-cifra">${formatoDoblones(recompensa(b))}</span><small class="cartel-pie">doblones</small></div>`).join('')}</div>
         ${p && p.bando !== 'marine' ? `<p class="vacio">Todavía nadie busca a ${esc(p.nombre)}. Con unas cuantas fechorías, su cara acabará aquí.</p>` : ''}`,
       despues: (el: HTMLElement) => ponerSprites(el, new Map(bots.map((b) => [`b-${b.id}`, cara(b.aspecto, 3)]))),
+    };
+  }
+
+  // --- Tienda -----------------------------------------------------------------
+  let pestanaTienda = 'provisiones';
+  function tienda() {
+    const p = cuentaActual() ? personajeActivo() : null;
+    if (!p) return { titulo: 'Tienda', html: `<p class="vacio">Crea un personaje para comprar.</p><button class="boton-oro ancho" data-accion="perfil">Crear personaje</button>`, despues: enlazarAcciones };
+    const tiene = (n: number) => p.creador || p.doblones >= n;
+    const bolsa = bolsaDe(p);
+    const barco = p.barco ?? 'barca';
+    const orden: IdBarco[] = ['barca', 'carabela', 'galeon'];
+    const provisiones = `<div class="items">${PROVISIONES.map((x) => {
+      const n = bolsa[x.id], lleno = n >= x.max;
+      return `<div class="item tienda-item"><i data-sprite="pr-${x.id}"></i><b>${x.nombre}</b><small>${esc(x.texto)}</small><em>Llevas ${n} de ${x.max}</em>
+        <span class="fila-mini"><button class="mini-boton" data-provision="${x.id}" data-n="1" ${!lleno && tiene(x.precio) ? '' : 'disabled'}>${lleno ? 'Bolsa llena' : `Comprar · ${formatoDoblones(x.precio)}`}</button>
+        ${!lleno && x.max - n >= 3 ? `<button class="mini-boton" data-provision="${x.id}" data-n="3" ${tiene(x.precio * 3) ? '' : 'disabled'}>×3 · ${formatoDoblones(x.precio * 3)}</button>` : ''}</span></div>`;
+    }).join('')}</div>`;
+    const barcos = `<div class="items">${BARCOS.map((x) => {
+      const propio = x.id === barco, peor = orden.indexOf(x.id) < orden.indexOf(barco);
+      const nivelOk = p.nivel >= x.nivel || p.creador;
+      const boton = propio ? '<em>⚓ Tu barco</em>' : peor ? '<em>Ya tienes uno mejor</em>' : !nivelOk ? `<em>🔒 Nivel ${x.nivel}</em>`
+        : `<button class="mini-boton" data-barco="${x.id}" ${tiene(x.precio) ? '' : 'disabled'}>Comprar · ${formatoDoblones(x.precio)}</button>`;
+      return `<div class="item tienda-item ${propio ? 'puesta' : ''}"><i data-sprite="bc-${x.id}"></i><b>${x.nombre}</b><small>${esc(x.texto)}</small>${boton}</div>`;
+    }).join('')}</div>`;
+    const sastre = `<div class="sastre"><i data-sprite="yo"></i><div>
+        <p>Cambia el peinado, la ropa, el sombrero, la complexión o lo que quieras de tu personaje.</p>
+        <a class="boton-oro ${tiene(PRECIO_SASTRE) ? '' : 'apagado'}" href="${tiene(PRECIO_SASTRE) ? ruta(`nuevo/index.html?sastre=${encodeURIComponent(p.id)}&mar=${marActual()}`) : '#'}">✂ Ir al sastre · ${p.creador ? 'gratis' : formatoDoblones(PRECIO_SASTRE)}</a>
+        <small>Solo pagas si guardas los cambios.</small></div></div>`;
+    const armeria = `<p class="nota-hoja">Espadas, pistolas, puños y escudos. También puedes forjarlas y aprender habilidades.</p>
+      <button class="boton-oro ancho" data-ir="arsenal">🗡 Ir a la armería</button>`;
+    const pest = [['provisiones', 'Provisiones', provisiones], ['barcos', 'Barcos', barcos], ['sastre', 'Sastre', sastre], ['armeria', 'Armería', armeria]];
+    return {
+      titulo: 'Tienda',
+      html: `<p class="saldo">${icono('moneda', '#f2b63d')} <b>${p.creador ? '∞' : formatoDoblones(p.doblones)}</b> doblones</p>
+        <div class="pestanas-hoja">${pest.map(([id, t]) => `<button class="${id === pestanaTienda ? 'sel' : ''}" data-filtro="${id}">${t}</button>`).join('')}</div>
+        ${pest.map(([id, , h]) => `<div data-vista="${id}" ${id === pestanaTienda ? '' : 'hidden'}>${h}</div>`).join('')}`,
+      despues: (el: HTMLElement) => {
+        pestanasLocales(el);
+        el.querySelectorAll<HTMLButtonElement>('[data-filtro]').forEach((b) => b.addEventListener('click', () => (pestanaTienda = b.dataset.filtro!)));
+        const sprites = new Map<string, HTMLCanvasElement>([['yo', aCanvas(dibujarPersonaje(p.aspecto), 3)]]);
+        for (const b of BARCOS_PRUEBA) sprites.set(`bc-${b.id}`, aCanvas(b.dibujar(), 2));
+        sprites.set('pr-grog', aCanvas(dibujarProvision('grog'), 3));
+        sprites.set('pr-botiquin', aCanvas(dibujarProvision('botiquin'), 3));
+        ponerSprites(el, sprites);
+        el.querySelectorAll<HTMLButtonElement>('[data-ir]').forEach((b) => b.addEventListener('click', () => abrir(b.dataset.ir as IdPanel)));
+        el.addEventListener('click', (e) => {
+          const b = (e.target as HTMLElement).closest('button');
+          if (!b || b.disabled || b.dataset.filtro || b.dataset.ir) return;
+          const yo = personajeActivo()!;
+          const pagar = (n: number) => (yo.creador ? yo.doblones : yo.doblones - n);
+          if (b.dataset.provision) {
+            const x = PROVISIONES.find((y) => y.id === b.dataset.provision)!;
+            const bo = { ...bolsaDe(yo) };
+            const n = Math.min(Number(b.dataset.n), x.max - bo[x.id]);
+            if (n <= 0 || (!yo.creador && yo.doblones < x.precio * n)) return;
+            bo[x.id] += n;
+            actualizarPersonaje({ ...yo, bolsa: bo, doblones: pagar(x.precio * n) });
+            acc.aviso(`Compras ${n > 1 ? n + ' de ' : ''}${x.nombre.toLowerCase()}. Ya va en la bolsa.`);
+          } else if (b.dataset.barco) {
+            const x = BARCOS.find((y) => y.id === b.dataset.barco)!;
+            if (!yo.creador && yo.doblones < x.precio) return;
+            actualizarPersonaje({ ...yo, barco: x.id, doblones: pagar(x.precio), registro: [...(yo.registro ?? []), [Date.now(), `Compró una ${x.nombre.toLowerCase()} y la bautizó con ron.`] as [number, string]].slice(-30) });
+            acc.aviso(`¡${x.nombre} comprada! Tus viajes serán más rápidos.`);
+          } else return;
+          abrir('tienda', false);
+        });
+      },
     };
   }
 
@@ -580,3 +657,16 @@ function montarChat(el: HTMLElement, mar: number) {
 }
 
 void islasDelMundo;
+
+/** Dibujitos de las provisiones (16x16). */
+function dibujarProvision(id: 'grog' | 'botiquin'): Lienzo {
+  const L = new Lienzo(16, 16);
+  if (id === 'grog') {                     // botella
+    L.rect(6, 1, 4, 2, C.corteza); L.rect(7, 3, 2, 3, C.selva); L.rect(5, 6, 6, 8, C.selva);
+    L.rect(6, 7, 1, 5, C.hoja); L.rect(5, 9, 6, 3, C.pergamino); L.rect(6, 10, 4, 1, C.granate); L.rect(5, 14, 6, 1, C.noche);
+  } else {                                 // caja con cruz
+    L.rect(3, 4, 10, 9, C.hueso); L.rect(3, 12, 10, 1, C.niebla); L.rect(6, 2, 4, 2, C.corteza);
+    L.rect(7, 5, 2, 7, C.rojo); L.rect(5, 7, 6, 2, C.rojo);
+  }
+  return L;
+}

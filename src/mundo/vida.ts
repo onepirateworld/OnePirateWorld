@@ -26,6 +26,7 @@ export const TEXTO_ACCION: Record<TipoAccion, string> = {
 const DURACION: Record<Exclude<TipoAccion, 'viajar'>, number> = { pasear: 45, entrenar: 60, explorar: 75, descansar: 40 };
 const envolver = (g: number) => ((((g + 180) % 360) + 360) % 360) - 180;
 const distancia = (a: IslaMundo, b: IslaMundo) => Math.hypot(envolver(a.lon - b.lon) * Math.cos(((a.lat + b.lat) / 2) * Math.PI / 180), a.lat - b.lat);
+import { VELOCIDAD_BARCO } from '../datos/tienda';
 export const segundosViaje = (a: IslaMundo, b: IslaMundo) => Math.round(Math.min(240, 30 + distancia(a, b) * 12));
 
 /** Las islas a las que puede navegar desde aquí (las más cercanas). */
@@ -36,7 +37,7 @@ export function islasCercanas(isla: IslaMundo, n = 6): IslaMundo[] {
 export function nuevaAccion(p: PersonajeGuardado, tipo: TipoAccion, desde: number, destino?: IslaMundo, mandada = false): AccionPersonaje {
   if (tipo === 'viajar' && destino) {
     const origen = islaDePersonaje(p);
-    return { tipo, desde, hasta: desde + segundosViaje(origen, destino) * 1000, origen: origen.id, destino: destino.id, mandada };
+    return { tipo, desde, hasta: desde + Math.round(segundosViaje(origen, destino) * VELOCIDAD_BARCO[p.barco ?? 'barca'] * 1000), origen: origen.id, destino: destino.id, mandada };
   }
   return { tipo, desde, hasta: desde + DURACION[tipo as Exclude<TipoAccion, 'viajar'>] * 1000, mandada };
 }
@@ -63,11 +64,44 @@ function elegir(p: PersonajeGuardado, r: () => number, desde: number): AccionPer
   return nuevaAccion(p, tipo, desde);
 }
 
-/** Sube experiencia y niveles (50 × nivel² por nivel). */
-export function ganarXp(p: PersonajeGuardado, xp: number): { p: PersonajeGuardado; subidas: number } {
+// --- Topes diarios: lo que se puede ganar en un día, para no romper la economía
+export const TOPES = {
+  /** Oro al día por explorar y por combates. */
+  oro: (nivel: number) => 300 + nivel * 40,
+  /** Experiencia al día: como mucho un nivel y medio. */
+  xp: (nivel: number) => Math.round(75 * nivel * nivel),
+  /** Victorias al día que dan oro y experiencia completos. */
+  victorias: 10,
+};
+const diaDe = (t: number) => new Date(t).toISOString().slice(0, 10);
+function ganadoDe(p: PersonajeGuardado, t: number) {
+  const d = diaDe(t);
+  return p.ganado?.dia === d ? { ...p.ganado } : { dia: d, oro: 0, xp: 0, victorias: 0 };
+}
+/** Suma oro respetando el tope del día. Devuelve cuánto se ha sumado de verdad. */
+export function ganarOro(p: PersonajeGuardado, oro: number, t = Date.now()): { p: PersonajeGuardado; oro: number } {
+  if (p.creador) return { p, oro: 0 };
+  const g = ganadoDe(p, t);
+  const real = Math.max(0, Math.min(oro, TOPES.oro(p.nivel) - g.oro));
+  g.oro += real;
+  return { p: { ...p, doblones: p.doblones + real, ganado: g }, oro: real };
+}
+/** Cuenta una victoria del día. true si aún da premio completo. */
+export function contarVictoria(p: PersonajeGuardado, t = Date.now()): { p: PersonajeGuardado; premio: boolean } {
+  const g = ganadoDe(p, t);
+  g.victorias++;
+  return { p: { ...p, ganado: g }, premio: g.victorias <= TOPES.victorias };
+}
+
+/** Sube experiencia y niveles (50 × nivel² por nivel), con tope diario. */
+export function ganarXp(p: PersonajeGuardado, xp: number, t = Date.now()): { p: PersonajeGuardado; subidas: number; xp: number } {
+  const g = ganadoDe(p, t);
+  xp = Math.max(0, Math.min(xp, TOPES.xp(p.nivel) - g.xp));
+  g.xp += xp;
+  p = { ...p, ganado: g };
   let nivel = p.nivel, resto = (p.xp ?? 0) + xp, subidas = 0;
   while (resto >= 50 * nivel * nivel) { resto -= 50 * nivel * nivel; nivel++; subidas++; }
-  return { p: { ...p, nivel, xp: resto }, subidas };
+  return { p: { ...p, nivel: Math.min(80, nivel), xp: resto }, subidas, xp };
 }
 
 /** Termina una acción: aplica lo que ha conseguido y lo apunta en el diario. */
@@ -78,24 +112,26 @@ function terminar(p: PersonajeGuardado, a: AccionPersonaje, r: () => number): { 
   switch (a.tipo) {
     case 'entrenar': {
       const xp = Math.round((30 + p.nivel * 5) * (p.rasgos.includes('inteligente') ? 1.25 : 1));
-      const g = ganarXp(p, xp);
+      const g = ganarXp(p, xp, a.hasta);
       p = g.p;
-      resumen = g.subidas ? `entrenó duro y subió a nivel ${p.nivel}` : `entrenó (+${xp} de experiencia)`;
+      resumen = g.subidas ? `entrenó duro y subió a nivel ${p.nivel}` : g.xp ? `entrenó (+${g.xp} de experiencia)` : undefined;
       registro.push([a.hasta, `Entrenó en ${isla.nombre} hasta que le dolieron los brazos.${g.subidas ? ` ¡Subió a nivel ${p.nivel}!` : ''}`]);
       break;
     }
     case 'explorar': {
       const tirada = r() * (p.rasgos.includes('curioso') ? 1.3 : 1);
       if (tirada > 0.5) {
-        const oro = 20 + Math.floor(r() * 100);
-        p = { ...p, doblones: p.doblones + oro };
-        resumen = `encontró ${oro} doblones explorando`;
-        registro.push([a.hasta, `Exploró ${isla.nombre} y encontró una bolsa con ${oro} doblones.`]);
+        const g = ganarOro(p, 5 + Math.floor(r() * 25), a.hasta);
+        p = g.p;
+        if (g.oro) {
+          resumen = `encontró ${g.oro} doblones explorando`;
+          registro.push([a.hasta, `Exploró ${isla.nombre} y encontró una bolsa con ${g.oro} doblones.`]);
+        } else registro.push([a.hasta, `Exploró ${isla.nombre}, pero hoy ya no queda nada que encontrar.`]);
       } else if (tirada > 0.42) {
         resumen = 'oyó un rumor interesante';
         registro.push([a.hasta, `En ${isla.nombre} oyó a un viejo hablar de un tesoro escondido... pero no dijo dónde.`]);
       } else registro.push([a.hasta, `Exploró ${isla.nombre} sin encontrar nada.`]);
-      p = ganarXp(p, 10).p;
+      p = ganarXp(p, 10, a.hasta).p;
       break;
     }
     case 'viajar': {
@@ -119,7 +155,11 @@ export function avanzarVida(p: PersonajeGuardado, ahora = Date.now()): { p: Pers
   const resumen: string[] = [];
   let a = p.accion;
   let vueltas = 0;
+  const original = a;
   if (!a) a = elegir(p, azar(h + Math.floor(ahora / 1000)), ahora);
+  // Si lleva mucho tiempo sin abrir el juego, solo cuentan las últimas 8 horas
+  const OCHO_HORAS = 8 * 3600_000;
+  if (a.hasta < ahora - OCHO_HORAS) a = elegir(p, azar(h + Math.floor(ahora / 1000)), ahora - OCHO_HORAS);
   while (a.hasta <= ahora && vueltas++ < 200) {
     const r = azar(h + Math.floor(a.hasta / 1000));
     const fin = terminar(p, a, r);
@@ -128,7 +168,7 @@ export function avanzarVida(p: PersonajeGuardado, ahora = Date.now()): { p: Pers
     a = elegir(p, r, a.hasta);
   }
   p = { ...p, accion: a };
-  actualizarPersonaje(p);
+  if (a !== original) actualizarPersonaje(p);   // solo se guarda si ha pasado algo
   return { p, resumen };
 }
 

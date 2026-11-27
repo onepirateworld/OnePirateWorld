@@ -31,12 +31,16 @@ export interface PersonajeGuardado {
   /** Solo marines: piratas y revolucionarios que ha capturado. */
   capturas?: { pirata: number; revolucionario: number };
   barco?: 'barca' | 'carabela' | 'galeon';
+  /** Provisiones compradas en la tienda (se gastan en combate). */
+  bolsa?: { grog: number; botiquin: number };
   /** Personaje de una cuenta con rol de creador. */
   creador?: boolean;
   /** Lo que está haciendo ahora (ver mundo/vida.ts). */
   accion?: import('./mundo/vida').AccionPersonaje;
   /** Sucesos de su vida para el diario: [fecha, texto]. */
   registro?: [number, string][];
+  /** Lo ganado hoy (para los topes diarios de la economía). */
+  ganado?: { dia: string; oro: number; xp: number; victorias: number };
   /** Isla donde está ahora (si falta, se le asigna una al cargar). */
   islaId?: number;
   nivel: number;

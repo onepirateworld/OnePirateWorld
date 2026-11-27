@@ -61,6 +61,14 @@ export async function iniciar(mar: number): Promise<void> {
         estado.perfil = p.data as Perfil;
       }
       if (m.data) estado.mios = m.data as FilaPersonaje[];
+      // Cambios que no llegaron a enviarse (página cerrada o cambiada justo después)
+      const sinEnviar = leer<FilaPersonaje[]>('srv.pendientes', []).filter((f) => f.dueno === estado.usuario!.id);
+      for (const f of sinEnviar) {
+        const i = estado.mios.findIndex((x) => x.id === f.id);
+        if (i >= 0) estado.mios[i] = f; else estado.mios.push(f);
+        pendientes.set(f.id, f);
+      }
+      if (sinEnviar.length) void enviarPendientes();
       escribir('srv.perfil', estado.perfil);
       escribir('srv.mios', estado.mios);
     }
@@ -135,7 +143,7 @@ export async function enviarEnlace(correo: string, nombre: string): Promise<stri
 export async function salir() {
   await sb.auth.signOut();
   estado.usuario = null; estado.perfil = null; estado.mios = [];
-  escribir('srv.perfil', null); escribir('srv.mios', []);
+  escribir('srv.perfil', null); escribir('srv.mios', []); escribir('srv.pendientes', []);
 }
 
 export async function cambiarNombre(nombre: string) {
@@ -157,6 +165,7 @@ export function guardar(f: FilaPersonaje) {
   escribir('srv.mios', estado.mios);
   if (!estado.usuario) return;
   pendientes.set(f.id, f);
+  escribir('srv.pendientes', [...pendientes.values()]);   // por si se cierra la página antes de enviarlos
   clearTimeout(temporizador);
   temporizador = window.setTimeout(enviarPendientes, 1500);
 }
@@ -169,16 +178,19 @@ async function enviarPendientes(): Promise<string | null> {
   const filas = [...pendientes.values()];
   pendientes.clear();
   if (!filas.length || !estado.usuario) return null;
+  escribir('srv.pendientes', []);
   const { data, error } = await sb.from('personajes').upsert(filas.map((f) => ({ ...f, dueno: estado.usuario!.id }))).select();
   if (error) {
     console.warn('No se pudo guardar en el servidor', error.message);
     for (const f of filas) if (!pendientes.has(f.id)) pendientes.set(f.id, f);   // se reintenta luego
+    escribir('srv.pendientes', [...pendientes.values()]);
     return error.message;
   }
   // El servidor puede corregir cosas (por ejemplo, los datos del creador)
   for (const f of (data ?? []) as FilaPersonaje[]) {
     const i = estado.mios.findIndex((x) => x.id === f.id);
-    if (i >= 0) estado.mios[i] = { ...f, datos: estado.mios[i].datos };
+    // Solo si no ha cambiado nada más desde que lo enviamos (si no, pisaríamos lo nuevo)
+    if (i >= 0 && filas.includes(estado.mios[i]) && !pendientes.has(f.id)) estado.mios[i] = { ...f, datos: estado.mios[i].datos };
   }
   escribir('srv.mios', estado.mios);
   return null;

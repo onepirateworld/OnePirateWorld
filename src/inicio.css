@@ -521,3 +521,15 @@ button { font-family: inherit; cursor: pointer; }
 .pacto-estado { min-height: 1.2em; color: var(--texto); }
 .bot-tag { color: var(--acento); margin-left: 4px; }
 .chat li.oculto { opacity: 0.5; border: 1px dashed #c43a3a; }
+
+/* Tienda */
+.saldo { display: flex; align-items: center; gap: 6px; font-size: 18px; margin: 0 0 10px; }
+.saldo b { color: #f2b63d; }
+.tienda-item canvas { image-rendering: pixelated; align-self: center; margin-bottom: 4px; }
+.sastre { display: flex; gap: 14px; align-items: center; }
+.sastre canvas { image-rendering: pixelated; flex: none; background: #12304f; border-radius: 10px; padding: 4px; }
+.sastre p { margin: 0 0 10px; }
+.sastre small { display: block; margin-top: 8px; color: var(--texto-suave); }
+.boton-oro.apagado { opacity: 0.5; pointer-events: none; }
+a.boton-oro { display: inline-block; text-decoration: none; }
+.saldo svg { width: 22px; height: 22px; flex: none; }

@@ -6,7 +6,8 @@ import './creador.css';
 import { Lienzo, azar } from './arte/lienzo';
 import { PALETA } from './arte/paleta';
 import { guardarAhora } from './servidor';
-import { BANDOS, cuentaActual, guardarPersonaje, marActual, type Bando } from './cuenta';
+import { BANDOS, actualizarPersonaje, cuentaActual, guardarPersonaje, marActual, personajes, type Bando } from './cuenta';
+import { PRECIO_SASTRE } from './datos/tienda';
 import { MAX_RASGOS, RASGOS, puedeAnadir, suenosPara } from './datos/caracter';
 import { iniciar as iniciarServidor } from './servidor';
 
@@ -78,11 +79,16 @@ function cargar(): AspectoPersonaje {
   } catch { /* sin almacenamiento: empezamos de cero */ }
   return copia(ASPECTO_BASE);
 }
+// Sastre: editar el aspecto de un personaje que ya existe (se paga al guardar)
+const idSastre = new URLSearchParams(location.search).get('sastre');
+const enSastre = idSastre ? personajes().find((x) => x.id === idSastre) ?? null : null;
+
 function guardar(a: AspectoPersonaje) {
+  if (enSastre) return;
   try { localStorage.setItem(CLAVE_BORRADOR, JSON.stringify(a)); } catch { /* da igual */ }
 }
 
-let a = cargar();
+let a = enSastre ? { ...copia(ASPECTO_BASE), ...copia(enSastre.aspecto) } : cargar();
 let pestana = 0;
 const historial: AspectoPersonaje[] = [];
 let semilla = (Date.now() % 100000) + 1;
@@ -252,6 +258,7 @@ function renderAspecto() {
       ${pestana > 0 ? `<button class="boton" data-ir="${pestana - 1}">← ${PESTANAS[pestana - 1].titulo}</button>` : '<span></span>'}
       ${pestana < PESTANAS.length - 1
         ? `<button class="boton" data-ir="${pestana + 1}">${PESTANAS[pestana + 1].titulo} →</button>`
+        : enSastre ? `<button class="boton" id="guardar-sastre">Guardar · ${enSastre.creador ? 'gratis' : `${PRECIO_SASTRE} doblones`}</button>`
         : `<button class="boton" data-paso="caracter">Siguiente: Carácter →</button>`}
     </div>`;
 
@@ -360,5 +367,24 @@ document.addEventListener('click', async (e) => {
   try { localStorage.removeItem(CLAVE_BORRADOR); localStorage.removeItem(CLAVE_EXTRA); } catch { /* nada */ }
   location.href = portada(`?mar=${marActual()}&creado=1`);
 });
+
+let guardandoSastre = false;
+if (enSastre) {
+  document.title = 'Sastre';
+  document.querySelector('.cabecera h1')!.lastChild!.textContent = ` Sastre · ${enSastre.nombre}`;
+  document.querySelector<HTMLElement>('.pasos')!.innerHTML = `<li class="actual">Cambia lo que quieras. Pagas ${enSastre.creador ? 'nada' : `${PRECIO_SASTRE} doblones`} al guardar.</li>`;
+  document.addEventListener('click', async (e) => {
+    const b = (e.target as HTMLElement).closest<HTMLButtonElement>('#guardar-sastre');
+    if (!b || guardandoSastre) return;
+    guardandoSastre = true;
+    const yo = personajes().find((x) => x.id === enSastre.id)!;
+    if (!yo.creador && yo.doblones < PRECIO_SASTRE) { b.textContent = `Te faltan doblones (tienes ${yo.doblones})`; guardandoSastre = false; return; }
+    b.disabled = true; b.textContent = 'Guardando…';
+    actualizarPersonaje({ ...yo, aspecto: copia(a), doblones: yo.creador ? yo.doblones : yo.doblones - PRECIO_SASTRE });
+    const error = await guardarAhora();
+    if (error) { b.disabled = false; b.textContent = `No se pudo guardar: ${error}`; guardandoSastre = false; return; }
+    location.href = portada(`?mar=${marActual()}&sastre=1`);
+  });
+} else if (idSastre) location.href = portada();
 
 render();

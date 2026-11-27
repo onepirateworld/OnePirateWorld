@@ -16,6 +16,7 @@ import { frutasDelMar } from './mundo/cronica';
 import { azar } from './arte/lienzo';
 import { arsenalDe, migrarLocales, modoCreador, personajesDeOtros } from './cuenta';
 import { iniciar as iniciarServidor } from './servidor';
+import { contarVictoria, ganarOro, ganarXp } from './mundo/vida';
 import { TEXTO_ACCION, avanzarVida, islasCercanas, mandar, posicionPersonaje, segundosViaje } from './mundo/vida';
 import { ZONAS } from './mundo/geografia';
 import { iniciarCombate } from './combate/pantalla';
@@ -23,6 +24,7 @@ import { actualizarPersonaje, type PersonajeGuardado } from './cuenta';
 import type { Bot } from './mundo/habitantes';
 import { icono } from './iconos';
 import { abrirCartel } from './cartel';
+import { bolsaDe } from './datos/tienda';
 import {
   BANDOS, MARES, META_COMUNIDAD, cerrarSesion, cuentaActual, elegirActivo, firmarPacto, marActual,
   personajeActivo, personajes, type Bando,
@@ -175,7 +177,7 @@ async function completarPacto() {
   boton.disabled = false;
   if (error) { estadoEl.innerHTML = `<span class="peligro">${esc(error)}</span>`; return; }
   estadoEl.textContent = '';
-  await iniciarServidor(marActual());
+await iniciarServidor(marActual());
   const subidos = migrarLocales();
   $<HTMLDialogElement>('#dlg-pacto').close();
   miEstado = null;
@@ -272,6 +274,7 @@ await iniciarServidor(marActual());
 if (volviendoDelCorreo) history.replaceState(null, '', location.pathname + location.search);
 const migrados = migrarLocales();
 pintar();
+if (new URLSearchParams(location.search).has('sastre')) aviso('¡Como nuevo! El sastre ha hecho un buen trabajo.');
 if (volviendoDelCorreo && cuentaActual()) aviso(`¡Pacto firmado! Bienvenido a los mares.${modoCreador() ? ' Tu cuenta tiene el rol de Creador.' : ''}`);
 if (migrados) aviso(`Hemos subido a tu cuenta ${migrados} personaje${migrados > 1 ? 's' : ''} que tenías en este navegador.`);
 const params = new URLSearchParams(location.search);
@@ -370,7 +373,7 @@ async function pelearCon(bot: Bot, motivo: string) {
   let h = 0; for (const ch of bot.id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
   // Enemigos adaptados: cerca de tu nivel para que un personaje nuevo pueda ganar
   const nivelRival = Math.max(1, p.nivel + (h % 3) - 1);
-  const jugador = crearLuchador({ nombre: p.nombre, bando: p.bando, aspecto: p.aspecto, nivel: p.nivel, rasgos: p.rasgos, arsenal: arsenalDe(p), fruta: p.fruta, creador: p.creador });
+  const jugador = crearLuchador({ nombre: p.nombre, bando: p.bando, aspecto: p.aspecto, nivel: p.nivel, rasgos: p.rasgos, arsenal: arsenalDe(p), fruta: p.fruta, creador: p.creador, bolsa: bolsaDe(p) });
   const frutaBot = [...frutasDelMar(marActual()).entries()].find(([, id]) => id === bot.id)?.[0];
   const rival = crearLuchador({ nombre: bot.nombre, bando: bot.bando, aspecto: bot.aspecto, nivel: nivelRival, rasgos: bot.rasgos, arsenal: arsenalBot(nivelRival, azar(h)), fruta: frutaBot });
   const isla = islaDePersonaje(p);
@@ -383,11 +386,18 @@ async function pelearCon(bot: Bot, motivo: string) {
       let { nivel, doblones } = yo;
       let xp = yo.xp ?? 0;
       let capturas = yo.capturas ?? { pirata: 0, revolucionario: 0 };
+      let ganado = yo.ganado;
       if (ganador === 0) {
-        const ganaXp = 20 + 5 * nivelRival, ganaOro = 40 + 10 * nivelRival;
-        xp += ganaXp; doblones += ganaOro;
-        lineas.push(`¡${yo.nombre} gana el combate!`, `+${ganaXp} de experiencia y +${ganaOro} doblones.`);
-        while (xp >= 50 * nivel * nivel) { xp -= 50 * nivel * nivel; nivel++; lineas.push(`¡${yo.nombre} sube a nivel ${nivel}!`); }
+        // Premios con topes diarios (si no, entrenar sin parar rompería la economía)
+        let tmp: PersonajeGuardado = { ...yo };
+        const v = contarVictoria(tmp); tmp = v.p;
+        const gx = ganarXp(tmp, v.premio ? 20 + 5 * nivelRival : 5); tmp = gx.p;
+        const go = ganarOro(tmp, v.premio ? 15 + 3 * nivelRival : 0); tmp = go.p;
+        ({ nivel, xp, doblones } = { nivel: tmp.nivel, xp: tmp.xp ?? 0, doblones: tmp.doblones });
+        ganado = tmp.ganado;
+        lineas.push(`¡${yo.nombre} gana el combate!`, go.oro || gx.xp ? `+${gx.xp} de experiencia y +${go.oro} doblones.` : 'Hoy ya no ganas más premios: vuelve mañana.');
+        if (v.premio === false && (go.oro || gx.xp)) lineas.push('Has llegado al límite de victorias con premio por hoy.');
+        if (gx.subidas) lineas.push(`¡${yo.nombre} sube a nivel ${nivel}!`);
         if (yo.bando === 'marine' && bot.bando !== 'marine') {
           capturas = { ...capturas, [bot.bando]: capturas[bot.bando] + 1 };
           lineas.push(`${bot.nombre} queda capturado y bajo custodia de la Marina.`);
@@ -401,7 +411,7 @@ async function pelearCon(bot: Bot, motivo: string) {
       } else {
         registro.push([Date.now(), `Escapó por los pelos de ${bot.nombre}.`]);
       }
-      actualizarPersonaje({ ...yo, nivel, xp, doblones, registro: registro.slice(-30), ...(yo.bando === 'marine' ? { capturas } : {}) });
+      actualizarPersonaje({ ...yo, nivel, xp, doblones, ganado, registro: registro.slice(-30), bolsa: yo.creador ? bolsaDe(yo) : { grog: jugador.pociones, botiquin: jugador.botiquines }, ...(yo.bando === 'marine' ? { capturas } : {}) });
       return lineas;
     },
   });
