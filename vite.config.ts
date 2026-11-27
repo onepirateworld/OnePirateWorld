@@ -5,7 +5,7 @@ export default defineConfig({
   // Rutas relativas: el juego funciona en la raíz, en una subcarpeta o como página de Claude.
   base: process.env.BASE_URL_WEB || './',
   build: {
-    assetsDir: '_app', // no mezclar con public/assets (arte)
+    assetsDir: 'app', // no mezclar con public/assets (arte)
     rollupOptions: {
       input: {
         inicio: resolve(__dirname, 'index.html'),
