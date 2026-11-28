@@ -639,3 +639,5 @@ details.cargos select { font: inherit; font-size: 15px; padding: 6px; border-rad
 .guia-sec[open] summary { margin-bottom: 6px; }
 .guia-sec ol, .guia-sec ul { padding-left: 20px; margin: 6px 0; }
 .guia-sec li { margin: 4px 0; }
+
+.opciones-momento { display: grid; gap: 8px; margin: 12px 0; }

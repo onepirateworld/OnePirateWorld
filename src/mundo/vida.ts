@@ -8,6 +8,7 @@ import { ZONAS } from './geografia';
 import { PISTAS_NECESARIAS, nombreFruta, oirRumor } from './busqueda';
 import { cargoDe, tripulacionDe } from './tripulaciones';
 import { sumar, tieneCodigo } from './objetivos';
+import { entrenarConMaestro, quizaMomento, resolverMomento } from './momentos';
 import { personajes, personajesDeOtros } from '../cuenta';
 
 // --- Tripulación: los miembros van siempre con su capitán ---------------------
@@ -144,10 +145,12 @@ function terminar(p: PersonajeGuardado, a: AccionPersonaje, r: () => number): { 
   switch (a.tipo) {
     case 'entrenar': {
       p = sumar(p, 'entrenos');
-      const xp = Math.round((30 + p.nivel * 5) * (p.rasgos.includes('inteligente') ? 1.25 : 1) * (tieneCodigo(p, 'madrugador') ? 1.1 : 1));
+      const maestro = entrenarConMaestro(p, a.hasta);
+      p = maestro.p;
+      const xp = Math.round((30 + p.nivel * 5) * (p.rasgos.includes('inteligente') ? 1.25 : 1) * (tieneCodigo(p, 'madrugador') ? 1.1 : 1) * maestro.multiplicador);
       const g = ganarXp(p, xp, a.hasta);
       p = g.p;
-      resumen = g.subidas ? `entrenó duro y subió a nivel ${p.nivel}` : g.xp ? `entrenó (+${g.xp} de experiencia)` : undefined;
+      resumen = maestro.texto ?? (g.subidas ? `entrenó duro y subió a nivel ${p.nivel}` : g.xp ? `entrenó${maestro.multiplicador > 1 ? ' con el maestro' : ''} (+${g.xp} de experiencia)` : undefined);
       registro.push([a.hasta, `Entrenó en ${isla.nombre} hasta que le dolieron los brazos.${g.subidas ? ` ¡Subió a nivel ${p.nivel}!` : ''}`]);
       break;
     }
@@ -204,6 +207,9 @@ export function avanzarVida(p: PersonajeGuardado, ahora = Date.now()): { p: Pers
     const fin = terminar(p, a, r);
     p = fin.p;
     if (fin.resumen) resumen.push(fin.resumen);
+    // Momentos clave: a veces aparece uno; si nadie decide a tiempo, decide él solo
+    if (p.momento && a.hasta > p.momento.caduca) { const m = resolverMomento(p, null, a.hasta); if (m) { p = m.p; resumen.push(m.texto); } }
+    if (a.tipo !== 'viajar') { const q = quizaMomento(p, r, a.hasta); if (q) { p = q.p; resumen.push(q.texto); } }
     a = elegir(p, r, a.hasta);
   }
   p = { ...p, accion: a };

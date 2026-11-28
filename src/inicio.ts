@@ -19,6 +19,7 @@ import { iniciar as iniciarServidor } from './servidor';
 import { contarVictoria, ganarOro, ganarXp, volverConTripulacion } from './mundo/vida';
 import { premioObjetivo, progresoObjetivo, sumar, tieneCodigo } from './mundo/objetivos';
 import { banderaDe, bonoTripulacion, botsDeTripulaciones, cargoDe, tripulacionDe, tripulacionesDelMar } from './mundo/tripulaciones';
+import { defMomento, esMaestro, nombreMaestro, resolverMomento } from './mundo/momentos';
 import { TEXTO_ACCION, avanzarVida, islasCercanas, mandar, posicionPersonaje, segundosViaje } from './mundo/vida';
 import { ZONAS } from './mundo/geografia';
 import { iniciarCombate } from './combate/pantalla';
@@ -142,8 +143,8 @@ function pintar() {
       </span>
       <button class="ficha-lugar" id="ficha-lugar">${icono('diana', '#f2b63d')} <span id="ficha-lugar-texto">En ${esc(islaDePersonaje(p).nombre)} · ${esc(nombreZona(islaDePersonaje(p).zona))}</span></button>`;
     const objetivoListo = !!progresoObjetivo(p)?.completo;
-    const pendiente = (p.busqueda && (p.busqueda.vencido || p.busqueda.pistas >= PISTAS_NECESARIAS) ? 1 : 0) + (objetivoListo ? 1 : 0);
-    const momentos = boton('', () => (objetivoListo ? abrirObjetivoCumplido() : p.busqueda?.vencido ? abrirComerFruta() : paneles.abrir('mi-pirata')));
+    const pendiente = (p.busqueda && (p.busqueda.vencido || p.busqueda.pistas >= PISTAS_NECESARIAS) ? 1 : 0) + (objetivoListo ? 1 : 0) + (p.momento ? 1 : 0);
+    const momentos = boton('', () => (p.momento ? abrirMomento() : objetivoListo ? abrirObjetivoCumplido() : p.busqueda?.vencido ? abrirComerFruta() : paneles.abrir('mi-pirata')));
     momentos.classList.add('momentos');
     momentos.classList.toggle('pendiente', pendiente > 0);
     momentos.title = 'Momentos clave pendientes';
@@ -652,6 +653,32 @@ function avisarObjetivo(p: PersonajeGuardado) {
   aviso(`✦ ¡Objetivo cumplido: ${pr.o.texto}! Toca el ✦ de tu ficha para cobrar la recompensa.`);
   pintar();
 }
+function abrirMomento() {
+  const p = personajeActivo();
+  const m = p?.momento && defMomento(p.momento.id);
+  if (!p || !m) return;
+  const horas = Math.max(0, Math.ceil((p.momento!.caduca - Date.now()) / 3_600_000));
+  document.querySelector('#dlg-momento')?.remove();
+  const dlg = document.createElement('dialog');
+  dlg.id = 'dlg-momento'; dlg.className = 'dialogo dlg-fruta';
+  dlg.innerHTML = `<div><span class="momento-chip">✦ Momento clave</span><h2>${esc(m.titulo)}</h2><p>${esc(m.texto)}</p>
+    <div class="opciones-momento">${m.opciones.map((o) => `<button class="boton-grande" data-opcion="${o.id}">${esc(o.texto)}</button>`).join('')}</div>
+    <p class="nota-prueba">Si no decides en ${horas} hora${horas === 1 ? '' : 's'}, ${esc(p.nombre)} decidirá solo según su carácter.</p>
+    <button class="boton-grande" data-luego>Decidir más tarde</button></div>`;
+  document.body.append(dlg);
+  dlg.querySelector('[data-luego]')!.addEventListener('click', () => { dlg.close(); dlg.remove(); });
+  dlg.querySelectorAll<HTMLButtonElement>('[data-opcion]').forEach((b) => b.addEventListener('click', () => {
+    const yo = personajeActivo();
+    const res = yo && resolverMomento(yo, b.dataset.opcion!, Date.now());
+    dlg.close(); dlg.remove();
+    if (!res) return;
+    miEstado = res.p;
+    actualizarPersonaje(res.p);
+    aviso(res.texto);
+    pintar();
+  }));
+  dlg.showModal();
+}
 function abrirObjetivoCumplido() {
   const p = personajeActivo();
   const pr = p ? progresoObjetivo(p) : null;
@@ -772,7 +799,7 @@ function mostrarTarjeta(m: Marcador | null, isla: IslaMundo | null) {
     }
   } else if (isla) {
     const biomas: Record<string, string> = { tropical: 'Tropical', nevada: 'Nevada', volcanica: 'Volcánica', desierto: 'Desierto', flotante: 'Flotante', ciudad: 'Ciudad', ruinas: 'Ruinas' };
-    const especial = { base: 'Hay una base de la marina.', taberna: 'Tiene taberna.', maestro: 'Dicen que aquí vive un maestro.', tesoro: 'Se habla de un tesoro escondido.' };
+    const especial = { base: 'Hay una base de la marina.', taberna: 'Tiene taberna.', maestro: `Aquí vive ${nombreMaestro(isla)} 🥋: entrenar aquí da el doble de experiencia${miEstado && !(miEstado.maestros ?? []).includes(isla.id) ? ' y la primera vez te enseña una habilidad' : ''}.`, tesoro: 'Se habla de un tesoro escondido.' };
     const aqui = marcadores().filter((x) => !x.posicion.navegando && x.posicion.islaId === isla.id).length;
     t.insertAdjacentHTML('beforeend', `<div>
       <b>${esc(isla.nombre)}</b>
@@ -893,10 +920,13 @@ function abrirDecidir(modo: 'todo' | 'navegar' = 'todo') {
   const cuerpo = $('#decidir-cuerpo');
   if (modo === 'navegar') {
     $('#dlg-decidir h2').textContent = '¿A dónde navega?';
+    const maestro = islasCercanas(isla, 400).find((d) => esMaestro(d) && ZONAS[d.zona].nivelMinimo <= p.nivel);
     cuerpo.innerHTML = `<p>Elige una isla cercana o <b>toca cualquier isla del mapa</b>.</p>
+      ${maestro && !esMaestro(isla) ? `<button class="boton-grande oro" data-zarpar="${maestro.id}" style="margin-bottom:10px">🥋 Ir al maestro más cercano: ${esc(nombreMaestro(maestro))} en ${esc(maestro.nombre)} (${mmss(segundosViaje(isla, maestro) * 1000)})</button>` : ''}
+      ${esMaestro(isla) ? `<p class="nota-prueba">🥋 Estás en la isla de ${esc(nombreMaestro(isla))}: entrena aquí para ganar el doble.</p>` : ''}
       <div class="destinos">${islasCercanas(isla, 8).map((d) => {
         const peligro = ZONAS[d.zona].nivelMinimo > p.nivel;
-        return `<button data-zarpar="${d.id}"><b>${esc(d.nombre)}</b><small>${esc(nombreZona(d.zona))} · ${mmss(segundosViaje(isla, d) * 1000)} de viaje${peligro ? ` · <span class="peligro">⚠ nivel ${ZONAS[d.zona].nivelMinimo}</span>` : ''}</small></button>`;
+        return `<button data-zarpar="${d.id}"><b>${esMaestro(d) ? '🥋 ' : ''}${esc(d.nombre)}</b><small>${esc(nombreZona(d.zona))} · ${mmss(segundosViaje(isla, d) * 1000)} de viaje${peligro ? ` · <span class="peligro">⚠ nivel ${ZONAS[d.zona].nivelMinimo}</span>` : ''}</small></button>`;
       }).join('')}</div>
       <button class="boton-grande" id="elegir-en-mapa" style="margin-top:10px">🗺 Elegir en el mapa</button>`;
     cuerpo.querySelector('#elegir-en-mapa')!.addEventListener('click', () => {

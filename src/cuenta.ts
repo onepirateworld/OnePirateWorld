@@ -60,6 +60,11 @@ export interface PersonajeGuardado {
   /** Estilo de combate y código (2 reglas). */
   estilo?: import('./mundo/objetivos').Estilo;
   codigo?: import('./mundo/objetivos').Codigo[];
+  /** Momento clave pendiente de decidir, y el día del último (uno al día como mucho). */
+  momento?: import('./mundo/momentos').Momento;
+  momentoDia?: string;
+  /** Islas de los maestros con los que ya entrenó. */
+  maestros?: number[];
   /** Logros conseguidos (para siempre). */
   logros?: string[];
   /** Prendas desbloqueadas de las que ya se avisó. */
