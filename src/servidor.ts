@@ -7,6 +7,8 @@ export const sb = createClient(SUPABASE_URL, SUPABASE_CLAVE_PUBLICA, {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'implicit' },
 });
 
+export interface FilaTripulacion { id: string; mar: number; nombre: string; capitan: string; dueno: string; creada: string }
+
 export interface Perfil { id: string; nombre: string; rol: 'jugador' | 'moderador' | 'creador' }
 
 /** Fila de la tabla personajes. "datos" guarda todo lo demás (aspecto, arsenal, acción...). */
@@ -30,6 +32,7 @@ export const estado = {
   perfil: null as Perfil | null,
   mios: [] as FilaPersonaje[],
   otros: new Map<string, FilaPersonaje>(),
+  tripulaciones: [] as FilaTripulacion[],
   conectado: false,
 };
 
@@ -73,6 +76,7 @@ export async function iniciar(mar: number): Promise<void> {
       escribir('srv.mios', estado.mios);
     }
     await cargarOtros(mar);
+    await cargarTripulaciones(mar);
     escucharMundo(mar);
     estado.conectado = true;
   } catch (e) {
@@ -86,6 +90,26 @@ async function cargarOtros(mar: number) {
   for (const f of (data ?? []) as FilaPersonaje[]) if (f.dueno !== estado.usuario?.id) estado.otros.set(f.id, f);
 }
 
+export async function cargarTripulaciones(mar: number) {
+  const { data } = await sb.from('tripulaciones').select('*').eq('mar', mar).order('creada');
+  estado.tripulaciones = (data ?? []) as FilaTripulacion[];
+}
+/** Funda una tripulación. Devuelve el error en texto o null. */
+export async function fundarTripulacion(mar: number, nombre: string, capitan: string): Promise<{ error: string | null; fila?: FilaTripulacion }> {
+  const { data, error } = await sb.from('tripulaciones').insert({ mar, nombre, capitan }).select().single();
+  if (error) {
+    if (/tripulaciones_nombre|duplicate/i.test(error.message)) return { error: 'Ya existe una tripulación con ese nombre en este mar.' };
+    if (/row-level security|policy/i.test(error.message)) return { error: 'Ese nombre no está permitido (o tu pirata aún no puede fundar una).' };
+    return { error: error.message };
+  }
+  estado.tripulaciones.push(data as FilaTripulacion);
+  return { error: null, fila: data as FilaTripulacion };
+}
+export async function disolverTripulacion(id: string) {
+  await sb.from('tripulaciones').delete().eq('id', id);
+  estado.tripulaciones = estado.tripulaciones.filter((t) => t.id !== id);
+}
+
 let canalMundo: RealtimeChannel | null = null;
 function escucharMundo(mar: number) {
   canalMundo?.unsubscribe();
@@ -96,6 +120,7 @@ function escucharMundo(mar: number) {
       if (cambio.eventType === 'DELETE') estado.otros.delete(f.id);
       else estado.otros.set(f.id, cambio.new as FilaPersonaje);
     })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tripulaciones', filter: `mar=eq.${mar}` }, () => { void cargarTripulaciones(mar); })
     .subscribe();
 }
 

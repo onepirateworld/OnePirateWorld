@@ -45,6 +45,10 @@ export interface PersonajeGuardado {
   meritos?: number;
   /** Recompensa o méritos ganados hoy (tope diario). */
   notoriedad?: { dia: string; valor: number };
+  /** Tripulación a la que pertenece (id). */
+  tripulacion?: string;
+  /** Ya recibió el regalo de la Marina por llegar a nivel 10. */
+  regalo10?: boolean;
   /** Lo ganado hoy (para los topes diarios de la economía). */
   ganado?: { dia: string; oro: number; xp: number; victorias: number };
   /** Isla donde está ahora (si falta, se le asigna una al cargar). */
@@ -98,7 +102,18 @@ export async function cerrarSesion() { await salir(); }
 export const personajes = (): PersonajeGuardado[] => estado.mios.map(filaAPersonaje);
 /** Personajes de otros jugadores en este mar (para verlos en el mapa). */
 export const personajesDeOtros = (): PersonajeGuardado[] => [...estado.otros.values()].filter((f) => (f.datos as { aspecto?: unknown }).aspecto).map(filaAPersonaje);
-export function actualizarPersonaje(p: PersonajeGuardado) { guardar(personajeAFila(p)); }
+/** Doblones que la Marina regala a sus marines al llegar a nivel 10. */
+export const REGALO_MARINA = 10_000;
+export function actualizarPersonaje(p: PersonajeGuardado) {
+  // Regalo de la Marina al llegar a nivel 10 (el servidor lo permite una sola vez)
+  if (p.bando === 'marine' && p.nivel >= 10 && !p.regalo10 && !p.creador) {
+    const antes = estado.mios.find((f) => f.id === p.id);
+    if (antes && antes.nivel < 10) {
+      p = { ...p, regalo10: true, doblones: p.doblones + REGALO_MARINA, registro: [...(p.registro ?? []), [Date.now(), `La Marina le entregó ${REGALO_MARINA.toLocaleString('es-ES')} doblones por llegar a nivel 10.`] as [number, string]].slice(-30) };
+    }
+  }
+  guardar(personajeAFila(p));
+}
 export function guardarPersonaje(p: Omit<PersonajeGuardado, 'id' | 'nivel' | 'doblones' | 'creado'>): PersonajeGuardado {
   let nuevo: PersonajeGuardado = { ...p, id: crypto.randomUUID().slice(0, 12), nivel: 1, doblones: 100, creado: Date.now(), arsenal: arsenalInicial(), barco: 'barca' };
   if (modoCreador()) nuevo = { ...nuevo, ...equipoCreador() };

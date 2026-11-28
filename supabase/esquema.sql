@@ -97,13 +97,16 @@ begin
   -- Antitrampas: nadie (salvo el creador) puede subirse el dinero o el nivel de golpe
   -- (Guardar desde el juego es «insertar o actualizar»: comparamos con la fila que ya exista)
   if not new.creador then
-    select doblones, nivel, recompensa into antes from public.personajes where id = new.id;
+    select doblones, nivel, recompensa, datos into antes from public.personajes where id = new.id;
     if not found then
       new.doblones := least(new.doblones, 1000);
       new.nivel := least(new.nivel, 5);
       new.recompensa := 0;
     else
-      new.doblones := least(new.doblones, antes.doblones + 1500);
+      -- Regalo de la Marina al llegar a nivel 10 (una sola vez)
+      new.doblones := least(new.doblones, antes.doblones + 1500 + case
+        when new.bando = 'marine' and new.nivel >= 10 and antes.nivel < 10 and coalesce(antes.datos->>'regalo10', '') = '' then 10000 else 0 end);
+      if coalesce(antes.datos->>'regalo10', '') <> '' then new.datos := new.datos || '{"regalo10": true}'::jsonb; end if;
       new.nivel := least(new.nivel, antes.nivel + 2);
       new.recompensa := least(new.recompensa, antes.recompensa + 5000000);
     end if;
@@ -225,3 +228,38 @@ revoke all on public.roles_especiales from anon, authenticated;
 create unique index if not exists personajes_fruta_unica
   on public.personajes (mar, (datos->>'fruta'))
   where datos->>'fruta' is not null and not creador;
+
+-- ---------------------------------------------------------------------------
+-- Tripulaciones: las funda un pirata de nivel 10 o más; se une quien quiera (y los bots).
+create or replace function public.nombre_limpio(t text) returns boolean language sql immutable as $$
+  select not exists (
+    select 1 from unnest(array['idiota','imbécil','imbecil','estúpido','estupido','gilipollas','subnormal','puta','puto','mierda','cabrón','cabron',
+      'pendejo','mamón','maricón','maricon','zorra','conchetumare','culiao','aweonao','ctm','cagon','cagón','weon','huevón','huevon','verga','pico','chucha']) p
+    where lower(t) ~ ('(^|[^a-záéíóúñ])' || p || '($|[^a-záéíóúñ])')
+  );
+$$;
+
+create table if not exists public.tripulaciones (
+  id uuid primary key default gen_random_uuid(),
+  mar int not null,
+  nombre text not null check (char_length(nombre) between 3 and 24),
+  capitan text not null references public.personajes(id) on delete cascade,
+  dueno uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  creada timestamptz not null default now()
+);
+create unique index if not exists tripulaciones_nombre on public.tripulaciones (mar, lower(nombre));
+create unique index if not exists tripulaciones_capitan on public.tripulaciones (capitan);
+alter table public.tripulaciones enable row level security;
+drop policy if exists "ver tripulaciones" on public.tripulaciones;
+create policy "ver tripulaciones" on public.tripulaciones for select using (true);
+drop policy if exists "fundar tripulacion" on public.tripulaciones;
+create policy "fundar tripulacion" on public.tripulaciones for insert with check (
+  auth.uid() = dueno and public.nombre_limpio(nombre) and exists (
+    select 1 from public.personajes p where p.id = capitan and p.dueno = auth.uid() and p.bando = 'pirata' and (p.nivel >= 10 or p.creador) and p.mar = tripulaciones.mar));
+drop policy if exists "disolver tripulacion" on public.tripulaciones;
+create policy "disolver tripulacion" on public.tripulaciones for delete using (auth.uid() = dueno);
+grant select on public.tripulaciones to anon, authenticated;
+grant insert, delete on public.tripulaciones to authenticated;
+do $$ begin
+  begin alter publication supabase_realtime add table public.tripulaciones; exception when duplicate_object then null; end;
+end $$;

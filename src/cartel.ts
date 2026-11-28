@@ -8,6 +8,7 @@ import { BANDOS, MARES, type PersonajeGuardado } from './cuenta';
 import { formatoDoblones, rangoDe } from './mundo/cronica';
 import { islaDePersonaje } from './mundo/habitantes';
 import { rangoMarine } from './mundo/busqueda';
+import { tripulacionDe } from './mundo/tripulaciones';
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
@@ -61,6 +62,7 @@ export function abrirCartel(p: PersonajeGuardado) {
       <h2 class="cartel-nombre">${esc(p.nombre)}</h2>
       ${p.apodo ? `<p class="cartel-apodo">«${esc(p.apodo)}»</p>` : ''}
       <p class="cartel-bando bando-${p.bando}">${esc(BANDOS[p.bando].nombre)} · ${esc(tituloDe(p))}</p>
+      ${tripulacionDe(p) ? `<p class="cartel-trip">Tripulación «${esc(tripulacionDe(p)!.nombre)}»</p>` : ''}
       ${cartel}
       <div class="cartel-sueno"><span class="estrella">☆</span><div><small>SU SUEÑO</small><p>${esc(p.sueno || 'Todavía no tiene un sueño.')}</p></div></div>
       ${fruta ? `<div class="cartel-sueno fruta"><span class="estrella">✦</span><div><small>FRUTA DEL PODER</small><p>${esc(fruta.nombre)}</p></div></div>` : ''}

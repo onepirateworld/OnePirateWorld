@@ -20,6 +20,8 @@ import { cargarMensajes, enviarMensaje, escucharMensajes, estado as estadoServid
 import { botsDelMar, islaDePersonaje, islasDelMundo, nombreZona, posicionBot, type Bot } from './mundo/habitantes';
 import { cronica, frutasDelMar, formatoDoblones, haceCuanto, rangoDe, recompensa, type Suceso } from './mundo/cronica';
 import { icono } from './iconos';
+import { NIVEL_FUNDAR, botsDeTripulaciones, resumenTripulacion, tripulacionDe, tripulacionesDelMar } from './mundo/tripulaciones';
+import { disolverTripulacion, fundarTripulacion } from './servidor';
 import { NIVEL_RUMORES, PISTAS_NECESARIAS, nivelGuardian, guardianAqui, islaDeBusqueda, rangoMarine, textoPista, topeMeritosDia, topeRecompensaDia } from './mundo/busqueda';
 import { ruta } from './rutas';
 import { BARCOS_PRUEBA } from './arte/barcos';
@@ -167,6 +169,8 @@ export function crearPaneles(acc: Acciones) {
         </div>` : '<p class="nota-hoja">Elige qué quieres que persiga. Lo dividirá en pasos y trabajará en ello aunque no estés.</p>'}
       <div class="chips">${objetivos.map((o) => `<button class="chip-hoja ${o.id === p.objetivo ? 'sel' : ''}" data-objetivo="${o.id}">${esc(o.texto)}</button>`).join('')}</div>
 
+      ${p.bando === 'pirata' ? `<h3>Tripulación</h3>${seccionTripulacion(p)}` : ''}
+
       <h3>Fruta del poder</h3>
       ${seccionFruta(p)}
 
@@ -203,6 +207,7 @@ export function crearPaneles(acc: Acciones) {
         for (const b of vecinos) sprites.set(`b-${b.id}`, cara(b.aspecto, 2));
         ponerSprites(el, sprites);
         enlazarAcciones(el);
+        enlazarTripulacion(el, 'mi-pirata');
         el.querySelectorAll<HTMLButtonElement>('[data-ir]').forEach((b) => b.addEventListener('click', () => abrir(b.dataset.ir as IdPanel)));
         el.querySelectorAll<HTMLButtonElement>('[data-objetivo]').forEach((b) => b.addEventListener('click', () => {
           actualizarPersonaje({ ...p, objetivo: b.dataset.objetivo });
@@ -272,6 +277,72 @@ export function crearPaneles(acc: Acciones) {
     };
   }
 
+  let pestanaTablones = 'rec';
+  // --- Tripulaciones -----------------------------------------------------------
+  function listaTripulaciones(p: PersonajeGuardado | null, max = 30): string {
+    const mar = marActual();
+    const bots = botsDeTripulaciones(mar);
+    const lista = tripulacionesDelMar(mar).map((t) => ({ t, ...resumenTripulacion(t, bots.get(t.id) ?? []) })).sort((a, b) => b.total - a.total).slice(0, max);
+    if (!lista.length) return `<p class="vacio">Aún no hay tripulaciones en este mar. Un pirata de nivel ${NIVEL_FUNDAR} puede fundar la primera desde «Mi pirata».</p>`;
+    const puede = p && p.bando === 'pirata' && !tripulacionDe(p);
+    return `<ol class="ranking tripulaciones">${lista.map((x, i) => `<li class="${p?.tripulacion === x.t.id ? 'fila-mia' : ''}"><span class="pos">${i + 1}</span>
+      <span><b>🏴‍☠️ ${esc(x.t.nombre)}</b><small>Capitán: ${esc(x.capitan?.nombre ?? '¿?')} · ${x.miembros} miembros (${x.jugadores.length} jugadores)</small><small>Recompensa total: ${formatoDoblones(x.total)}</small></span>
+      ${puede ? `<button class="mini-boton" data-unirse="${x.t.id}">Unirse</button>` : p?.tripulacion === x.t.id ? '<em>Tu tripulación</em>' : ''}</li>`).join('')}</ol>
+      ${p && p.bando !== 'pirata' ? '<p class="nota-hoja">Solo los piratas pueden unirse a una tripulación.</p>' : ''}`;
+  }
+  function seccionTripulacion(p: PersonajeGuardado): string {
+    const t = tripulacionDe(p);
+    if (t) {
+      const r = resumenTripulacion(t, botsDeTripulaciones(p.mar).get(t.id) ?? []);
+      const capitan = t.capitan === p.id;
+      return `<div class="objetivo tripulacion"><b>🏴‍☠️ ${esc(t.nombre)}</b><small>${capitan ? 'Eres el capitán' : `Capitán: ${esc(r.capitan?.nombre ?? '¿?')}`} · ${r.miembros} miembros · recompensa total ${formatoDoblones(r.total)}</small>
+        <ul class="miembros">${r.jugadores.map((x) => `<li><b>${esc(x.nombre)}</b>${x.id === t.capitan ? ' <span class="chip-jugador creador">Capitán</span>' : ' <span class="chip-jugador">Jugador</span>'}</li>`).join('')}
+        ${r.bots.map((b) => `<li>${esc(nombreBot(b))} <small>Nv. ${b.nivel}</small></li>`).join('')}</ul>
+        <p class="nota-hoja">Cada ${'2'} horas se une un pirata nuevo, hasta 12 bots. Cualquier jugador pirata puede unirse desde Tablones → Tripulaciones.</p>
+        <button class="mini-boton peligro" data-${capitan ? 'disolver' : 'dejar'}="${t.id}">${capitan ? 'Disolver la tripulación' : 'Dejar la tripulación'}</button></div>`;
+    }
+    const fundar = p.nivel >= NIVEL_FUNDAR || p.creador
+      ? `<div class="fundar"><input id="nombre-tripulacion" maxlength="24" placeholder="Nombre de tu tripulación" /><button class="boton-oro" data-fundar>Fundar</button></div>`
+      : `<p class="vacio">Desde el nivel ${NIVEL_FUNDAR} podrás fundar tu propia tripulación. Mientras tanto, puedes unirte a una:</p>`;
+    return `${fundar}<h4>Unirse a una tripulación</h4>${listaTripulaciones(p, 6)}`;
+  }
+  function enlazarTripulacion(el: HTMLElement, panel: IdPanel) {
+    el.addEventListener('click', async (e) => {
+      const b = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-unirse],[data-fundar],[data-dejar],[data-disolver]');
+      if (!b || b.disabled) return;
+      const yo = personajeActivo();
+      if (!yo) return;
+      const nota = (texto: string): [number, string][] => [...(yo.registro ?? []), [Date.now(), texto] as [number, string]].slice(-30);
+      b.disabled = true;
+      if (b.dataset.unirse) {
+        const t = estadoTripulacion(b.dataset.unirse);
+        if (!t) return;
+        actualizarPersonaje({ ...yo, tripulacion: t.id, registro: nota(`Se unió a la tripulación «${t.nombre}».`) });
+        acc.aviso(`¡Bienvenido a bordo de «${t.nombre}»!`);
+      } else if ('fundar' in b.dataset) {
+        const nombre = el.querySelector<HTMLInputElement>('#nombre-tripulacion')?.value.trim() ?? '';
+        if (nombre.length < 3) { acc.aviso('El nombre necesita al menos 3 letras.'); b.disabled = false; return; }
+        b.textContent = 'Fundando…';
+        const r = await fundarTripulacion(marActual(), nombre, yo.id);
+        if (r.error) { acc.aviso(r.error); b.disabled = false; b.textContent = 'Fundar'; return; }
+        actualizarPersonaje({ ...yo, tripulacion: r.fila!.id, registro: nota(`Fundó la tripulación «${nombre}» y se nombró capitán.`) });
+        acc.aviso(`¡Nace la tripulación «${nombre}»! Pronto se unirán los primeros piratas.`);
+      } else if (b.dataset.dejar) {
+        const t = estadoTripulacion(b.dataset.dejar);
+        actualizarPersonaje({ ...yo, tripulacion: undefined, registro: nota(`Dejó la tripulación «${t?.nombre ?? ''}».`) });
+        acc.aviso('Has dejado la tripulación.');
+      } else if (b.dataset.disolver) {
+        if (!confirm('¿Disolver la tripulación? Todos sus miembros se quedarán sin ella.')) { b.disabled = false; return; }
+        const t = estadoTripulacion(b.dataset.disolver);
+        await disolverTripulacion(b.dataset.disolver);
+        actualizarPersonaje({ ...yo, tripulacion: undefined, registro: nota(`Disolvió la tripulación «${t?.nombre ?? ''}».`) });
+        acc.aviso('La tripulación se ha disuelto.');
+      }
+      abrir(panel, false);
+    });
+  }
+  const estadoTripulacion = (id: string) => tripulacionesDelMar(marActual()).find((t) => t.id === id) ?? null;
+
   /** Bots y jugadores reales de este mar, en un mismo formato para los rankings. */
   interface Entrada { id: string; nombre: string; bando: Bando; nivel: number; aspecto: AspectoPersonaje; recompensa: number; jugador: boolean; mio: boolean; creador: boolean }
   function entradasDelMar(mar: number): Entrada[] {
@@ -317,7 +388,7 @@ export function crearPaneles(acc: Acciones) {
         ${yoSinRec ? `<p class="nota-hoja">${esc(p!.nombre)} aún no tiene recompensa.</p>` : ''}</div>
       <div data-vista="rangos" hidden><ol class="ranking">${lm.map(([i, e]) => fila(i, e, e.creador ? 'Creador' : e.jugador ? rangoMarine([...personajes(), ...personajesDeOtros()].find((x) => `j-${x.id}` === e.id)!) : rangoDe(e.nivel))).join('')}</ol></div>
       <div data-vista="fuertes" hidden><ol class="ranking">${lf.map(([i, e]) => fila(i, e, `Nv. ${e.nivel}`)).join('')}</ol></div>
-      <div data-vista="trip" hidden>${bloqueado('Tripulaciones', 'Cuando los personajes formen tripulaciones (fase 7), aquí estarán las más famosas.')}</div>
+      <div data-vista="trip" hidden>${listaTripulaciones(p)}</div>
       <div data-vista="frutas" hidden><ol class="ranking">${conFruta.map((x, i) => {
         const e = visibles.get(`j-${x.id}`)!; const f = FRUTAS.find((y) => y.id === x.fruta);
         return fila(i, e, esc(f?.nombre ?? '???'));
@@ -326,6 +397,10 @@ export function crearPaneles(acc: Acciones) {
       titulo: 'Tablones', html, despues: (el: HTMLElement) => {
         ponerSprites(el, new Map([...visibles.values()].map((e) => [e.id, cara(e.aspecto, 1.6)])));
         pestanasLocales(el);
+        enlazarTripulacion(el, 'tablones');
+        // Recordar la pestaña (por ejemplo, al unirse a una tripulación)
+        el.querySelectorAll<HTMLButtonElement>('[data-filtro]').forEach((b) => b.addEventListener('click', () => (pestanaTablones = b.dataset.filtro!)));
+        if (pestanaTablones !== 'rec') el.querySelector<HTMLButtonElement>(`[data-filtro="${pestanaTablones}"]`)?.click();
       },
     };
   }

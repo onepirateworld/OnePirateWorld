@@ -25,6 +25,8 @@ import type { Bot } from './mundo/habitantes';
 import { icono } from './iconos';
 import { abrirCartel } from './cartel';
 import { bolsaDe } from './datos/tienda';
+/** Furia revolucionaria (desde nivel 10, +50% de daño contra piratas y marines). */
+const NIVEL_FURIA = 10, BONO_FURIA = 0.5;
 import { nivelGuardian, PISTAS_NECESARIAS, frutaSigueLibre, ganarMeritos, ganarRecompensa, guardianAqui, islaDeBusqueda, meritosPorCaptura, nombreFruta, recompensaPorVictoria } from './mundo/busqueda';
 import { aspectoAlAzar } from './arte/personajes';
 import { dibujarFruta } from './arte/frutas';
@@ -393,6 +395,9 @@ async function pelearCon(bot: Bot, motivo: string, guardian = false) {
   const frutaBot = [...frutasDelMar(marActual(), [...personajes(), ...personajesDeOtros()].filter((x) => x.mar === marActual() && x.fruta).map((x) => x.fruta!)).entries()].find(([, id]) => id === bot.id)?.[0];
   const rival = crearLuchador({ nombre: bot.nombre, bando: bot.bando, aspecto: bot.aspecto, nivel: nivelRival, rasgos: bot.rasgos, arsenal: arsenalBot(nivelRival + (guardian ? 4 : 0), azar(h)), fruta: guardian ? undefined : frutaBot });
   if (guardian) { rival.vidaMax = Math.round(rival.vidaMax * 1.6); rival.vida = rival.vidaMax; }
+  // Furia revolucionaria: desde nivel 10, los revolucionarios golpean mucho más fuerte a piratas y marines
+  const furia = p.bando === 'revolucionario' && p.nivel >= NIVEL_FURIA && bot.bando !== 'revolucionario';
+  if (furia) { jugador.fuerza *= 1 + BONO_FURIA; jugador.tecnica *= 1 + BONO_FURIA; motivo += ' ¡Furia revolucionaria: +50% de daño!'; }
   let frutaGanada = false;
   const isla = islaDePersonaje(p);
   await iniciarCombate(jugador, rival, {

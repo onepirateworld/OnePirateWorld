@@ -69,3 +69,4 @@
 .capturas { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; border-top: 2px dashed #b08a5a; padding-top: 10px; }
 .capturas b { display: block; font-size: 30px; color: #2a1d12; }
 .capturas small { color: #7a6248; font-size: 12px; }
+.cartel-trip { margin: -8px 0 12px; color: #7a6248; font-size: 14px; }

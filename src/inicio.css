@@ -566,3 +566,14 @@ a.boton-oro { display: inline-block; text-decoration: none; }
 .boton-grande.oro { background: #f2b63d; color: #1a1423; border-color: #ffd97a; }
 .busqueda p { margin: 8px 0; }
 .busqueda .boton-oro { margin-top: 6px; }
+
+/* Tripulaciones */
+.ranking.tripulaciones li { align-items: center; }
+.ranking.tripulaciones .mini-boton { flex: none; }
+.tripulacion .miembros { list-style: none; padding: 0; margin: 8px 0; display: grid; gap: 3px; font-size: 14px; }
+.tripulacion .miembros small { color: var(--texto-suave); }
+.fundar { display: flex; gap: 8px; margin: 6px 0 10px; }
+.fundar input { flex: 1; min-width: 0; font: inherit; font-size: 16px; padding: 8px 10px; border-radius: 8px; border: 2px solid var(--panel-borde); background: #0b1124; color: var(--texto); }
+.mini-boton.peligro { background: #7a2430; color: #fff; }
+.hoja h4 { margin: 12px 0 6px; font-size: 14px; color: var(--texto-suave); }
+.tripulacion > b, .tripulacion > small { display: block; } .tripulacion > small { margin-top: 2px; color: var(--texto-suave); }
