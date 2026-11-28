@@ -233,6 +233,7 @@ async function enviarPendientes(): Promise<string | null> {
 if (typeof window !== 'undefined') window.addEventListener('beforeunload', () => { if (pendientes.size) void enviarPendientes(); });
 
 export async function borrar(id: string) {
+  pendientes.delete(id); escribir('srv.pendientes', [...pendientes.values()]);
   estado.mios = estado.mios.filter((x) => x.id !== id);
   escribir('srv.mios', estado.mios);
   if (estado.usuario) await sb.from('personajes').delete().eq('id', id);

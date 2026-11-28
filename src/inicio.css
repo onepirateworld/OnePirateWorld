@@ -593,3 +593,4 @@ a.boton-oro { display: inline-block; text-decoration: none; }
 .admin-form label span > button { flex: none; }
 .admin-form .fila-mini { display: flex; flex-wrap: wrap; gap: 6px; }
 .admin-fila { overflow: hidden; }
+.noticias li.n-mio { border-left: 3px solid #f2b63d; padding-left: 6px; }

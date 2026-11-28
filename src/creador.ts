@@ -5,7 +5,8 @@ import './estilos.css';
 import './creador.css';
 import { Lienzo, azar } from './arte/lienzo';
 import { PALETA } from './arte/paleta';
-import { guardarAhora } from './servidor';
+import { borrar, guardarAhora } from './servidor';
+import { nombreLimpio } from './datos/palabras';
 import { BANDOS, actualizarPersonaje, cuentaActual, guardarPersonaje, marActual, modoCreador, personajes, type Bando } from './cuenta';
 import { PRECIO_SASTRE } from './datos/tienda';
 import { estadoPrenda, type Meritos } from './datos/vestuario';
@@ -370,12 +371,17 @@ document.addEventListener('click', async (e) => {
     el.innerHTML = `<span class="falta">Falta ${faltan.join(' y ')}.</span>`;
     return;
   }
+  if (!nombreLimpio(nombre) || (extra.apodo.trim() && !nombreLimpio(extra.apodo))) {
+    document.querySelector('#vista-nombre')!.innerHTML = '<span class="falta">Ese nombre o apodo no está permitido. Elige otro.</span>';
+    return;
+  }
   if (!cuentaActual()) { location.href = portada('?pacto=1'); return; }
-  guardarPersonaje({ nombre, apodo: extra.apodo.trim() || undefined, bando, aspecto: a, rasgos: [...extra.rasgos], sueno, mar: marActual() });
+  const creado = guardarPersonaje({ nombre, apodo: extra.apodo.trim() || undefined, bando, aspecto: a, rasgos: [...extra.rasgos], sueno, mar: marActual() });
   const boton = document.querySelector<HTMLButtonElement>('#soltar')!;
   boton.disabled = true; boton.textContent = 'Guardando…';
   const error = await guardarAhora();
   if (error) {
+    await borrar(creado.id);   // no dejarlo a medias en el navegador
     boton.disabled = false; boton.textContent = 'Soltar al mundo ⚓';
     document.querySelector('#vista-nombre')!.innerHTML = `<span class="falta">No se pudo guardar: ${error}</span>`;
     return;

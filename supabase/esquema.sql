@@ -381,3 +381,21 @@ grant select, insert, update, delete on public.personajes, public.tripulaciones,
 -- select cron.schedule('vida-del-mundo', '*/5 * * * *', $$select net.http_post(
 --   url := 'https://umifpodyelcyfrgtdvlf.supabase.co/functions/v1/vida-mundo',
 --   headers := jsonb_build_object('Content-Type','application/json','x-secreto','<TICK_SECRETO>'), body := '{}'::jsonb)$$);
+
+-- ---------------------------------------------------------------------------
+-- Nombres y apodos de personajes: sin palabrotas (solo al crear o al cambiarlos;
+-- los nombres que ya existían se respetan para no romper sus partidas).
+create or replace function public.revisar_nombre() returns trigger language plpgsql security definer set search_path = public as $$
+declare antes record;
+begin
+  select nombre, apodo into antes from public.personajes where id = new.id;
+  if (not found or new.nombre is distinct from antes.nombre) and not public.nombre_limpio(new.nombre) then
+    raise exception 'Ese nombre no está permitido. Elige otro.';
+  end if;
+  if new.apodo is not null and (not found or new.apodo is distinct from antes.apodo) and not public.nombre_limpio(new.apodo) then
+    raise exception 'Ese apodo no está permitido. Elige otro.';
+  end if;
+  return new;
+end $$;
+drop trigger if exists revisar_nombre on public.personajes;
+create trigger revisar_nombre before insert or update on public.personajes for each row execute function public.revisar_nombre();

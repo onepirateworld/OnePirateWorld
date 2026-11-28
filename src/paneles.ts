@@ -21,6 +21,7 @@ import { botsDelMar, islaDePersonaje, islasDelMundo, nombreZona, posicionBot, ty
 import { cronica, frutasDelMar, formatoDoblones, haceCuanto, rangoDe, recompensa, type Suceso } from './mundo/cronica';
 import { icono } from './iconos';
 import { NIVEL_FUNDAR, botsDeTripulaciones, resumenTripulacion, tripulacionDe, tripulacionesDelMar } from './mundo/tripulaciones';
+import { ultimosDuelos } from './servidor';
 import { adminBorrar, adminPersonaje, adminRol, adminRoles, adminTodos, disolverTripulacion, fundarTripulacion } from './servidor';
 import { volverConTripulacion } from './mundo/vida';
 import { NIVEL_RUMORES, PISTAS_NECESARIAS, nivelGuardian, guardianAqui, islaDeBusqueda, rangoMarine, textoPista, topeMeritosDia, topeRecompensaDia } from './mundo/busqueda';
@@ -242,9 +243,25 @@ export function crearPaneles(acc: Acciones) {
       : '<p class="vacio">Todavía no hay noticias tuyas. Cuando tu personaje haga algo sonado, saldrá aquí.</p>';
     return {
       titulo: 'Noticias',
-      html: `<div class="pestanas-hoja"><button class="sel" data-filtro="todo">Todo el mar</button><button data-filtro="mio">Lo mío</button></div>
-        <div data-vista="todo">${lista(todas)}</div><div data-vista="mio" hidden>${lista(mias)}</div>`,
-      despues: pestanasLocales,
+      html: `<div class="pestanas-hoja"><button class="sel" data-filtro="todo">Todo el mar</button><button data-filtro="duelos">⚔ Duelos</button><button data-filtro="mio">Lo mío</button></div>
+        <div data-vista="todo">${lista(todas)}</div>
+        <div data-vista="duelos" hidden><p class="vacio">Cargando duelos…</p></div>
+        <div data-vista="mio" hidden>${lista(mias)}</div>`,
+      despues: (el: HTMLElement) => {
+        pestanasLocales(el);
+        void ultimosDuelos(mar, 30).then((ds) => {
+          const caja = el.querySelector<HTMLElement>('[data-vista="duelos"]');
+          if (!caja) return;
+          const misIds = new Set(personajes().map((x) => x.id));
+          caja.innerHTML = ds.length ? `<ul class="noticias">${ds.map((d) => {
+            const gana = d.ganador === 'atacante' ? d.atacante_nombre : d.ganador === 'defensor' ? d.defensor_nombre : null;
+            const pierde = d.ganador === 'atacante' ? d.defensor_nombre : d.atacante_nombre;
+            const texto = gana ? `⚔ ${gana} venció a ${pierde} en duelo${d.premio && d.ganador === 'atacante' ? ` (+${formatoDoblones(d.premio)})` : ''}.` : `⚔ ${d.atacante_nombre} desafió a ${d.defensor_nombre}, pero huyó.`;
+            const mio = misIds.has(d.atacante) || misIds.has(d.defensor);
+            return `<li class="n-duelo ${mio ? 'n-mio' : ''}"><small>${haceCuanto(Date.parse(d.creado))}</small>${esc(texto)}</li>`;
+          }).join('')}</ul>` : '<p class="vacio">Aún no ha habido duelos en este mar. Desafía a otro jugador desde el mapa o los Tablones.</p>';
+        });
+      },
     };
   }
 
