@@ -16,7 +16,8 @@ import { frutasDelMar } from './mundo/cronica';
 import { azar } from './arte/lienzo';
 import { arsenalDe, migrarLocales, modoCreador, personajesDeOtros } from './cuenta';
 import { iniciar as iniciarServidor } from './servidor';
-import { contarVictoria, ganarOro, ganarXp } from './mundo/vida';
+import { contarVictoria, ganarOro, ganarXp, volverConTripulacion } from './mundo/vida';
+import { botsDeTripulaciones, tripulacionesDelMar } from './mundo/tripulaciones';
 import { TEXTO_ACCION, avanzarVida, islasCercanas, mandar, posicionPersonaje, segundosViaje } from './mundo/vida';
 import { ZONAS } from './mundo/geografia';
 import { iniciarCombate } from './combate/pantalla';
@@ -315,6 +316,15 @@ function marcadores(): Marcador[] {
     posicion: posicionBot(b, ahora), barco: b.barco, esMio: false,
   }));
   const p = personajeActivo();
+  // Los bots de una tripulación van con su capitán
+  const todosJug = [...personajes(), ...personajesDeOtros()];
+  for (const [tid, bots] of botsDeTripulaciones(marActual(), ahora)) {
+    const t = tripulacionesDelMar(marActual()).find((x) => x.id === tid);
+    const cap = t && (miEstado?.id === t.capitan ? miEstado : todosJug.find((x) => x.id === t.capitan));
+    if (!cap) continue;
+    const pos = posicionPersonaje(cap, ahora);
+    for (const b of bots) { const m = lista.find((x) => x.id === b.id); if (m) m.posicion = pos; }
+  }
   // Los personajes de los demás jugadores de este mar
   for (const o of personajesDeOtros()) {
     const tipo = o.accion && ahora < o.accion.hasta ? o.accion.tipo : 'pasear';
@@ -574,7 +584,11 @@ function refrescarVida(primera = false) {
   const p = cuentaActual() ? personajeActivo() : null;
   if (!p) { miEstado = null; return; }
   const antes = miEstado?.nivel;
-  const { p: nuevo, resumen } = avanzarVida(p);
+  // Con tripulación: al entrar vuelve al barco; mientras juegas, sigue al capitán
+  const v = volverConTripulacion(p, primera);
+  if (v.p !== p) actualizarPersonaje(v.p);
+  if (v.volvio) aviso(`${p.nombre} ha vuelto al barco de su tripulación.`);
+  const { p: nuevo, resumen } = avanzarVida(v.p);
   miEstado = nuevo;
   if (primera && resumen.length) {
     $('#resumen-lista').innerHTML = resumen.slice(-12).map((r) => `<li>${esc(nuevo.nombre)} ${esc(r)}.</li>`).join('')

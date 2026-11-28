@@ -6,6 +6,35 @@ import { actualizarPersonaje, type PersonajeGuardado } from '../cuenta';
 import { islaDePersonaje, islasDelMundo, nombreZona, travesia, type IslaMundo, type Posicion } from './habitantes';
 import { ZONAS } from './geografia';
 import { PISTAS_NECESARIAS, nombreFruta, oirRumor } from './busqueda';
+import { tripulacionDe } from './tripulaciones';
+import { personajes, personajesDeOtros } from '../cuenta';
+
+// --- Tripulación: los miembros van siempre con su capitán ---------------------
+/** El capitán de su tripulación (null si no tiene o si él es el capitán). */
+export function capitanDe(p: PersonajeGuardado): PersonajeGuardado | null {
+  const t = tripulacionDe(p);
+  if (!t || t.capitan === p.id) return null;
+  return [...personajes(), ...personajesDeOtros()].find((x) => x.id === t.capitan) ?? null;
+}
+/** ¿Va con su tripulación? (sí, salvo que lo hayas mandado a navegar a otro sitio) */
+export const conTripulacion = (p: PersonajeGuardado) => !p.separado && !!capitanDe(p);
+
+/**
+ * Al volver a entrar al juego, el personaje regresa al barco de su tripulación.
+ * También se usa mientras juegas para seguir al capitán cuando cambia de isla.
+ */
+export function volverConTripulacion(p: PersonajeGuardado, alEntrar: boolean, ahora = Date.now()): { p: PersonajeGuardado; volvio: boolean } {
+  const cap = capitanDe(p);
+  if (!cap) return { p, volvio: false };
+  if (p.separado && !alEntrar) return { p, volvio: false };
+  const pos = posicionPersonaje(cap, ahora);
+  if (pos.navegando || pos.islaId === undefined) return { p: p.separado && alEntrar ? { ...p, separado: false } : p, volvio: !!p.separado && alEntrar };
+  if (!p.separado && p.islaId === pos.islaId) return { p, volvio: false };
+  const t = tripulacionDe(p)!;
+  const isla = islasDelMundo()[pos.islaId];
+  const nota: [number, string] = [ahora, `Volvió al barco de «${t.nombre}», en ${isla.nombre}.`];
+  return { p: { ...p, separado: false, islaId: pos.islaId, accion: p.accion?.tipo === 'viajar' ? undefined : p.accion, registro: p.separado ? [...(p.registro ?? []), nota].slice(-40) : p.registro }, volvio: !!p.separado };
+}
 
 export type TipoAccion = 'pasear' | 'entrenar' | 'explorar' | 'descansar' | 'viajar';
 
@@ -51,7 +80,7 @@ function elegir(p: PersonajeGuardado, r: () => number, desde: number): AccionPer
     ['entrenar', 2 + (p.objetivo === 'fuerte' ? 2 : 0) + (t('orgulloso') ? 1 : 0) + (t('valiente') ? 1 : 0)],
     ['explorar', 2 + (t('curioso') ? 2 : 0) + (p.objetivo === 'fruta' ? 2 : 0) + (t('avaricioso') ? 1 : 0)],
     ['descansar', 1 + (t('gloton') ? 1 : 0) + (t('prudente') ? 1 : 0)],
-    ['viajar', 1 + (t('curioso') ? 1 : 0) + (p.objetivo === 'zona' || p.objetivo === 'tripulacion' ? 2 : 0)],
+    ['viajar', conTripulacion(p) ? 0 : 1 + (t('curioso') ? 1 : 0) + (p.objetivo === 'zona' || p.objetivo === 'tripulacion' ? 2 : 0)],
   ];
   let x = r() * pesos.reduce((s, [, w]) => s + w, 0);
   let tipo: TipoAccion = 'pasear';
@@ -180,13 +209,14 @@ export function avanzarVida(p: PersonajeGuardado, ahora = Date.now()): { p: Pers
 
 /** Mandar al personaje a hacer algo ahora mismo. */
 export function mandar(p: PersonajeGuardado, tipo: TipoAccion, destino?: IslaMundo): PersonajeGuardado {
-  const nuevo = { ...p, accion: nuevaAccion(p, tipo, Date.now(), destino, true) };
+  const nuevo = { ...p, accion: nuevaAccion(p, tipo, Date.now(), destino, true), ...(tipo === 'viajar' && capitanDe(p) ? { separado: true } : {}) };
   actualizarPersonaje(nuevo);
   return nuevo;
 }
 
 /** Dónde está ahora (en una isla o navegando). */
 export function posicionPersonaje(p: PersonajeGuardado, ahora = Date.now()): Posicion {
+  if (!p.separado) { const cap = capitanDe(p); if (cap) return posicionPersonaje(cap, ahora); }
   const a = p.accion;
   if (a?.tipo === 'viajar' && a.origen !== undefined && a.destino !== undefined && ahora < a.hasta) {
     const islas = islasDelMundo();

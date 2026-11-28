@@ -22,6 +22,7 @@ import { cronica, frutasDelMar, formatoDoblones, haceCuanto, rangoDe, recompensa
 import { icono } from './iconos';
 import { NIVEL_FUNDAR, botsDeTripulaciones, resumenTripulacion, tripulacionDe, tripulacionesDelMar } from './mundo/tripulaciones';
 import { disolverTripulacion, fundarTripulacion } from './servidor';
+import { volverConTripulacion } from './mundo/vida';
 import { NIVEL_RUMORES, PISTAS_NECESARIAS, nivelGuardian, guardianAqui, islaDeBusqueda, rangoMarine, textoPista, topeMeritosDia, topeRecompensaDia } from './mundo/busqueda';
 import { ruta } from './rutas';
 import { BARCOS_PRUEBA } from './arte/barcos';
@@ -298,7 +299,10 @@ export function crearPaneles(acc: Acciones) {
       return `<div class="objetivo tripulacion"><b>🏴‍☠️ ${esc(t.nombre)}</b><small>${capitan ? 'Eres el capitán' : `Capitán: ${esc(r.capitan?.nombre ?? '¿?')}`} · ${r.miembros} miembros · recompensa total ${formatoDoblones(r.total)}</small>
         <ul class="miembros">${r.jugadores.map((x) => `<li><b>${esc(x.nombre)}</b>${x.id === t.capitan ? ' <span class="chip-jugador creador">Capitán</span>' : ' <span class="chip-jugador">Jugador</span>'}</li>`).join('')}
         ${r.bots.map((b) => `<li>${esc(nombreBot(b))} <small>Nv. ${b.nivel}</small></li>`).join('')}</ul>
-        <p class="nota-hoja">Cada ${'2'} horas se une un pirata nuevo, hasta 12 bots. Cualquier jugador pirata puede unirse desde Tablones → Tripulaciones.</p>
+        ${capitan ? '<p class="nota-hoja">⚓ Tu tripulación te sigue a donde vayas.</p>' : p.separado
+          ? '<p class="nota-hoja">⛵ Ahora va por su cuenta. Volverá al barco la próxima vez que entres al juego.</p><button class="mini-boton" data-volver-barco>Volver ya al barco</button>'
+          : '<p class="nota-hoja">⚓ Va con su tripulación y sigue al capitán. Si lo mandas a navegar a otro sitio, irá solo hasta que vuelvas a entrar.</p>'}
+        <p class="nota-hoja">Cada 2 horas se une un pirata nuevo, hasta 12 bots. Cualquier jugador pirata puede unirse desde Tablones → Tripulaciones.</p>
         <button class="mini-boton peligro" data-${capitan ? 'disolver' : 'dejar'}="${t.id}">${capitan ? 'Disolver la tripulación' : 'Dejar la tripulación'}</button></div>`;
     }
     const fundar = p.nivel >= NIVEL_FUNDAR || p.creador
@@ -308,13 +312,17 @@ export function crearPaneles(acc: Acciones) {
   }
   function enlazarTripulacion(el: HTMLElement, panel: IdPanel) {
     el.addEventListener('click', async (e) => {
-      const b = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-unirse],[data-fundar],[data-dejar],[data-disolver]');
+      const b = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-unirse],[data-fundar],[data-dejar],[data-disolver],[data-volver-barco]');
       if (!b || b.disabled) return;
       const yo = personajeActivo();
       if (!yo) return;
       const nota = (texto: string): [number, string][] => [...(yo.registro ?? []), [Date.now(), texto] as [number, string]].slice(-30);
       b.disabled = true;
-      if (b.dataset.unirse) {
+      if ('volverBarco' in b.dataset) {
+        const v = volverConTripulacion({ ...yo, accion: yo.accion?.tipo === 'viajar' ? undefined : yo.accion }, true);
+        actualizarPersonaje({ ...v.p, separado: false });
+        acc.aviso('¡De vuelta al barco con tu tripulación!');
+      } else if (b.dataset.unirse) {
         const t = estadoTripulacion(b.dataset.unirse);
         if (!t) return;
         actualizarPersonaje({ ...yo, tripulacion: t.id, registro: nota(`Se unió a la tripulación «${t.nombre}».`) });

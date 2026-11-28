@@ -47,6 +47,8 @@ export interface PersonajeGuardado {
   notoriedad?: { dia: string; valor: number };
   /** Tripulación a la que pertenece (id). */
   tripulacion?: string;
+  /** Lo mandaste a navegar lejos de su tripulación (vuelve al entrar de nuevo). */
+  separado?: boolean;
   /** Ya recibió el regalo de la Marina por llegar a nivel 10. */
   regalo10?: boolean;
   /** Lo ganado hoy (para los topes diarios de la economía). */
