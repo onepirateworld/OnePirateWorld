@@ -98,6 +98,15 @@ export function dibujarGaleon(a: AspectoBarco): Lienzo {
   return L;
 }
 
+/** Una bandera sola (para la ficha de la tripulación). */
+export function dibujarBandera(colorBandera: number, colorInsignia: number): Lienzo {
+  const L = new Lienzo(12, 10);
+  L.linea(1, 0, 1, 9, C.corteza);
+  bandera(L, 2, 1, { colorCasco: 0, colorVela: 0, colorBandera, colorInsignia });
+  L.contorno(C.tinta);
+  return L;
+}
+
 export type TipoNave = 'barca' | 'carabela' | 'galeon';
 /** Colores de serie de cada barco. */
 export const COLORES_BARCO: Record<TipoNave, AspectoBarco> = {

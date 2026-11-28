@@ -615,3 +615,13 @@ a.boton-oro { display: inline-block; text-decoration: none; }
 .colores-barco { display: flex; flex-wrap: wrap; gap: 6px; }
 .color-barco { width: 30px; height: 30px; border-radius: 6px; border: 2px solid #0b1124; cursor: pointer; }
 .color-barco.sel { outline: 3px solid #f2b63d; outline-offset: 1px; }
+
+/* Tripulación: bandera, ventajas y cargos */
+i.bandera, .tripulacion canvas, .ranking.tripulaciones canvas { image-rendering: pixelated; vertical-align: middle; }
+.ventaja-trip { font-size: 13px; margin: 8px 0; color: var(--texto); }
+.chip-jugador.cargo { background: #7a4ac0; }
+details.cargos { margin: 8px 0; }
+details.cargos summary { cursor: pointer; color: #f2b63d; }
+details.cargos label { display: flex; flex-direction: column; gap: 3px; margin: 8px 0; font-size: 13px; }
+details.cargos label small { color: var(--texto-suave); }
+details.cargos select { font: inherit; font-size: 15px; padding: 6px; border-radius: 6px; background: #0b1124; color: var(--texto); border: 2px solid var(--panel-borde); }

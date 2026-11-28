@@ -7,7 +7,7 @@ export const sb = createClient(SUPABASE_URL, SUPABASE_CLAVE_PUBLICA, {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'implicit' },
 });
 
-export interface FilaTripulacion { id: string; mar: number; nombre: string; capitan: string; dueno: string; creada: string }
+export interface FilaTripulacion { id: string; mar: number; nombre: string; capitan: string; dueno: string; creada: string; cargos?: Record<string, string> }
 
 export interface Perfil { id: string; nombre: string; rol: 'jugador' | 'moderador' | 'creador' }
 
@@ -105,6 +105,14 @@ export async function fundarTripulacion(mar: number, nombre: string, capitan: st
   }
   estado.tripulaciones.push(data as FilaTripulacion);
   return { error: null, fila: data as FilaTripulacion };
+}
+/** El capitán nombra los cargos: { cargo: id del miembro }. */
+export async function nombrarCargos(id: string, cargos: Record<string, string>): Promise<string | null> {
+  const { error } = await sb.from('tripulaciones').update({ cargos }).eq('id', id);
+  if (error) return error.message;
+  const t = estado.tripulaciones.find((x) => x.id === id);
+  if (t) t.cargos = cargos;
+  return null;
 }
 export async function disolverTripulacion(id: string) {
   await sb.from('tripulaciones').delete().eq('id', id);
@@ -272,14 +280,17 @@ export async function borrar(id: string) {
 
 // --- La Taberna -----------------------------------------------------------
 
-export interface FilaMensaje { id: number; mar: number; autor: string; autor_nombre: string; texto: string; oculto: boolean; creado: string }
+export interface FilaMensaje { id: number; mar: number; autor: string; autor_nombre: string; texto: string; oculto: boolean; creado: string; tripulacion?: string | null }
 
-export async function cargarMensajes(mar: number): Promise<FilaMensaje[]> {
-  const { data } = await sb.from('mensajes').select('*').eq('mar', mar).order('creado', { ascending: false }).limit(60);
+/** Mensajes de la taberna del mar o, si se indica, del chat privado de una tripulación. */
+export async function cargarMensajes(mar: number, tripulacion: string | null = null): Promise<FilaMensaje[]> {
+  let q = sb.from('mensajes').select('*').eq('mar', mar);
+  q = tripulacion ? q.eq('tripulacion', tripulacion) : q.is('tripulacion', null);
+  const { data } = await q.order('creado', { ascending: false }).limit(60);
   return ((data ?? []) as FilaMensaje[]).reverse();
 }
-export async function enviarMensaje(mar: number, autorNombre: string, texto: string): Promise<string | null> {
-  const { error } = await sb.from('mensajes').insert({ mar, autor_nombre: autorNombre, texto });
+export async function enviarMensaje(mar: number, autorNombre: string, texto: string, tripulacion: string | null = null): Promise<string | null> {
+  const { error } = await sb.from('mensajes').insert({ mar, autor_nombre: autorNombre, texto, tripulacion });
   return error ? (error.message.includes('5 mensajes') ? 'Como mucho 5 mensajes por minuto. Espera un poco.' : error.message) : null;
 }
 export async function reportar(mensajeId: number) {

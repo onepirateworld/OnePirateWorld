@@ -17,7 +17,7 @@ import { azar } from './arte/lienzo';
 import { arsenalDe, migrarLocales, modoCreador, personajesDeOtros } from './cuenta';
 import { iniciar as iniciarServidor } from './servidor';
 import { contarVictoria, ganarOro, ganarXp, volverConTripulacion } from './mundo/vida';
-import { botsDeTripulaciones, tripulacionesDelMar } from './mundo/tripulaciones';
+import { banderaDe, bonoTripulacion, botsDeTripulaciones, cargoDe, tripulacionDe, tripulacionesDelMar } from './mundo/tripulaciones';
 import { TEXTO_ACCION, avanzarVida, islasCercanas, mandar, posicionPersonaje, segundosViaje } from './mundo/vida';
 import { ZONAS } from './mundo/geografia';
 import { iniciarCombate } from './combate/pantalla';
@@ -315,6 +315,11 @@ let mapa: Mapa | null = null;
 let cabezaMia: { id: string; cv: HTMLCanvasElement } | null = null;
 
 /** Todos los personajes visibles en este mar: los bots y tu personaje. */
+/** Los miembros de una tripulación llevan su bandera en el barco. */
+function conBandera(p: PersonajeGuardado) {
+  const t = tripulacionDe(p);
+  return t && t.capitan !== p.id ? { ...p.navio, ...banderaDe(t) } : p.navio;
+}
 function marcadores(): Marcador[] {
   const ahora = Date.now();
   const lista: Marcador[] = botsDelMar(marActual()).map((b) => ({
@@ -329,18 +334,19 @@ function marcadores(): Marcador[] {
     const cap = t && (miEstado?.id === t.capitan ? miEstado : todosJug.find((x) => x.id === t.capitan));
     if (!cap) continue;
     const pos = posicionPersonaje(cap, ahora);
-    for (const b of bots) { const m = lista.find((x) => x.id === b.id); if (m) m.posicion = pos; }
+    const bandera = banderaDe(t!);
+    for (const b of bots) { const m = lista.find((x) => x.id === b.id); if (m) { m.posicion = pos; m.navio = { ...m.navio, ...bandera }; } }
   }
   // Los personajes de los demás jugadores de este mar
   for (const o of personajesDeOtros()) {
     const tipo = o.accion && ahora < o.accion.hasta ? o.accion.tipo : 'pasear';
-    lista.push({ id: `j-${o.id}`, nombre: o.apodo ? `${o.nombre} «${o.apodo}»` : o.nombre, bando: o.bando, aspecto: o.aspecto, barco: o.barco ?? 'barca', navio: o.navio,
+    lista.push({ id: `j-${o.id}`, nombre: o.apodo ? `${o.nombre} «${o.apodo}»` : o.nombre, bando: o.bando, aspecto: o.aspecto, barco: o.barco ?? 'barca', navio: conBandera(o),
       esMio: false, posicion: posicionPersonaje(o, ahora), quieto: tipo === 'entrenar' || tipo === 'descansar', actividad: TEXTO_ACCION[tipo] });
   }
   const yo = miEstado && cuentaActual() && p?.id === miEstado.id ? miEstado : null;
   if (yo) {
     const tipo = yo.accion?.tipo ?? 'pasear';
-    lista.push({ id: yo.id, nombre: yo.nombre, bando: yo.bando, aspecto: yo.aspecto, barco: yo.barco ?? 'barca', navio: yo.navio, esMio: true,
+    lista.push({ id: yo.id, nombre: yo.nombre, bando: yo.bando, aspecto: yo.aspecto, barco: yo.barco ?? 'barca', navio: conBandera(yo), esMio: true,
       posicion: posicionPersonaje(yo, ahora), quieto: tipo === 'entrenar' || tipo === 'descansar', actividad: TEXTO_ACCION[tipo] });
   }
   return lista;
@@ -408,6 +414,7 @@ async function pelearCon(bot: Bot, motivo: string, guardian = false, entrenamien
   // Enemigos adaptados: cerca de tu nivel para que un personaje nuevo pueda ganar
   const nivelRival = guardian ? nivelGuardian(p.nivel) : Math.max(1, p.nivel + (h % 3) - 1);
   const jugador = crearLuchador({ nombre: p.nombre, bando: p.bando, aspecto: p.aspecto, nivel: p.nivel, rasgos: p.rasgos, arsenal: arsenalDe(p), fruta: p.fruta, creador: p.creador, bolsa: bolsaDe(p) });
+  const extra = ventajasTripulacion(jugador, p);
   const frutaBot = [...frutasDelMar(marActual(), [...personajes(), ...personajesDeOtros()].filter((x) => x.mar === marActual() && x.fruta).map((x) => x.fruta!)).entries()].find(([, id]) => id === bot.id)?.[0];
   const rival = crearLuchador({ nombre: bot.nombre, bando: bot.bando, aspecto: bot.aspecto, nivel: nivelRival, rasgos: bot.rasgos, arsenal: arsenalBot(nivelRival + (guardian ? 4 : 0), azar(h)), fruta: guardian ? undefined : frutaBot });
   if (guardian) { rival.vidaMax = Math.round(rival.vidaMax * 1.6); rival.vida = rival.vidaMax; }
@@ -467,7 +474,7 @@ async function pelearCon(bot: Bot, motivo: string, guardian = false, entrenamien
       } else {
         registro.push([Date.now(), `Escapó por los pelos de ${bot.nombre}.`]);
       }
-      actualizarPersonaje({ ...tmp, nivel, xp, doblones, ganado, registro: registro.slice(-30), bolsa: yo.creador ? bolsaDe(yo) : { grog: jugador.pociones, botiquin: jugador.botiquines }, ...(yo.bando === 'marine' ? { capturas } : {}) });
+      actualizarPersonaje({ ...tmp, nivel, xp, doblones, ganado, registro: registro.slice(-30), bolsa: yo.creador ? bolsaDe(yo) : bolsaTras(yo, jugador, extra), ...(yo.bando === 'marine' ? { capturas } : {}) });
       return lineas;
     },
   });
@@ -503,6 +510,24 @@ function avisarDesbloqueos(p: PersonajeGuardado) {
   aviso(mensajes.join(' '));
 }
 
+// --- Ventajas de la tripulación en combate --------------------------------------
+type Lucha = ReturnType<typeof crearLuchador>;
+/** Bonus por miembros y por cargo. Devuelve el grog y los botiquines gratis que se le dieron. */
+function ventajasTripulacion(l: Lucha, p: PersonajeGuardado): { grog: number; botiquin: number } {
+  const bono = bonoTripulacion(p);
+  const cargo = cargoDe(p);
+  l.fuerza *= (1 + bono) * (cargo === 'segundo' ? 1.05 : 1);
+  l.resistencia *= (1 + bono) * (cargo === 'contramaestre' ? 1.05 : 1);
+  const extra = { grog: cargo === 'cocinero' ? 1 : 0, botiquin: cargo === 'medico' ? 1 : 0 };
+  l.pociones += extra.grog; l.botiquines += extra.botiquin;
+  return extra;
+}
+/** Lo que queda en la bolsa tras el combate: lo gratis se gasta primero y no se guarda. */
+function bolsaTras(p: PersonajeGuardado, l: Lucha, extra: { grog: number; botiquin: number }) {
+  const antes = bolsaDe(p);
+  return { grog: Math.min(antes.grog, l.pociones), botiquin: Math.min(antes.botiquin, l.botiquines) };
+}
+
 // --- Duelos contra otros jugadores ------------------------------------------
 const MAX_DUELOS_DIA = 5, DIFERENCIA_NIVEL = 10;
 /** ¿Pueden pelear? Marines contra el resto, y piratas de tripulaciones distintas. */
@@ -529,8 +554,10 @@ async function desafiarJugador(otro: PersonajeGuardado) {
   if (hechos.some((d) => d.defensor === otro.id)) { aviso(`Ya te enfrentaste a ${otro.nombre} hoy.`); return; }
   combatiendo = true;
   const jugador = crearLuchador({ nombre: p.nombre, bando: p.bando, aspecto: p.aspecto, nivel: p.nivel, rasgos: p.rasgos, arsenal: arsenalDe(p), fruta: p.fruta, creador: p.creador, bolsa: bolsaDe(p) });
+  const extra = ventajasTripulacion(jugador, p);
   // El rival pelea solo, con todo lo suyo de verdad
   const rival = crearLuchador({ nombre: otro.nombre, bando: otro.bando, aspecto: otro.aspecto, nivel: otro.nivel, rasgos: otro.rasgos, arsenal: arsenalDe(otro), fruta: otro.fruta, creador: otro.creador, bolsa: bolsaDe(otro) });
+  ventajasTripulacion(rival, otro);
   if (p.bando === 'revolucionario' && p.nivel >= NIVEL_FURIA && otro.bando !== 'revolucionario') { jugador.fuerza *= 1 + BONO_FURIA; jugador.tecnica *= 1 + BONO_FURIA; }
   const isla = islaDePersonaje(p);
   let resultado: 'atacante' | 'defensor' | 'huida' = 'huida', premio = 0;
@@ -567,7 +594,7 @@ async function desafiarJugador(otro: PersonajeGuardado) {
         lineas.push(`${otro.nombre} gana el duelo...`, `${yo.nombre} pierde ${pierde} doblones.`);
         nota(`Perdió un duelo contra ${otro.nombre}. Juró revancha.`);
       } else nota(`Huyó de un duelo contra ${otro.nombre}.`);
-      actualizarPersonaje({ ...tmp, bolsa: yo.creador ? bolsaDe(yo) : { grog: jugador.pociones, botiquin: jugador.botiquines } });
+      actualizarPersonaje({ ...tmp, bolsa: yo.creador ? bolsaDe(yo) : bolsaTras(yo, jugador, extra) });
       return lineas;
     },
   });

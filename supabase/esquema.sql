@@ -403,3 +403,22 @@ begin
 end $$;
 drop trigger if exists revisar_nombre on public.personajes;
 create trigger revisar_nombre before insert or update on public.personajes for each row execute function public.revisar_nombre();
+
+-- ---------------------------------------------------------------------------
+-- Tripulaciones: cargos (los nombra el capitán) y chat privado de la tripulación.
+alter table public.tripulaciones add column if not exists cargos jsonb not null default '{}'::jsonb;
+drop policy if exists "editar tripulacion" on public.tripulaciones;
+create policy "editar tripulacion" on public.tripulaciones for update using (auth.uid() = dueno) with check (auth.uid() = dueno);
+grant update on public.tripulaciones to authenticated;
+
+alter table public.mensajes add column if not exists tripulacion uuid references public.tripulaciones(id) on delete cascade;
+create or replace function public.soy_de_tripulacion(t uuid) returns boolean language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.personajes p where p.dueno = auth.uid() and p.datos->>'tripulacion' = t::text)
+      or exists (select 1 from public.tripulaciones x where x.id = t and x.dueno = auth.uid());
+$$;
+drop policy if exists "leer mensajes" on public.mensajes;
+create policy "leer mensajes" on public.mensajes for select
+  using ((not oculto or public.es_moderador()) and (tripulacion is null or public.soy_de_tripulacion(tripulacion)));
+drop policy if exists "escribir mensajes" on public.mensajes;
+create policy "escribir mensajes" on public.mensajes for insert
+  with check (auth.uid() = autor and (tripulacion is null or public.soy_de_tripulacion(tripulacion)));

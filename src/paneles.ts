@@ -22,13 +22,13 @@ import { cronica, frutasDelMar, formatoDoblones, haceCuanto, rangoDe, recompensa
 import { icono } from './iconos';
 import { REQUISITOS, estadoPrenda } from './datos/vestuario';
 import { OPCIONES } from './arte/personajes';
-import { NIVEL_FUNDAR, botsDeTripulaciones, resumenTripulacion, tripulacionDe, tripulacionesDelMar } from './mundo/tripulaciones';
+import { CARGOS, NIVEL_FUNDAR, banderaDe, bonoTripulacion, botsDeTripulaciones, resumenTripulacion, tripulacionDe, tripulacionesDelMar, type Cargo } from './mundo/tripulaciones';
 import { ultimosDuelos } from './servidor';
-import { adminBorrar, adminPersonaje, adminRol, adminRoles, adminTodos, disolverTripulacion, fundarTripulacion } from './servidor';
+import { adminBorrar, adminPersonaje, adminRol, adminRoles, adminTodos, disolverTripulacion, fundarTripulacion, nombrarCargos } from './servidor';
 import { volverConTripulacion } from './mundo/vida';
 import { NIVEL_RUMORES, PISTAS_NECESARIAS, nivelGuardian, guardianAqui, islaDeBusqueda, rangoMarine, textoPista, topeMeritosDia, topeRecompensaDia } from './mundo/busqueda';
 import { ruta } from './rutas';
-import { BARCOS_PRUEBA, COLORES_BARCO, PALETA_BARCO, dibujarBarco } from './arte/barcos';
+import { BARCOS_PRUEBA, COLORES_BARCO, PALETA_BARCO, dibujarBandera, dibujarBarco } from './arte/barcos';
 import { PALETA } from './arte/paleta';
 import { nombreLimpio } from './datos/palabras';
 import { BARCOS, PRECIO_SASTRE, PROVISIONES, bolsaDe, type IdBarco } from './datos/tienda';
@@ -289,22 +289,31 @@ export function crearPaneles(acc: Acciones) {
   function taberna() {
     const mar = marActual();
     const cuenta = cuentaActual();
+    const yo = cuenta ? personajeActivo() : null;
+    const trip = yo ? tripulacionDe(yo) : null;
+    if (!trip) canalTaberna = 'mar';
+    const enTrip = canalTaberna === 'trip' && trip;
     return {
       titulo: 'La Taberna',
       html: `
         <details class="normas-chat"><summary>Normas de la taberna</summary>
           <ul><li>Respeto: nada de insultos, acoso ni odio.</li><li>Nada de datos personales (tuyos ni de nadie).</li><li>Sin spam: como mucho 5 mensajes por minuto.</li><li>Los mensajes se borran a los 90 días.</li><li>Puedes reportar y silenciar a quien quieras.</li></ul>
         </details>
-        <p class="nota-hoja">Chat en tiempo real con todos los jugadores de este mar. Con 3 reportes, un mensaje se oculta hasta que lo revise la moderación.</p>
+        ${trip ? `<div class="pestanas-hoja"><button class="${enTrip ? '' : 'sel'}" data-canal="mar">🍺 Todo el mar</button><button class="${enTrip ? 'sel' : ''}" data-canal="trip">🏴‍☠️ ${esc(trip.nombre)}</button></div>` : ''}
+        <p class="nota-hoja">${enTrip ? 'Chat privado de tu tripulación: solo lo leen sus miembros.' : 'Chat en tiempo real con todos los jugadores de este mar. Con 3 reportes, un mensaje se oculta hasta que lo revise la moderación.'}</p>
         <ul class="chat" id="chat"></ul>
         <div class="silenciados" id="silenciados"></div>
-        ${cuenta ? `<form class="chat-form" id="chat-form"><input id="chat-texto" maxlength="200" autocomplete="off" placeholder="Di algo en la taberna..." /><button class="boton-oro">Enviar</button></form>`
+        ${cuenta ? `<form class="chat-form" id="chat-form"><input id="chat-texto" maxlength="200" autocomplete="off" placeholder="${enTrip ? 'Habla con tu tripulación...' : 'Di algo en la taberna...'}" /><button class="boton-oro">Enviar</button></form>`
           : '<p class="vacio">Firma el pacto para hablar en la taberna.</p>'}`,
-      despues: (el: HTMLElement) => montarChat(el, mar),
+      despues: (el: HTMLElement) => {
+        el.querySelectorAll<HTMLButtonElement>('[data-canal]').forEach((b) => b.addEventListener('click', () => { canalTaberna = b.dataset.canal as 'mar' | 'trip'; abrir('taberna', false); }));
+        montarChat(el, mar, enTrip ? trip!.id : null);
+      },
     };
   }
 
   let pestanaTablones = 'rec';
+  let canalTaberna: 'mar' | 'trip' = 'mar';
   // --- Tripulaciones -----------------------------------------------------------
   function listaTripulaciones(p: PersonajeGuardado | null, max = 30): string {
     const mar = marActual();
@@ -313,7 +322,7 @@ export function crearPaneles(acc: Acciones) {
     if (!lista.length) return `<p class="vacio">Aún no hay tripulaciones en este mar. Un pirata de nivel ${NIVEL_FUNDAR} puede fundar la primera desde «Mi pirata».</p>`;
     const puede = p && p.bando === 'pirata' && !tripulacionDe(p);
     return `<ol class="ranking tripulaciones">${lista.map((x, i) => `<li class="${p?.tripulacion === x.t.id ? 'fila-mia' : ''}"><span class="pos">${i + 1}</span>
-      <span><b>🏴‍☠️ ${esc(x.t.nombre)}</b><small>Capitán: ${esc(x.capitan?.nombre ?? '¿?')} · ${x.miembros} miembros (${x.jugadores.length} jugadores)</small><small>Recompensa total: ${formatoDoblones(x.total)}</small></span>
+      <span><b><i class="bandera" data-bandera="${x.t.id}"></i> ${esc(x.t.nombre)}</b><small>Capitán: ${esc(x.capitan?.nombre ?? '¿?')} · ${x.miembros} miembros (${x.jugadores.length} jugadores)</small><small>Recompensa total: ${formatoDoblones(x.total)}</small></span>
       ${puede ? `<button class="mini-boton" data-unirse="${x.t.id}">Unirse</button>` : p?.tripulacion === x.t.id ? '<em>Tu tripulación</em>' : ''}</li>`).join('')}</ol>
       ${p && p.bando !== 'pirata' ? '<p class="nota-hoja">Solo los piratas pueden unirse a una tripulación.</p>' : ''}`;
   }
@@ -322,9 +331,21 @@ export function crearPaneles(acc: Acciones) {
     if (t) {
       const r = resumenTripulacion(t, botsDeTripulaciones(p.mar).get(t.id) ?? []);
       const capitan = t.capitan === p.id;
-      return `<div class="objetivo tripulacion"><b>🏴‍☠️ ${esc(t.nombre)}</b><small>${capitan ? 'Eres el capitán' : `Capitán: ${esc(r.capitan?.nombre ?? '¿?')}`} · ${r.miembros} miembros · recompensa total ${formatoDoblones(r.total)}</small>
-        <ul class="miembros">${r.jugadores.map((x) => `<li><b>${esc(x.nombre)}</b>${x.id === t.capitan ? ' <span class="chip-jugador creador">Capitán</span>' : ' <span class="chip-jugador">Jugador</span>'}</li>`).join('')}
-        ${r.bots.map((b) => `<li>${esc(nombreBot(b))} <small>Nv. ${b.nivel}</small></li>`).join('')}</ul>
+      const cargos = t.cargos ?? {};
+      const cargoDeId = (id: string) => (Object.entries(cargos).find(([, x]) => x === id)?.[0] as Cargo | undefined);
+      const etiqueta = (id: string) => { const c = cargoDeId(id); return c ? ` <span class="chip-jugador cargo">${CARGOS[c].nombre}</span>` : ''; };
+      const miCargo = cargoDeId(p.id);
+      const candidatos = [...r.jugadores.filter((x) => x.id !== t.capitan).map((x) => ({ id: x.id, nombre: x.nombre })), ...r.bots.map((b) => ({ id: b.id, nombre: nombreBot(b) }))];
+      const bono = Math.round(bonoTripulacion(p) * 100);
+      return `<div class="objetivo tripulacion"><b><i class="bandera" data-bandera="${t.id}"></i> ${esc(t.nombre)}</b><small>${capitan ? 'Eres el capitán' : `Capitán: ${esc(r.capitan?.nombre ?? '¿?')}`} · ${r.miembros} miembros · recompensa total ${formatoDoblones(r.total)}</small>
+        <p class="ventaja-trip">💪 Bonus de tripulación: <b>+${bono}%</b> de fuerza y resistencia en combate (+1% por miembro, máximo +10%).${miCargo ? `<br>🎖 Tu cargo: <b>${CARGOS[miCargo].nombre}</b> (${CARGOS[miCargo].ventaja}).` : ''}</p>
+        <ul class="miembros">${r.jugadores.map((x) => `<li><b>${esc(x.nombre)}</b>${x.id === t.capitan ? ' <span class="chip-jugador creador">Capitán</span>' : ' <span class="chip-jugador">Jugador</span>'}${etiqueta(x.id)}</li>`).join('')}
+        ${r.bots.map((b) => `<li>${esc(nombreBot(b))} <small>Nv. ${b.nivel}</small>${etiqueta(b.id)}</li>`).join('')}</ul>
+        ${capitan ? `<details class="cargos"><summary>🎖 Nombrar cargos</summary>
+          ${(Object.keys(CARGOS) as Cargo[]).map((c) => `<label>${CARGOS[c].nombre} <small>${CARGOS[c].ventaja}</small>
+            <select data-cargo="${c}"><option value="">— Nadie —</option>${candidatos.map((x) => `<option value="${x.id}" ${cargos[c] === x.id ? 'selected' : ''}>${esc(x.nombre)}</option>`).join('')}</select></label>`).join('')}
+          <button class="mini-boton" data-guardar-cargos="${t.id}">Guardar cargos</button></details>
+          <p class="nota-hoja">🏴 La bandera de la tripulación usa los colores de bandera de tu barco (Tienda → Barcos).</p>` : ''}
         ${capitan ? '<p class="nota-hoja">⚓ Tu tripulación te sigue a donde vayas.</p>' : p.separado
           ? '<p class="nota-hoja">⛵ Ahora va por su cuenta. Volverá al barco la próxima vez que entres al juego.</p><button class="mini-boton" data-volver-barco>Volver ya al barco</button>'
           : '<p class="nota-hoja">⚓ Va con su tripulación y sigue al capitán. Si lo mandas a navegar a otro sitio, irá solo hasta que vuelvas a entrar.</p>'}
@@ -337,14 +358,28 @@ export function crearPaneles(acc: Acciones) {
     return `${fundar}<h4>Unirse a una tripulación</h4>${listaTripulaciones(p, 6)}`;
   }
   function enlazarTripulacion(el: HTMLElement, panel: IdPanel) {
+    // Banderas de las tripulaciones (colores del barco del capitán)
+    el.querySelectorAll<HTMLElement>('[data-bandera]').forEach((i) => {
+      const t = tripulacionesDelMar(marActual()).find((x) => x.id === i.dataset.bandera);
+      if (!t) return;
+      const { colorBandera, colorInsignia } = banderaDe(t);
+      i.replaceWith(aCanvas(dibujarBandera(colorBandera, colorInsignia), 2));
+    });
     el.addEventListener('click', async (e) => {
-      const b = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-unirse],[data-fundar],[data-dejar],[data-disolver],[data-volver-barco]');
+      const b = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-unirse],[data-fundar],[data-dejar],[data-disolver],[data-volver-barco],[data-guardar-cargos]');
       if (!b || b.disabled) return;
       const yo = personajeActivo();
       if (!yo) return;
       const nota = (texto: string): [number, string][] => [...(yo.registro ?? []), [Date.now(), texto] as [number, string]].slice(-30);
       b.disabled = true;
-      if ('volverBarco' in b.dataset) {
+      if (b.dataset.guardarCargos) {
+        const cargos: Record<string, string> = {};
+        el.querySelectorAll<HTMLSelectElement>('[data-cargo]').forEach((s) => { if (s.value) cargos[s.dataset.cargo!] = s.value; });
+        const ids = Object.values(cargos);
+        if (new Set(ids).size !== ids.length) { acc.aviso('Cada miembro solo puede tener un cargo.'); b.disabled = false; return; }
+        const error = await nombrarCargos(b.dataset.guardarCargos, cargos);
+        acc.aviso(error ?? '¡Cargos nombrados!');
+      } else if ('volverBarco' in b.dataset) {
         const v = volverConTripulacion({ ...yo, accion: yo.accion?.tipo === 'viajar' ? undefined : yo.accion }, true);
         actualizarPersonaje({ ...v.p, separado: false });
         acc.aviso('¡De vuelta al barco con tu tripulación!');
@@ -886,7 +921,7 @@ function escribir(k: string, v: unknown) { try { localStorage.setItem(k, JSON.st
 
 let limpiarChat: (() => void) | null = null;
 
-function montarChat(el: HTMLElement, mar: number) {
+function montarChat(el: HTMLElement, mar: number, tripulacion: string | null = null) {
   limpiarChat?.();
   const lista = el.querySelector<HTMLElement>('#chat')!;
   const silEl = el.querySelector<HTMLElement>('#silenciados')!;
@@ -894,7 +929,7 @@ function montarChat(el: HTMLElement, mar: number) {
   const bots = botsDelMar(mar);
   const ahora = Date.now();
   const deBots: Mensaje[] = [];
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < (tripulacion ? 0 : 8); i++) {
     const slot = Math.floor(ahora / 240_000) - i;
     const b = bots[(slot * 7919) % bots.length];
     deBots.push({ id: `b${slot}`, autor: nombreBot(b), texto: FRASES_BOT[(slot * 31) % FRASES_BOT.length], t: slot * 240_000, bot: true });
@@ -937,15 +972,18 @@ function montarChat(el: HTMLElement, mar: number) {
     // En el juego solo se ve el nombre del pirata; el de usuario es secreto
     const autor = p?.nombre ?? 'Marinero sin nombre';
     input.disabled = true;
-    const error = await enviarMensaje(mar, autor, texto);
+    const error = await enviarMensaje(mar, autor, texto, tripulacion);
     input.disabled = false;
     if (error) { input.setCustomValidity(error); input.reportValidity(); setTimeout(() => input.setCustomValidity(''), 2500); return; }
     input.value = '';
     input.focus();
   });
   pintar();
-  void cargarMensajes(mar).then((m) => { reales = m; pintar(); });
-  limpiarChat = escucharMensajes(mar, (m) => { if (!reales.some((x) => x.id === m.id)) { reales.push(m); pintar(); } });
+  void cargarMensajes(mar, tripulacion).then((m) => { reales = m; pintar(); });
+  limpiarChat = escucharMensajes(mar, (m) => {
+    if ((m.tripulacion ?? null) !== tripulacion) return;   // cada canal, lo suyo
+    if (!reales.some((x) => x.id === m.id)) { reales.push(m); pintar(); }
+  });
 }
 
 void islasDelMundo;

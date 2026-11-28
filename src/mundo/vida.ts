@@ -6,7 +6,7 @@ import { actualizarPersonaje, type PersonajeGuardado } from '../cuenta';
 import { islaDePersonaje, islasDelMundo, nombreZona, travesia, type IslaMundo, type Posicion } from './habitantes';
 import { ZONAS } from './geografia';
 import { PISTAS_NECESARIAS, nombreFruta, oirRumor } from './busqueda';
-import { tripulacionDe } from './tripulaciones';
+import { cargoDe, tripulacionDe } from './tripulaciones';
 import { personajes, personajesDeOtros } from '../cuenta';
 
 // --- Tripulación: los miembros van siempre con su capitán ---------------------
@@ -67,7 +67,8 @@ export function islasCercanas(isla: IslaMundo, n = 6): IslaMundo[] {
 export function nuevaAccion(p: PersonajeGuardado, tipo: TipoAccion, desde: number, destino?: IslaMundo, mandada = false): AccionPersonaje {
   if (tipo === 'viajar' && destino) {
     const origen = islaDePersonaje(p);
-    return { tipo, desde, hasta: desde + Math.round(segundosViaje(origen, destino) * VELOCIDAD_BARCO[p.barco ?? 'barca'] * 1000), origen: origen.id, destino: destino.id, mandada };
+    const navegante = cargoDe(p) === 'navegante' ? 0.9 : 1;
+    return { tipo, desde, hasta: desde + Math.round(segundosViaje(origen, destino) * VELOCIDAD_BARCO[p.barco ?? 'barca'] * navegante * 1000), origen: origen.id, destino: destino.id, mandada };
   }
   return { tipo, desde, hasta: desde + DURACION[tipo as Exclude<TipoAccion, 'viajar'>] * 1000, mandada };
 }
