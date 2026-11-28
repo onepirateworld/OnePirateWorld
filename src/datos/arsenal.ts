@@ -113,6 +113,14 @@ export function arsenalInicial(): Arsenal {
   };
 }
 
+/** El arma con la que empieza cada estilo: el tirador, con pistola; el luchador, con los puños en la mano. */
+export function armaDeEstilo(a: Arsenal, estilo: string): Arsenal {
+  const n: Arsenal = structuredClone(a);
+  if (estilo === 'tirador') { n.armas['pistola-chispa'] = Math.max(1, n.armas['pistola-chispa'] ?? 1); n.principal = 'pistola-chispa'; n.secundaria = 'sable-grumete'; }
+  if (estilo === 'punos') { n.principal = 'punos'; n.secundaria = 'sable-grumete'; }
+  return n;
+}
+
 export const puntosLibres = (nivel: number, a: Arsenal) =>
   (nivel - 1) * PUNTOS_POR_NIVEL - Object.values(a.mejoras).reduce((s, x) => s + x, 0);
 

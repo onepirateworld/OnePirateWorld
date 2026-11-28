@@ -11,6 +11,7 @@ import { BANDOS, actualizarPersonaje, cuentaActual, guardarPersonaje, marActual,
 import { PRECIO_SASTRE } from './datos/tienda';
 import { estadoPrenda, type Meritos } from './datos/vestuario';
 import { MAX_RASGOS, RASGOS, puedeAnadir, suenosPara } from './datos/caracter';
+import { CODIGOS, ESTILOS, MAX_CODIGO, type Codigo, type Estilo } from './mundo/objetivos';
 import { iniciar as iniciarServidor } from './servidor';
 
 // Recupera la sesión para poder guardar el personaje en el servidor
@@ -154,12 +155,12 @@ const resumenEl = $('#resumen');
 // ---------------------------------------------------------------------------
 // Pasos 3 y 4: carácter y sueño (con borrador propio)
 
-type Paso = 'aspecto' | 'caracter' | 'sueno';
+type Paso = 'aspecto' | 'estilo' | 'caracter' | 'sueno';
 let paso: Paso = 'aspecto';
-interface Extra { rasgos: string[]; sueno: string; suenoPropio: string; nombre: string; apodo: string }
+interface Extra { rasgos: string[]; sueno: string; suenoPropio: string; nombre: string; apodo: string; estilo: string; codigo: string[] }
 const CLAVE_EXTRA = 'creador.extra';
 let extra: Extra = (() => {
-  const base: Extra = { rasgos: [], sueno: '', suenoPropio: '', nombre: '', apodo: '' };
+  const base: Extra = { rasgos: [], sueno: '', suenoPropio: '', nombre: '', apodo: '', estilo: '', codigo: [] };
   try { return { ...base, ...JSON.parse(localStorage.getItem(CLAVE_EXTRA) ?? '{}') }; } catch { return base; }
 })();
 const guardarExtra = () => { try { localStorage.setItem(CLAVE_EXTRA, JSON.stringify(extra)); } catch { /* nada */ } };
@@ -173,14 +174,30 @@ function render() {
   document.querySelectorAll<HTMLButtonElement>('[data-paso]').forEach((b) => {
     const li = b.parentElement!;
     li.classList.toggle('actual', b.dataset.paso === paso);
-    li.classList.toggle('hecho', b.dataset.paso === 'caracter' ? extra.rasgos.length === MAX_RASGOS : b.dataset.paso === 'aspecto' && paso !== 'aspecto');
+    li.classList.toggle('hecho', b.dataset.paso === 'caracter' ? extra.rasgos.length === MAX_RASGOS && extra.codigo.length === MAX_CODIGO
+      : b.dataset.paso === 'estilo' ? !!extra.estilo : b.dataset.paso === 'aspecto' && paso !== 'aspecto');
   });
   $('.acciones').hidden = paso !== 'aspecto';
   pestanasEl.hidden = paso !== 'aspecto';
   resumenEl.innerHTML = resumen().map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('');
+  if (paso === 'estilo') return renderEstilo();
   if (paso === 'caracter') return renderCaracter();
   if (paso === 'sueno') return renderSueno();
   renderAspecto();
+}
+
+function renderEstilo() {
+  panelEl.innerHTML = `
+    <h2>Estilo de combate</h2>
+    <p class="nota">Cómo pelea tu personaje. Cada estilo tiene su ventaja. No se puede cambiar después.</p>
+    <div class="rasgos">
+      ${(Object.keys(ESTILOS) as Estilo[]).map((e) => `<button class="rasgo ${extra.estilo === e ? 'sel' : ''}" data-estilo-c="${e}" aria-pressed="${extra.estilo === e}">
+          <b>${ESTILOS[e].icono} ${ESTILOS[e].nombre}</b><span class="ventaja">▲ ${esc(ESTILOS[e].ventaja)}</span></button>`).join('')}
+    </div>
+    <div class="navegacion">
+      <button class="boton" data-paso="aspecto">← Aspecto</button>
+      <button class="boton" data-paso="caracter" ${extra.estilo ? '' : 'disabled title="Elige un estilo primero"'}>Carácter →</button>
+    </div>`;
 }
 
 function renderCaracter() {
@@ -199,9 +216,19 @@ function renderCaracter() {
         </button>`;
       }).join('')}
     </div>
+    <h2>Código</h2>
+    <p class="nota">Elige <b>${MAX_CODIGO} reglas</b> que tu personaje cumplirá siempre. Cada una tiene una ventaja y un compromiso. Llevas ${extra.codigo.length} de ${MAX_CODIGO}.</p>
+    <div class="rasgos">
+      ${(Object.keys(CODIGOS) as Codigo[]).map((c) => {
+        const sel = extra.codigo.includes(c);
+        const lleno = !sel && extra.codigo.length >= MAX_CODIGO;
+        return `<button class="rasgo ${sel ? 'sel' : ''} ${lleno ? 'bloqueado' : ''}" data-codigo-c="${c}" aria-pressed="${sel}">
+          <b>${CODIGOS[c].nombre}</b><span class="ventaja">▲ ${esc(CODIGOS[c].ventaja)}</span><span class="desventaja">▼ ${esc(CODIGOS[c].regla)}</span></button>`;
+      }).join('')}
+    </div>
     <div class="navegacion">
-      <button class="boton" data-paso="aspecto">← Aspecto</button>
-      <button class="boton" data-paso="sueno" ${extra.rasgos.length < MAX_RASGOS ? 'disabled title="Elige 3 rasgos primero"' : ''}>Sueño →</button>
+      <button class="boton" data-paso="estilo">← Estilo</button>
+      <button class="boton" data-paso="sueno" ${extra.rasgos.length < MAX_RASGOS || extra.codigo.length < MAX_CODIGO ? `disabled title="Elige ${MAX_RASGOS} rasgos y ${MAX_CODIGO} reglas primero"` : ''}>Sueño →</button>
     </div>`;
 }
 
@@ -276,7 +303,7 @@ function renderAspecto() {
       ${pestana < PESTANAS.length - 1
         ? `<button class="boton" data-ir="${pestana + 1}">${PESTANAS[pestana + 1].titulo} →</button>`
         : enSastre ? `<button class="boton" id="guardar-sastre">Guardar · ${enSastre.creador ? 'gratis' : `${PRECIO_SASTRE} doblones`}</button>`
-        : `<button class="boton" data-paso="caracter">Siguiente: Carácter →</button>`}
+        : `<button class="boton" data-paso="estilo">Siguiente: Estilo →</button>`}
     </div>`;
 
   // Miniaturas: tu personaje con cada opción puesta
@@ -324,8 +351,15 @@ document.addEventListener('click', (e) => {
   const d = b.dataset;
   const p = PESTANAS[pestana];
   if (d.paso) {
-    if (d.paso === 'sueno' && extra.rasgos.length < MAX_RASGOS) { paso = 'caracter'; mensajeRasgo = 'Elige 3 rasgos antes de pasar al sueño.'; render(); return; }
+    if ((d.paso === 'caracter' || d.paso === 'sueno') && !extra.estilo) { paso = 'estilo'; render(); return; }
+    if (d.paso === 'sueno' && (extra.rasgos.length < MAX_RASGOS || extra.codigo.length < MAX_CODIGO)) { paso = 'caracter'; mensajeRasgo = `Elige ${MAX_RASGOS} rasgos y ${MAX_CODIGO} reglas antes de pasar al sueño.`; render(); return; }
     paso = d.paso as Paso; mensajeRasgo = ''; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); return;
+  }
+  if (d.estiloC) { extra.estilo = d.estiloC; guardarExtra(); render(); return; }
+  if (d.codigoC) {
+    const i = extra.codigo.indexOf(d.codigoC);
+    if (i >= 0) extra.codigo.splice(i, 1); else if (extra.codigo.length < MAX_CODIGO) extra.codigo.push(d.codigoC);
+    guardarExtra(); render(); return;
   }
   if (d.rasgo) {
     const i = extra.rasgos.indexOf(d.rasgo);
@@ -365,7 +399,7 @@ document.addEventListener('click', async (e) => {
   if (!(e.target as HTMLElement).closest('#soltar')) return;
   const nombre = extra.nombre.trim();
   const sueno = textoSueno();
-  const faltan = [!nombre && 'un nombre', !sueno && 'un sueño', extra.rasgos.length < MAX_RASGOS && `${MAX_RASGOS} rasgos`].filter(Boolean);
+  const faltan = [!nombre && 'un nombre', !sueno && 'un sueño', !extra.estilo && 'un estilo de combate', extra.rasgos.length < MAX_RASGOS && `${MAX_RASGOS} rasgos`, extra.codigo.length < MAX_CODIGO && `${MAX_CODIGO} reglas del código`].filter(Boolean);
   if (faltan.length) {
     const el = document.querySelector('#vista-nombre')!;
     el.innerHTML = `<span class="falta">Falta ${faltan.join(' y ')}.</span>`;
@@ -376,7 +410,8 @@ document.addEventListener('click', async (e) => {
     return;
   }
   if (!cuentaActual()) { location.href = portada('?pacto=1'); return; }
-  const creado = guardarPersonaje({ nombre, apodo: extra.apodo.trim() || undefined, bando, aspecto: a, rasgos: [...extra.rasgos], sueno, mar: marActual() });
+  const creado = guardarPersonaje({ nombre, apodo: extra.apodo.trim() || undefined, bando, aspecto: a, rasgos: [...extra.rasgos], sueno, mar: marActual(),
+    estilo: extra.estilo as Estilo, codigo: [...extra.codigo] as Codigo[] });
   const boton = document.querySelector<HTMLButtonElement>('#soltar')!;
   boton.disabled = true; boton.textContent = 'Guardando…';
   const error = await guardarAhora();

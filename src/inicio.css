@@ -625,3 +625,17 @@ details.cargos summary { cursor: pointer; color: #f2b63d; }
 details.cargos label { display: flex; flex-direction: column; gap: 3px; margin: 8px 0; font-size: 13px; }
 details.cargos label small { color: var(--texto-suave); }
 details.cargos select { font: inherit; font-size: 15px; padding: 6px; border-radius: 6px; background: #0b1124; color: var(--texto); border: 2px solid var(--panel-borde); }
+.pasos-hechos { list-style: none; padding: 0; text-align: left; display: inline-block; color: #8fd07a; }
+.pasos-objetivo { list-style: none; padding: 0; margin: 8px 0; display: grid; gap: 3px; }
+.pasos-objetivo li { color: var(--texto-suave); }
+.pasos-objetivo li.hecho { color: #8fd07a; }
+.codigo-lista { list-style: none; padding: 0; display: grid; gap: 6px; }
+.codigo-lista li { background: #12304f; border-radius: 8px; padding: 6px 10px; display: flex; flex-direction: column; }
+.codigo-lista small { color: var(--texto-suave); }
+
+/* Guía */
+.guia-sec { background: #12304f; border-radius: 10px; margin-bottom: 8px; padding: 8px 12px; }
+.guia-sec summary { cursor: pointer; font-weight: 700; color: #f2b63d; font-size: 16px; }
+.guia-sec[open] summary { margin-bottom: 6px; }
+.guia-sec ol, .guia-sec ul { padding-left: 20px; margin: 6px 0; }
+.guia-sec li { margin: 4px 0; }

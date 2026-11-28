@@ -20,6 +20,8 @@ import { cargarMensajes, enviarMensaje, escucharMensajes, estado as estadoServid
 import { botsDelMar, islaDePersonaje, islasDelMundo, nombreZona, posicionBot, type Bot } from './mundo/habitantes';
 import { cronica, frutasDelMar, formatoDoblones, haceCuanto, rangoDe, recompensa, type Suceso } from './mundo/cronica';
 import { icono } from './iconos';
+import { CODIGOS, ESTILOS, MAX_CODIGO, fotoBase, objetivosReales, progresoObjetivo, type Codigo, type Estilo } from './mundo/objetivos';
+import { armaDeEstilo } from './datos/arsenal';
 import { REQUISITOS, estadoPrenda } from './datos/vestuario';
 import { OPCIONES } from './arte/personajes';
 import { CARGOS, NIVEL_FUNDAR, banderaDe, bonoTripulacion, botsDeTripulaciones, resumenTripulacion, tripulacionDe, tripulacionesDelMar, type Cargo } from './mundo/tripulaciones';
@@ -46,6 +48,7 @@ interface Acciones {
   navegarA(isla: number): void;
   comerFruta(): void;
   desafiar(id: string): void;
+  cobrarObjetivo(): void;
   rutaGaleria: string;
 }
 
@@ -147,8 +150,8 @@ export function crearPaneles(acc: Acciones) {
     for (const [k, n] of Object.entries(arsenalDe(p).mejoras) as [Estadistica, number][]) (est as unknown as Record<string, number>)[k] += MEJORA_POR_PUNTO[k].cantidad * n;
     est.fama = Math.min(100, p.bando === 'marine' ? Math.floor((p.meritos ?? 0) / 100) : Math.floor(Math.log10(1 + (p.recompensa ?? 0)) * 10));
     const rasgos = p.rasgos.map((id) => RASGOS.find((r) => r.id === id)).filter(Boolean);
-    const objetivos = objetivosPara(p.bando);
-    const obj = objetivos.find((o) => o.id === p.objetivo);
+    const objetivos = objetivosReales(p.bando);
+    const pr = progresoObjetivo(p);
     const vecinos = botsDelMar(marActual()).filter((b) => { const pos = posicionBot(b); return !pos.navegando && pos.islaId === isla.id; }).slice(0, 6);
     const html = `
       <div class="perfil-cabecera">
@@ -173,12 +176,25 @@ export function crearPaneles(acc: Acciones) {
       <p class="nota-hoja">Suben con el nivel y con los puntos de mejora del Arsenal. La fama crece con tu ${p.bando === 'marine' ? 'número de méritos' : 'recompensa'}.</p>
 
       <h3>Objetivo</h3>
-      ${obj ? `<div class="objetivo">
-          <b>${esc(obj.texto)}</b>
-          <div class="progreso"><i style="width:4%"></i></div><small>0 de ${obj.pasos.length} pasos</small>
-          <ol>${obj.pasos.map((s) => `<li>${esc(s)}</li>`).join('')}</ol>
-        </div>` : '<p class="nota-hoja">Elige qué quieres que persiga. Lo dividirá en pasos y trabajará en ello aunque no estés.</p>'}
-      <div class="chips">${objetivos.map((o) => `<button class="chip-hoja ${o.id === p.objetivo ? 'sel' : ''}" data-objetivo="${o.id}">${esc(o.texto)}</button>`).join('')}</div>
+      ${pr ? `<div class="objetivo">
+          <b>${esc(pr.o.texto)}</b>
+          <div class="progreso"><i style="width:${Math.max(4, Math.round((pr.hechos.filter(Boolean).length / pr.hechos.length) * 100))}%"></i></div>
+          <small>${pr.hechos.filter(Boolean).length} de ${pr.hechos.length} pasos${pr.completo ? ' · ¡cumplido! Toca el ✦ de tu ficha para cobrar' : ''}</small>
+          <ol class="pasos-objetivo">${pr.o.pasos.map((x, i) => `<li class="${pr.hechos[i] ? 'hecho' : ''}">${pr.hechos[i] ? '✓' : '○'} ${esc(x.texto)}</li>`).join('')}</ol>
+          ${pr.completo ? '<button class="boton-oro ancho" data-accion="cobrar-objetivo">✦ Cobrar la recompensa</button>' : ''}
+        </div>` : '<p class="nota-hoja">Elige qué quieres que persiga. Trabajará en ello aunque no estés, y al cumplirlo te llevas experiencia y doblones.</p>'}
+      ${(p.objetivosHechos ?? []).length ? `<p class="nota-hoja">Objetivos cumplidos: ${(p.objetivosHechos ?? []).length}.</p>` : ''}
+      <div class="chips">${objetivos.map((o) => `<button class="chip-hoja ${o.id === p.objetivo ? 'sel' : ''}" data-objetivo="${o.id}">${esc(o.texto)}${(p.objetivosHechos ?? []).includes(o.id) ? ' ✓' : ''}</button>`).join('')}</div>
+
+      <h3>Estilo de combate</h3>
+      ${p.estilo ? `<p class="nota-hoja">${ESTILOS[p.estilo].icono} <b>${ESTILOS[p.estilo].nombre}</b>: ${esc(ESTILOS[p.estilo].ventaja)}</p>`
+        : `<p class="nota-hoja">Aún no tiene estilo. Elige uno (solo se puede elegir una vez):</p>
+          <div class="chips">${(Object.keys(ESTILOS) as Estilo[]).map((e) => `<button class="chip-hoja" data-estilo="${e}" title="${esc(ESTILOS[e].ventaja)}">${ESTILOS[e].icono} ${ESTILOS[e].nombre}</button>`).join('')}</div>`}
+
+      <h3>Código</h3>
+      ${(p.codigo ?? []).length >= MAX_CODIGO ? `<ul class="codigo-lista">${(p.codigo ?? []).map((c) => `<li><b>${CODIGOS[c].nombre}</b><small>▲ ${esc(CODIGOS[c].ventaja)}</small><small>▼ ${esc(CODIGOS[c].regla)}</small></li>`).join('')}</ul>`
+        : `<p class="nota-hoja">Las ${MAX_CODIGO} reglas que tu personaje cumple siempre. Elige ${MAX_CODIGO - (p.codigo ?? []).length} (no se pueden cambiar):</p>
+          <div class="chips">${(Object.keys(CODIGOS) as Codigo[]).filter((c) => !(p.codigo ?? []).includes(c)).map((c) => `<button class="chip-hoja" data-codigo="${c}" title="${esc(CODIGOS[c].ventaja + ' · ' + CODIGOS[c].regla)}">${CODIGOS[c].nombre}</button>`).join('')}</div>`}
 
       ${p.bando === 'pirata' ? `<h3>Tripulación</h3>${seccionTripulacion(p)}` : ''}
 
@@ -220,8 +236,26 @@ export function crearPaneles(acc: Acciones) {
         enlazarAcciones(el);
         enlazarTripulacion(el, 'mi-pirata');
         el.querySelectorAll<HTMLButtonElement>('[data-ir]').forEach((b) => b.addEventListener('click', () => abrir(b.dataset.ir as IdPanel)));
+        el.querySelectorAll<HTMLButtonElement>('[data-estilo]').forEach((b) => b.addEventListener('click', () => {
+          const yo = personajeActivo()!;
+          if (yo.estilo) return;
+          const e = b.dataset.estilo as Estilo;
+          if (!confirm(`¿Elegir el estilo ${ESTILOS[e].nombre}? No se podrá cambiar.`)) return;
+          actualizarPersonaje({ ...yo, estilo: e, arsenal: armaDeEstilo(arsenalDe(yo), e) });
+          acc.aviso(`${ESTILOS[e].icono} Ahora es ${ESTILOS[e].nombre}.`);
+          abrir('mi-pirata', false);
+        }));
+        el.querySelectorAll<HTMLButtonElement>('[data-codigo]').forEach((b) => b.addEventListener('click', () => {
+          const yo = personajeActivo()!;
+          const c = b.dataset.codigo as Codigo;
+          if ((yo.codigo ?? []).length >= MAX_CODIGO) return;
+          if (!confirm(`¿Añadir «${CODIGOS[c].nombre}» a su código? No se podrá quitar.`)) return;
+          actualizarPersonaje({ ...yo, codigo: [...(yo.codigo ?? []), c] });
+          abrir('mi-pirata', false);
+        }));
         el.querySelectorAll<HTMLButtonElement>('[data-objetivo]').forEach((b) => b.addEventListener('click', () => {
-          actualizarPersonaje({ ...p, objetivo: b.dataset.objetivo });
+          if (b.dataset.objetivo === p.objetivo) return;
+          actualizarPersonaje({ ...p, objetivo: b.dataset.objetivo, objetivoBase: fotoBase(p) });
           acc.aviso('Nuevo objetivo fijado.');
           abrir('mi-pirata', false);
         }));
@@ -729,18 +763,56 @@ export function crearPaneles(acc: Acciones) {
 
   // --- Textos -----------------------------------------------------------------
   function guia() {
+    const sec = (id: string, titulo: string, cuerpo: string) => `<details class="guia-sec" ${id === 'empezar' ? 'open' : ''}><summary>${titulo}</summary><div>${cuerpo}</div></details>`;
     return {
       titulo: 'Guía',
-      html: `<div class="texto">
-        <h3>Tu personaje vive solo</h3><p>No lo manejas tú: navega, pelea, entrena y hace amigos por su cuenta, incluso cuando cierras el juego. Al volver verás un resumen de lo que ha pasado.</p>
-        <h3>Tú decides lo importante</h3><p>Le pones un <b>objetivo</b> (hacerse fuerte, encontrar una fruta, formar tripulación…) y él lo divide en pasos. En los <b>momentos clave</b> (comerse una fruta, unirse a una tripulación, traicionar…) te pregunta qué hacer. Si no contestas a tiempo, decide según su carácter.</p>
-        <h3>El carácter importa</h3><p>Sus 3 rasgos cambian lo que prefiere hacer y cómo le va: un Curioso explora más, un Rudo pega más fuerte pero hace menos amigos.</p>
-        <h3>El mundo</h3><p>Cuatro mares (Alba, Ocaso, Coral y Bruma) separados por ${esc('El Espinazo')}, un continente que da la vuelta al planeta, y por las Aguas Dormidas, sin viento. En el centro está la Senda de las Mareas, solo para los más fuertes.</p>
-        <h3>Frutas del poder</h3><p>Hay 36, y solo una de cada en cada mar. Para conseguir una: desde el nivel 5, al explorar oirás rumores; reúne 3 pistas (una al día), navega a la isla y vence a su guardián (nivel 39 o más). Si otro se la come antes, llegas tarde. Todas comparten una debilidad: la Noche Hueca.</p>
-        <h3>Recompensas y méritos</h3><p>Los piratas y revolucionarios ganan recompensa al vencer (mucho más contra marines y en duelos). Si pasan 3 días sin ganar, baja un 2% al día. Los marines ganan méritos al capturar: solo los 4 con más méritos de cada mar llegan a Almirante.</p>
-        <h3>Duelos</h3><p>Desafía a otros jugadores desde el mapa o los Tablones (⚔). Tú controlas a tu personaje y el rival pelea solo con sus datos reales. Máximo 5 duelos al día.</p>
-        <h3>Tripulaciones</h3><p>Desde el nivel 10, un pirata puede fundar una tripulación. Cualquier pirata puede unirse, y los bots se van sumando solos. La tripulación va siempre junta, siguiendo al capitán.</p>
-        <h3>Tienda, sastre y prendas</h3><p>En la Tienda compras provisiones para el combate, barcos más rápidos y visitas al sastre. Algunas prendas se desbloquean con el nivel, la recompensa o las capturas.</p></div>`,
+      html: `<div class="texto guia">
+        <p class="nota-hoja">Toca cada apartado para abrirlo.</p>
+        ${sec('empezar', '🚀 Primeros pasos', `<ol>
+          <li><b>Mira el mundo</b> sin cuenta: gira el planeta, acércate (pellizca o usa la rueda) y verás islas, barcos y personajes.</li>
+          <li><b>Firma el pacto</b> (botón «Firmar el pacto»): un nombre de usuario secreto y tu correo. Con los dos vuelves a entrar desde cualquier sitio. Nadie más los ve.</li>
+          <li><b>Crea tu personaje</b> en 5 pasos: <b>bando</b> (pirata, marine o revolucionario), <b>aspecto</b>, <b>estilo de combate</b>, <b>carácter</b> (3 rasgos y 2 reglas de código) y <b>sueño</b> con nombre y apodo.</li>
+          <li><b>Ponle un objetivo</b> en «Mi pirata» y déjalo vivir. ¡Ya está en el mar!</li></ol>`)}
+        ${sec('vive', '🌊 Tu personaje vive solo', `<p>No lo manejas como un muñeco: pasea, entrena, explora, descansa y navega por su cuenta, según su carácter y su objetivo. <b>Sigue viviendo con el juego cerrado</b>: el servidor lo mueve cada pocos minutos. Al volver verás «Mientras no estabas…» con todo lo que hizo.</p>
+          <p>La línea de tu ficha dice qué está haciendo ahora. Todo queda en su <b>diario</b> (Mi pirata).</p>`)}
+        ${sec('ordenes', '🎯 Las órdenes', `<p>Cuando quieras, le das una orden con los botones de la ficha:</p><ul>
+          <li><b>⛵ Navegar</b>: elige una isla cercana o tócala en el mapa. Los barcos mejores (Tienda) viajan más rápido.</li>
+          <li><b>⚔ Pelear</b>: busca un rival en la isla donde está.</li>
+          <li><b>💪 Entrenar</b>, <b>🔍 Explorar</b> (oro y rumores de frutas) y <b>💤 Descansar</b>.</li></ul>
+          <p>El botón <b>◎</b> te lleva hasta tu personaje en el mapa.</p>`)}
+        ${sec('objetivos', '✦ Objetivos y momentos clave', `<p>En «Mi pirata» eliges un <b>objetivo</b> (hacerse fuerte, encontrar una fruta, formar tripulación, hacer fortuna…). Tiene pasos que se marcan solos con ✓ cuando los cumples, y tu personaje se esfuerza en ellos.</p>
+          <p>Cuando pasa algo importante se enciende el <b>✦ de tu ficha</b>: un <b>momento clave</b>. Por ejemplo, cobrar la recompensa de un objetivo cumplido (experiencia y doblones) o decidir si te comes una fruta.</p>`)}
+        ${sec('combate', '⚔ Combate', `<p>Por turnos: <b>Atacar</b> (técnicas de tu arma), <b>Habilidad</b>, <b>Fruta</b> (si tienes), <b>Defender</b>, cambiar de <b>Arma</b>, <b>Bolsa</b> (grog cura un 25 %, botiquín un 50 %) y <b>Huir</b>.</p>
+          <ul><li><b>Puntos de mejora</b>: cada nivel te da 3. ¡Gástalos! Si ves «💪 N puntos» en tu ficha, tócalo, o usa «Repartir automáticamente» en Arsenal → Mejoras. Sin ellos peleas muy por debajo de tu nivel.</li>
+          <li><b>Arsenal</b>: compra armas, fórjalas (+10 % de daño por nivel) y aprende habilidades.</li>
+          <li><b>Perder</b> contra un bot cuesta el 5 % de tus doblones (como mucho 2.000). Un entrenamiento no cuesta nada.</li></ul>`)}
+        ${sec('estilo', '🗡 Estilo de combate y código', `<p>El <b>estilo</b> (espadachín, luchador, tirador, navegante, médico, cocinero o científico) da una ventaja para siempre. El <b>código</b> son 2 reglas que tu personaje cumple siempre: cada una da una ventaja, pero también un compromiso (por ejemplo, «Nunca huye» da +5 % de fuerza, pero no te deja huir).</p>
+          <p>Si tu personaje es de antes, puedes elegirlos una vez en «Mi pirata».</p>`)}
+        ${sec('duelos', '🤺 Duelos contra jugadores', `<p>Toca a otro jugador en el mapa o el botón ⚔ en los Tablones. Tú controlas a tu personaje y el rival pelea solo con todo lo suyo. Pueden pelear los marines contra los demás, y los piratas de distintas tripulaciones.</p>
+          <p>Como mucho 5 duelos al día y uno por rival. Ganar da mucha recompensa (o méritos); el rival se entera al volver. Los últimos duelos salen en Noticias → Duelos.</p>`)}
+        ${sec('bandos', '🏴‍☠️ Recompensas, méritos y bandos', `<ul>
+          <li><b>Piratas y revolucionarios</b> ganan <b>recompensa</b> al vencer (mucho más contra marines y en duelos), con un tope diario. Si pasan 3 días sin ganar, baja un 2 % al día.</li>
+          <li><b>Marines</b>: sin recompensa; ganan <b>méritos</b> al capturar. Su rango sube con los méritos, y solo los 4 con más méritos de cada mar llegan a <b>Almirante</b>. A nivel 10 la Marina les regala 10.000 doblones.</li>
+          <li><b>Revolucionarios</b>: desde nivel 10, <b>furia</b> (+50 % de daño contra piratas y marines).</li></ul>`)}
+        ${sec('frutas', '🍈 Frutas del poder', `<p>Hay 36 y solo una de cada en cada mar. Son difíciles de conseguir:</p><ol>
+          <li>Desde el nivel 5, al <b>explorar</b> puedes oír un rumor (con el objetivo «Encontrar una fruta» los oyes más).</li>
+          <li>Reúne <b>3 pistas</b> (como mucho una al día): el mar, cómo es la isla y su nombre.</li>
+          <li>Navega a esa isla y vence a su <b>guardián</b> (nivel 39 o más, y con mucha vida).</li>
+          <li>En el momento clave decides si te la comes. ¡Si otro jugador se la come antes, llegas tarde!</li></ol>
+          <p>Todas comparten una debilidad: la Noche Hueca. Las ves en el Compendio.</p>`)}
+        ${sec('tripulacion', '⚓ Tripulaciones', `<p>Un pirata de nivel 10 funda una tripulación solo con el nombre; cualquier pirata se puede unir (Tablones → Tripulaciones) y los bots se suman solos con el tiempo. La tripulación va <b>siempre junta</b> siguiendo al capitán; si mandas a tu pirata a otro sitio, vuelve al barco cuando entras otra vez.</p>
+          <ul><li><b>Bonus</b>: +1 % de fuerza y resistencia por miembro (máximo +10 %).</li>
+          <li><b>Bandera</b>: los colores del barco del capitán.</li>
+          <li><b>Cargos</b> que nombra el capitán: Segundo, Contramaestre, Navegante, Cocinero y Médico, cada uno con su ventaja.</li>
+          <li><b>Chat privado</b> en la Taberna.</li></ul>`)}
+        ${sec('tienda', '🛒 Tienda, barco y sastre', `<ul><li><b>Provisiones</b>: grog y botiquines para la bolsa.</li>
+          <li><b>Barcos</b>: carabela (30 % más rápida) y galeón (50 %). Personaliza el tuyo: nombre y colores del casco, las velas y la bandera.</li>
+          <li><b>Sastre</b>: cambia el aspecto de tu personaje. Algunas prendas se <b>desbloquean</b> con el nivel, la recompensa o las capturas (míralas en el Cofre → Prendas).</li></ul>`)}
+        ${sec('progreso', '🏆 Progreso, logros y cofre', `<p>Ganas experiencia y oro con un <b>tope diario</b>, para que nadie se dispare el primer día: el juego premia volver cada día. El <b>Cofre</b> guarda tus objetos, prendas, tu fruta y tus <b>16 logros</b>. Los <b>Tablones</b> muestran a los más buscados, los marines con más rango, los más fuertes, las tripulaciones y quién tiene cada fruta.</p>`)}
+        ${sec('mundo', '🌍 El mundo', `<p>Cuatro mares (Alba, Ocaso, Coral y Bruma) separados por <b>El Espinazo</b>, un continente que da la vuelta al planeta, y por las <b>Aguas Dormidas</b>, sin viento. En el centro está la <b>Senda de las Mareas</b>, solo para los más fuertes: algunas zonas tienen nivel mínimo. Hay 3 mundos (Mar Esmeralda, Plateado y Escarlata), cada uno con sus personajes, noticias y chat; cámbialo con el botón «Cambiar».</p>`)}
+        ${sec('consejos', '💡 Consejos', `<ul><li>Gasta siempre tus puntos de mejora.</li><li>Lleva grog en la bolsa antes de pelear.</li><li>Elige un objetivo: tu personaje trabaja mejor con un rumbo y te llevas premio al cumplirlo.</li>
+          <li>Únete a una tripulación: el bonus y los cargos ayudan mucho.</li><li>No le digas a nadie tu nombre de usuario.</li></ul>`)}
+      </div>`,
     };
   }
   function normas() {
@@ -895,6 +967,7 @@ export function crearPaneles(acc: Acciones) {
       else if (a === 'salir') { cerrar(); acc.cerrarSesion(); }
       else if (a === 'entrenar') { cerrar(); acc.entrenar(); }
       else if (a === 'guardian') acc.guardian();
+      else if (a === 'cobrar-objetivo') { cerrar(); acc.cobrarObjetivo(); }
       else if (a === 'comer-fruta') acc.comerFruta();
       else if (a === 'navegar-busqueda') { const yo = personajeActivo(); if (yo?.busqueda) acc.navegarA(yo.busqueda.isla); }
       else if (a === 'hoja') { const p = personajeActivo(); if (p) abrirCartel(p); }

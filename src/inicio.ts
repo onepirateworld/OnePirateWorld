@@ -11,12 +11,13 @@ import { botsDelMar, islaDePersonaje, islasDelMundo, nombreZona, posicionBot, ty
 import { RASGOS } from './datos/caracter';
 import { crearPaneles, type IdPanel } from './paneles';
 import { crearLuchador } from './combate/motor';
-import { arsenalBot, puntosLibres } from './datos/arsenal';
+import { arma, arsenalBot, puntosLibres } from './datos/arsenal';
 import { frutasDelMar } from './mundo/cronica';
 import { azar } from './arte/lienzo';
 import { arsenalDe, migrarLocales, modoCreador, personajesDeOtros } from './cuenta';
 import { iniciar as iniciarServidor } from './servidor';
 import { contarVictoria, ganarOro, ganarXp, volverConTripulacion } from './mundo/vida';
+import { premioObjetivo, progresoObjetivo, sumar, tieneCodigo } from './mundo/objetivos';
 import { banderaDe, bonoTripulacion, botsDeTripulaciones, cargoDe, tripulacionDe, tripulacionesDelMar } from './mundo/tripulaciones';
 import { TEXTO_ACCION, avanzarVida, islasCercanas, mandar, posicionPersonaje, segundosViaje } from './mundo/vida';
 import { ZONAS } from './mundo/geografia';
@@ -140,8 +141,9 @@ function pintar() {
         ${!p.creador && puntosLibres(p.nivel, arsenalDe(p)) > 0 ? `<button class="insignia puntos-libres" id="btn-puntos">💪 ${puntosLibres(p.nivel, arsenalDe(p))} puntos</button>` : ''}
       </span>
       <button class="ficha-lugar" id="ficha-lugar">${icono('diana', '#f2b63d')} <span id="ficha-lugar-texto">En ${esc(islaDePersonaje(p).nombre)} · ${esc(nombreZona(islaDePersonaje(p).zona))}</span></button>`;
-    const pendiente = p.busqueda && (p.busqueda.vencido || p.busqueda.pistas >= PISTAS_NECESARIAS) ? 1 : 0;
-    const momentos = boton('', () => (p.busqueda?.vencido ? abrirComerFruta() : paneles.abrir('mi-pirata')));
+    const objetivoListo = !!progresoObjetivo(p)?.completo;
+    const pendiente = (p.busqueda && (p.busqueda.vencido || p.busqueda.pistas >= PISTAS_NECESARIAS) ? 1 : 0) + (objetivoListo ? 1 : 0);
+    const momentos = boton('', () => (objetivoListo ? abrirObjetivoCumplido() : p.busqueda?.vencido ? abrirComerFruta() : paneles.abrir('mi-pirata')));
     momentos.classList.add('momentos');
     momentos.classList.toggle('pendiente', pendiente > 0);
     momentos.title = 'Momentos clave pendientes';
@@ -267,6 +269,7 @@ const paneles = crearPaneles({
   guardian: () => { paneles.cerrar(); enfrentarGuardian(); },
   navegarA: (id: number) => { paneles.cerrar(); const d = islasDelMundo()[id]; if (d) zarpar(d); },
   comerFruta: () => abrirComerFruta(),
+  cobrarObjetivo: () => abrirObjetivoCumplido(),
   desafiar: (id: string) => { const o = personajesDeOtros().find((x) => x.id === id); if (o) void desafiarJugador(o); else aviso('Ese jugador no está en este mar ahora.'); },
   entrenar: () => {
     const p = personajeActivo();
@@ -394,7 +397,7 @@ let combatiendo = false;
 
 /** Si hay un enemigo en tu isla, salta el combate (como mucho uno cada 10 minutos). */
 function encuentroAutomatico(p: PersonajeGuardado) {
-  if (combatiendo) return;
+  if (combatiendo || tieneCodigo(p, 'respeta-mar')) return;
   let ultimo = 0;
   try { ultimo = Number(localStorage.getItem('ultimoEncuentro') ?? 0); } catch { /* nada */ }
   if (Date.now() - ultimo < 10 * 60_000) return;
@@ -424,7 +427,7 @@ async function pelearCon(bot: Bot, motivo: string, guardian = false, entrenamien
   let frutaGanada = false;
   const isla = islaDePersonaje(p);
   await iniciarCombate(jugador, rival, {
-    bioma: isla.bioma, motivo,
+    bioma: isla.bioma, motivo, sinHuir: tieneCodigo(p, 'nunca-huye'),
     alTerminar: (ganador) => {
       const yo = personajeActivo()!;
       const registro = [...(yo.registro ?? [])];
@@ -437,6 +440,7 @@ async function pelearCon(bot: Bot, motivo: string, guardian = false, entrenamien
       if (ganador === 0) {
         // Premios con topes diarios (si no, entrenar sin parar rompería la economía)
         const v = contarVictoria(tmp); tmp = v.p;
+        tmp = sumar(tmp, 'victorias'); if (bot.bando === 'marine') tmp = sumar(tmp, 'victoriasMarine');
         const gx = ganarXp(tmp, v.premio ? 20 + 5 * nivelRival : 5); tmp = gx.p;
         const go = ganarOro(tmp, v.premio ? 15 + 3 * nivelRival : 0); tmp = go.p;
         ({ nivel, xp, doblones } = { nivel: tmp.nivel, xp: tmp.xp ?? 0, doblones: tmp.doblones });
@@ -453,11 +457,11 @@ async function pelearCon(bot: Bot, motivo: string, guardian = false, entrenamien
           if (gr.sube) lineas.push(`La noticia corre: tu recompensa sube ${formatoDoblones(gr.sube)}.`);
         } else if (v.premio && yo.bando !== 'marine') {
           // Piratas y revolucionarios: cada victoria hace crecer la recompensa (más contra la Marina)
-          const gr = ganarRecompensa(tmp, recompensaPorVictoria(nivelRival, bot.bando === 'marine')); tmp = gr.p;
+          const gr = ganarRecompensa(tmp, Math.round(recompensaPorVictoria(nivelRival, bot.bando === 'marine') * honor(yo))); tmp = gr.p;
           if (gr.sube) lineas.push(`Tu recompensa sube ${formatoDoblones(gr.sube)}: ahora ${formatoDoblones(tmp.recompensa ?? 0)} doblones.`);
           else lineas.push('Hoy la Marina ya no sube más tu recompensa.');
         } else if (v.premio && yo.bando === 'marine' && bot.bando !== 'marine') {
-          const gm = ganarMeritos(tmp, meritosPorCaptura(nivelRival, bot.bando === 'revolucionario')); tmp = gm.p;
+          const gm = ganarMeritos(tmp, Math.round(meritosPorCaptura(nivelRival, bot.bando === 'revolucionario') * honor(yo))); tmp = gm.p;
           if (gm.sube) lineas.push(`+${gm.sube} méritos para la Marina (llevas ${tmp.meritos}).`);
         }
         if (guardian) { /* ya anotado */ } else if (yo.bando === 'marine' && bot.bando !== 'marine') {
@@ -512,13 +516,22 @@ function avisarDesbloqueos(p: PersonajeGuardado) {
 
 // --- Ventajas de la tripulación en combate --------------------------------------
 type Lucha = ReturnType<typeof crearLuchador>;
+/** Multiplicador de recompensa o méritos por el código «No ataca a los débiles». */
+const honor = (p: PersonajeGuardado) => (tieneCodigo(p, 'no-debiles') ? 1.1 : 1);
 /** Bonus por miembros y por cargo. Devuelve el grog y los botiquines gratis que se le dieron. */
 function ventajasTripulacion(l: Lucha, p: PersonajeGuardado): { grog: number; botiquin: number } {
   const bono = bonoTripulacion(p);
   const cargo = cargoDe(p);
   l.fuerza *= (1 + bono) * (cargo === 'segundo' ? 1.05 : 1);
   l.resistencia *= (1 + bono) * (cargo === 'contramaestre' ? 1.05 : 1);
-  const extra = { grog: cargo === 'cocinero' ? 1 : 0, botiquin: cargo === 'medico' ? 1 : 0 };
+  // Estilo de combate
+  const tipoArma = arma(l.arma).tipo;
+  if ((p.estilo === 'espada' && tipoArma === 'espada') || (p.estilo === 'punos' && tipoArma === 'punos')) l.fuerza *= 1.08;
+  if ((p.estilo === 'tirador' && tipoArma === 'pistola') || p.estilo === 'cientifico') l.tecnica *= 1.1;
+  // Código
+  if (tieneCodigo(p, 'nunca-huye')) l.fuerza *= 1.05;
+  if (tieneCodigo(p, 'protege-amigos') && tripulacionDe(p)) l.resistencia *= 1.05;
+  const extra = { grog: (cargo === 'cocinero' ? 1 : 0) + (p.estilo === 'cocinero' ? 1 : 0), botiquin: (cargo === 'medico' ? 1 : 0) + (p.estilo === 'medico' ? 1 : 0) };
   l.pociones += extra.grog; l.botiquines += extra.botiquin;
   return extra;
 }
@@ -540,6 +553,7 @@ function rivalesJugadores(a: PersonajeGuardado, b: PersonajeGuardado) {
 function porQueNoDuelo(yo: PersonajeGuardado, otro: PersonajeGuardado): string | null {
   if (!rivalesJugadores(yo, otro)) return yo.bando === otro.bando && yo.bando === 'pirata' ? 'Misma tripulación' : 'Sois aliados';
   if (otro.nivel < yo.nivel - DIFERENCIA_NIVEL && !yo.creador) return 'Es de nivel muy bajo';
+  if (tieneCodigo(yo, 'no-debiles') && otro.nivel <= yo.nivel - 5) return 'Tu código: no ataca a los débiles';
   if (miEstado && navegandoAhora(miEstado)) return 'Estás navegando';
   return null;
 }
@@ -562,7 +576,7 @@ async function desafiarJugador(otro: PersonajeGuardado) {
   const isla = islaDePersonaje(p);
   let resultado: 'atacante' | 'defensor' | 'huida' = 'huida', premio = 0;
   await iniciarCombate(jugador, rival, {
-    bioma: isla.bioma, motivo: `¡Duelo! ${p.nombre} desafía a ${otro.nombre}${otro.creador ? ', el Creador' : ''}.`,
+    bioma: isla.bioma, motivo: `¡Duelo! ${p.nombre} desafía a ${otro.nombre}${otro.creador ? ', el Creador' : ''}.`, sinHuir: tieneCodigo(p, 'nunca-huye'),
     alTerminar: (ganador) => {
       const yo = personajeActivo()!;
       let tmp: PersonajeGuardado = { ...yo };
@@ -571,16 +585,17 @@ async function desafiarJugador(otro: PersonajeGuardado) {
       if (ganador === 0) {
         resultado = 'atacante';
         const v = contarVictoria(tmp); tmp = v.p;
+        tmp = sumar(tmp, 'victorias'); if (otro.bando === 'marine') tmp = sumar(tmp, 'victoriasMarine');
         const gx = ganarXp(tmp, 30 + 6 * otro.nivel); tmp = gx.p;
         lineas.push(`¡${yo.nombre} gana el duelo contra ${otro.nombre}!`, `+${gx.xp} de experiencia.`);
         if (gx.subidas) lineas.push(`¡${yo.nombre} sube a nivel ${tmp.nivel}!`);
         if (yo.bando !== 'marine') {
           // Vencer a alguien buscado da fama: el doble de lo normal o el 10% de su recompensa
-          const gr = ganarRecompensa(tmp, Math.max(recompensaPorVictoria(otro.nivel, otro.bando === 'marine') * 2, Math.floor((otro.recompensa ?? 0) * 0.1))); tmp = gr.p;
+          const gr = ganarRecompensa(tmp, Math.round(Math.max(recompensaPorVictoria(otro.nivel, otro.bando === 'marine') * 2, Math.floor((otro.recompensa ?? 0) * 0.1)) * honor(yo))); tmp = gr.p;
           premio = gr.sube;
           lineas.push(gr.sube ? `Tu recompensa sube ${formatoDoblones(gr.sube)}: ahora ${formatoDoblones(tmp.recompensa ?? 0)}.` : 'Hoy tu recompensa ya no sube más.');
         } else {
-          const gm = ganarMeritos(tmp, meritosPorCaptura(otro.nivel, otro.bando === 'revolucionario') * 3 + Math.floor((otro.recompensa ?? 0) / 1_000_000)); tmp = gm.p;
+          const gm = ganarMeritos(tmp, Math.round((meritosPorCaptura(otro.nivel, otro.bando === 'revolucionario') * 3 + Math.floor((otro.recompensa ?? 0) / 1_000_000)) * honor(yo))); tmp = gm.p;
           premio = gm.sube;
           const cap = tmp.capturas ?? { pirata: 0, revolucionario: 0 };
           if (otro.bando !== 'marine') tmp = { ...tmp, capturas: { ...cap, [otro.bando]: cap[otro.bando as 'pirata' | 'revolucionario'] + 1 } };
@@ -626,6 +641,43 @@ async function duelosMientrasNoEstabas(): Promise<string[]> {
   }
   await marcarDuelosVistos(lista.map((d) => d.id));
   return lineas;
+}
+
+// --- Momento clave: objetivo cumplido -----------------------------------------
+const objetivosAvisados = new Set<string>();
+function avisarObjetivo(p: PersonajeGuardado) {
+  const pr = progresoObjetivo(p);
+  if (!pr?.completo || objetivosAvisados.has(p.id + pr.o.id)) return;
+  objetivosAvisados.add(p.id + pr.o.id);
+  aviso(`✦ ¡Objetivo cumplido: ${pr.o.texto}! Toca el ✦ de tu ficha para cobrar la recompensa.`);
+  pintar();
+}
+function abrirObjetivoCumplido() {
+  const p = personajeActivo();
+  const pr = p ? progresoObjetivo(p) : null;
+  if (!p || !pr?.completo) return;
+  const premio = premioObjetivo(p);
+  document.querySelector('#dlg-objetivo')?.remove();
+  const dlg = document.createElement('dialog');
+  dlg.id = 'dlg-objetivo'; dlg.className = 'dialogo dlg-fruta';
+  dlg.innerHTML = `<div><span class="momento-chip">✦ Momento clave</span><h2>¡Objetivo cumplido!</h2><p><b>${esc(pr.o.texto)}</b></p>
+    <ul class="pasos-hechos">${pr.o.pasos.map((x) => `<li>✓ ${esc(x.texto)}</li>`).join('')}</ul>
+    <p>Recompensa: <b>+${premio.xp.toLocaleString('es-ES')} de experiencia</b> y <b>+${premio.oro.toLocaleString('es-ES')} doblones</b>.</p>
+    <button class="boton-grande oro" data-cobrar>¡Cobrar y elegir el siguiente!</button></div>`;
+  document.body.append(dlg);
+  dlg.querySelector('[data-cobrar]')!.addEventListener('click', () => {
+    const yo = personajeActivo()!;
+    let nivel = yo.nivel, xp = (yo.xp ?? 0) + premio.xp, subidas = 0;
+    while (xp >= 50 * nivel * nivel && nivel < 80 && subidas < 2) { xp -= 50 * nivel * nivel; nivel++; subidas++; }
+    actualizarPersonaje({ ...yo, nivel, xp, doblones: yo.creador ? yo.doblones : yo.doblones + premio.oro, objetivo: undefined, objetivoBase: undefined,
+      objetivosHechos: [...(yo.objetivosHechos ?? []), pr.o.id],
+      registro: [...(yo.registro ?? []), [Date.now(), `Cumplió su objetivo: ${pr.o.texto.toLowerCase()}.`] as [number, string]].slice(-30) });
+    dlg.close(); dlg.remove();
+    aviso(subidas ? `¡Recompensa cobrada! ${yo.nombre} sube a nivel ${nivel}.` : '¡Recompensa cobrada! Elige un nuevo objetivo.');
+    pintar();
+    paneles.abrir('mi-pirata');
+  });
+  dlg.showModal();
 }
 
 // --- Frutas: el guardián y el momento de comérsela --------------------------
@@ -770,6 +822,7 @@ function refrescarVida(primera = false) {
   } else if (resumen.length) aviso(`${nuevo.nombre} ${resumen[resumen.length - 1]}.`);
   if (antes !== undefined && antes !== nuevo.nivel) pintar();
   avisarDesbloqueos(nuevo);
+  avisarObjetivo(nuevo);
   // El botón de puntos de mejora se mantiene al día (desaparece al gastarlos)
   const bp = document.querySelector<HTMLElement>('#btn-puntos');
   const libres = nuevo.creador ? 0 : puntosLibres(nuevo.nivel, arsenalDe(nuevo));
@@ -816,8 +869,8 @@ function ordenar(orden: string) {
   if (orden === 'navegar') { abrirDecidir('navegar'); return; }
   if ((orden === 'pelear' || orden === 'explorar') && guardianAqui(p)) { enfrentarGuardian(); return; }
   if (orden === 'pelear') {
-    const rival = botsDelMar(marActual()).find((b) => { const pos = posicionBot(b); return !pos.navegando && pos.islaId === isla.id && esRival(p.bando, b.bando); });
-    if (!rival) { aviso(`No hay rivales en ${isla.nombre}. Prueba a navegar a otra isla.`); return; }
+    const rival = botsDelMar(marActual()).find((b) => { const pos = posicionBot(b); return !pos.navegando && pos.islaId === isla.id && esRival(p.bando, b.bando) && !(tieneCodigo(p, 'no-debiles') && b.nivel <= p.nivel - 5); });
+    if (!rival) { aviso(`No hay rivales${tieneCodigo(p, 'no-debiles') ? ' dignos' : ''} en ${isla.nombre}. Prueba a navegar a otra isla.`); return; }
     pelearCon(rival, `${p.nombre} busca pelea y encuentra a ${rival.nombre}.`);
     return;
   }

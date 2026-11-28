@@ -7,6 +7,7 @@ import { islaDePersonaje, islasDelMundo, nombreZona, travesia, type IslaMundo, t
 import { ZONAS } from './geografia';
 import { PISTAS_NECESARIAS, nombreFruta, oirRumor } from './busqueda';
 import { cargoDe, tripulacionDe } from './tripulaciones';
+import { sumar, tieneCodigo } from './objetivos';
 import { personajes, personajesDeOtros } from '../cuenta';
 
 // --- Tripulación: los miembros van siempre con su capitán ---------------------
@@ -67,7 +68,7 @@ export function islasCercanas(isla: IslaMundo, n = 6): IslaMundo[] {
 export function nuevaAccion(p: PersonajeGuardado, tipo: TipoAccion, desde: number, destino?: IslaMundo, mandada = false): AccionPersonaje {
   if (tipo === 'viajar' && destino) {
     const origen = islaDePersonaje(p);
-    const navegante = cargoDe(p) === 'navegante' ? 0.9 : 1;
+    const navegante = (cargoDe(p) === 'navegante' ? 0.9 : 1) * (p.estilo === 'navegante' ? 0.9 : 1);
     return { tipo, desde, hasta: desde + Math.round(segundosViaje(origen, destino) * VELOCIDAD_BARCO[p.barco ?? 'barca'] * navegante * 1000), origen: origen.id, destino: destino.id, mandada };
   }
   return { tipo, desde, hasta: desde + DURACION[tipo as Exclude<TipoAccion, 'viajar'>] * 1000, mandada };
@@ -79,7 +80,7 @@ function elegir(p: PersonajeGuardado, r: () => number, desde: number): AccionPer
   const pesos: [TipoAccion, number][] = [
     ['pasear', 3],
     ['entrenar', 2 + (p.objetivo === 'fuerte' ? 2 : 0) + (t('orgulloso') ? 1 : 0) + (t('valiente') ? 1 : 0)],
-    ['explorar', 2 + (t('curioso') ? 2 : 0) + (p.objetivo === 'fruta' ? 2 : 0) + (t('avaricioso') ? 1 : 0)],
+    ['explorar', 2 + (t('curioso') ? 2 : 0) + (p.objetivo === 'fruta' || p.objetivo === 'fortuna' ? 2 : 0) + (t('avaricioso') ? 1 : 0)],
     ['descansar', 1 + (t('gloton') ? 1 : 0) + (t('prudente') ? 1 : 0)],
     ['viajar', conTripulacion(p) ? 0 : 1 + (t('curioso') ? 1 : 0) + (p.objetivo === 'zona' || p.objetivo === 'tripulacion' ? 2 : 0)],
   ];
@@ -142,7 +143,8 @@ function terminar(p: PersonajeGuardado, a: AccionPersonaje, r: () => number): { 
   let resumen: string | undefined;
   switch (a.tipo) {
     case 'entrenar': {
-      const xp = Math.round((30 + p.nivel * 5) * (p.rasgos.includes('inteligente') ? 1.25 : 1));
+      p = sumar(p, 'entrenos');
+      const xp = Math.round((30 + p.nivel * 5) * (p.rasgos.includes('inteligente') ? 1.25 : 1) * (tieneCodigo(p, 'madrugador') ? 1.1 : 1));
       const g = ganarXp(p, xp, a.hasta);
       p = g.p;
       resumen = g.subidas ? `entrenó duro y subió a nivel ${p.nivel}` : g.xp ? `entrenó (+${g.xp} de experiencia)` : undefined;
@@ -150,9 +152,10 @@ function terminar(p: PersonajeGuardado, a: AccionPersonaje, r: () => number): { 
       break;
     }
     case 'explorar': {
+      p = sumar(p, 'exploraciones');
       const tirada = r() * (p.rasgos.includes('curioso') ? 1.3 : 1);
       if (tirada > 0.5) {
-        const g = ganarOro(p, 5 + Math.floor(r() * 25), a.hasta);
+        const g = ganarOro(p, Math.round((5 + Math.floor(r() * 25)) * (tieneCodigo(p, 'buscatesoros') ? 1.2 : 1)), a.hasta);
         p = g.p;
         if (g.oro) {
           resumen = `encontró ${g.oro} doblones explorando`;
@@ -172,7 +175,7 @@ function terminar(p: PersonajeGuardado, a: AccionPersonaje, r: () => number): { 
     }
     case 'viajar': {
       const destino = islasDelMundo()[a.destino!];
-      p = { ...p, islaId: destino.id };
+      p = sumar({ ...p, islaId: destino.id }, 'viajes');
       resumen = `llegó a ${destino.nombre}`;
       registro.push([a.hasta, `Desembarcó en ${destino.nombre} (${nombreZona(destino.zona)}).`]);
       break;

@@ -1,7 +1,7 @@
 // Cuenta y personajes del jugador, guardados en el servidor (Supabase) con copia local.
 import type { AspectoPersonaje } from './arte/personajes';
 import { entrarConNombre, estado, guardar, salir, type FilaPersonaje } from './servidor';
-import { CATALOGO_ARMAS, CATALOGO_HABILIDADES, arsenalInicial, type Arsenal } from './datos/arsenal';
+import { CATALOGO_ARMAS, CATALOGO_HABILIDADES, arsenalInicial, armaDeEstilo, type Arsenal } from './datos/arsenal';
 
 export type Bando = 'pirata' | 'marine' | 'revolucionario';
 export const BANDOS: Record<Bando, { nombre: string; descripcion: string }> = {
@@ -51,6 +51,15 @@ export interface PersonajeGuardado {
   ultimaFechoria?: number;
   /** Hasta cuándo se ha aplicado ya la bajada de recompensa. */
   bajadaHasta?: number;
+  /** Contadores de lo que ha hecho (para los objetivos). */
+  cuenta?: Partial<Record<import('./mundo/objetivos').Contador, number>>;
+  /** Cómo estaba al elegir el objetivo actual. */
+  objetivoBase?: import('./mundo/objetivos').BaseObjetivo;
+  /** Objetivos ya cumplidos. */
+  objetivosHechos?: string[];
+  /** Estilo de combate y código (2 reglas). */
+  estilo?: import('./mundo/objetivos').Estilo;
+  codigo?: import('./mundo/objetivos').Codigo[];
   /** Logros conseguidos (para siempre). */
   logros?: string[];
   /** Prendas desbloqueadas de las que ya se avisó. */
@@ -132,7 +141,7 @@ export function actualizarPersonaje(p: PersonajeGuardado) {
   guardar(personajeAFila(p));
 }
 export function guardarPersonaje(p: Omit<PersonajeGuardado, 'id' | 'nivel' | 'doblones' | 'creado'>): PersonajeGuardado {
-  let nuevo: PersonajeGuardado = { ...p, id: crypto.randomUUID().slice(0, 12), nivel: 1, doblones: 100, creado: Date.now(), arsenal: arsenalInicial(), barco: 'barca' };
+  let nuevo: PersonajeGuardado = { ...p, id: crypto.randomUUID().slice(0, 12), nivel: 1, doblones: 100, creado: Date.now(), arsenal: armaDeEstilo(arsenalInicial(), p.estilo ?? ''), barco: 'barca' };
   if (modoCreador()) nuevo = { ...nuevo, ...equipoCreador() };
   guardar(personajeAFila(nuevo));
   escribir('activo', nuevo.id);

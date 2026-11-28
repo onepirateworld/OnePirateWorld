@@ -51,7 +51,7 @@ interface Estado { dx: number; dy: number; visible: boolean; alfa: number }
 export async function iniciarCombate(
   jugador: Luchador,
   rival: Luchador,
-  opciones: { bioma: BiomaIsla; motivo: string; alTerminar: (ganador: 0 | 1 | null, combate: Combate) => string[] },
+  opciones: { bioma: BiomaIsla; motivo: string; alTerminar: (ganador: 0 | 1 | null, combate: Combate) => string[]; sinHuir?: boolean },
 ) {
   const combate = new Combate(jugador, rival);
   const raiz = document.createElement('div');
@@ -186,7 +186,7 @@ export async function iniciarCombate(
         ${fruta ? '<button data-m="fruta" class="fruta">Fruta</button>' : ''}
         <button data-m="defender">Defender</button><button data-m="arma">Arma</button>
         <button data-m="bolsa">Bolsa <small>${jugador.pociones + jugador.botiquines}</small></button>
-        <button data-m="huir" class="huir">Huir</button>`;
+        ${opciones.sinHuir ? '<button class="huir" disabled title="Su código: nunca huye">No huye</button>' : '<button data-m="huir" class="huir">Huir</button>'}`;
       return;
     }
     menu.className = 'combate-menu tecnicas';
