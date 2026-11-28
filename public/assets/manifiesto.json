@@ -499,6 +499,526 @@
             "debilidad": "El calor la ablanda y la vuelve pegajosa para él mismo.",
             "silueta": "frutas/siluetas/ambar.png"
           }
+        },
+        {
+          "id": "brujula",
+          "nombre": "Fruta Brújula",
+          "descripcion": "Su cuerpo siempre apunta al norte... o a donde él quiera: desvía golpes y nunca se pierde.",
+          "archivo": "frutas/brujula.png",
+          "ancho": 24,
+          "alto": 24,
+          "meta": {
+            "categoria": "Talladas",
+            "rareza": "Rara",
+            "colorRareza": "#5cc3d8",
+            "tecnicas": [
+              "Aguja Norte",
+              "Rosa de los Vientos",
+              "Rumbo Fijo"
+            ],
+            "debilidad": "Cerca del hierro en grandes cantidades se marea y pierde el rumbo.",
+            "silueta": "frutas/siluetas/brujula.png"
+          }
+        },
+        {
+          "id": "vela",
+          "nombre": "Fruta Vela",
+          "descripcion": "La piel se vuelve lona de velamen: atrapa el viento, planea y se infla como un globo.",
+          "archivo": "frutas/vela.png",
+          "ancho": 24,
+          "alto": 24,
+          "meta": {
+            "categoria": "Talladas",
+            "rareza": "Común",
+            "colorRareza": "#a9a7b8",
+            "tecnicas": [
+              "Velamen Hinchado",
+              "Planeo de Gaviota",
+              "Golpe de Botavara"
+            ],
+            "debilidad": "Sin viento no puede volar, y la lona mojada pesa el doble.",
+            "silueta": "frutas/siluetas/vela.png"
+          }
+        },
+        {
+          "id": "coral",
+          "nombre": "Fruta Coral",
+          "descripcion": "Le crece coral por el cuerpo: armadura, púas y arrecifes que brotan del suelo.",
+          "archivo": "frutas/coral.png",
+          "ancho": 24,
+          "alto": 24,
+          "meta": {
+            "categoria": "Talladas",
+            "rareza": "Rara",
+            "colorRareza": "#5cc3d8",
+            "tecnicas": [
+              "Arrecife Súbito",
+              "Coraza de Coral",
+              "Lanza de Madrépora"
+            ],
+            "debilidad": "El coral es quebradizo: un golpe muy fuerte lo parte en pedazos.",
+            "silueta": "frutas/siluetas/coral.png"
+          }
+        },
+        {
+          "id": "nudo",
+          "nombre": "Fruta Nudo",
+          "descripcion": "Puede hacer nudos en cualquier cosa larga: brazos, cuerdas, mástiles... o en el aire.",
+          "archivo": "frutas/nudo.png",
+          "ancho": 24,
+          "alto": 24,
+          "meta": {
+            "categoria": "Talladas",
+            "rareza": "Épica",
+            "colorRareza": "#b89ae0",
+            "tecnicas": [
+              "Nudo Marinero",
+              "As de Guía",
+              "Lazo Corredizo"
+            ],
+            "debilidad": "Si le deshacen un nudo propio, se le enreda todo el cuerpo un rato.",
+            "silueta": "frutas/siluetas/nudo.png"
+          }
+        },
+        {
+          "id": "lija",
+          "nombre": "Fruta Lija",
+          "descripcion": "Su piel se vuelve áspera como la lija: raspa, pule y desgasta lo que toca.",
+          "archivo": "frutas/lija.png",
+          "ancho": 24,
+          "alto": 24,
+          "meta": {
+            "categoria": "Talladas",
+            "rareza": "Común",
+            "colorRareza": "#a9a7b8",
+            "tecnicas": [
+              "Raspado",
+              "Pulido Total",
+              "Roce de Escofina"
+            ],
+            "debilidad": "Se desgasta a sí mismo si abusa: cada técnica le cuesta piel.",
+            "silueta": "frutas/siluetas/lija.png"
+          }
+        },
+        {
+          "id": "esponja",
+          "nombre": "Fruta Esponja",
+          "descripcion": "El cuerpo absorbe líquidos y golpes como una esponja, y luego los suelta de golpe.",
+          "archivo": "frutas/esponja.png",
+          "ancho": 24,
+          "alto": 24,
+          "meta": {
+            "categoria": "Talladas",
+            "rareza": "Común",
+            "colorRareza": "#a9a7b8",
+            "tecnicas": [
+              "Chupar",
+              "Escurrido",
+              "Cuerpo Blando"
+            ],
+            "debilidad": "Empapado del todo se vuelve lento y pesado como un saco.",
+            "silueta": "frutas/siluetas/esponja.png"
+          }
+        },
+        {
+          "id": "pendulo",
+          "nombre": "Fruta Péndulo",
+          "descripcion": "Se balancea con un ritmo hipnótico: cada vaivén golpea más fuerte que el anterior.",
+          "archivo": "frutas/pendulo.png",
+          "ancho": 24,
+          "alto": 24,
+          "meta": {
+            "categoria": "Talladas",
+            "rareza": "Épica",
+            "colorRareza": "#b89ae0",
+            "tecnicas": [
+              "Vaivén",
+              "Compás Hipnótico",
+              "Golpe de Contrapeso"
+            ],
+            "debilidad": "Si le rompen el ritmo, tiene que empezar el balanceo desde cero.",
+            "silueta": "frutas/siluetas/pendulo.png"
+          }
+        },
+        {
+          "id": "escama",
+          "nombre": "Fruta Escama",
+          "descripcion": "Le salen escamas duras que puede erizar como escudo o lanzar como cuchillas.",
+          "archivo": "frutas/escama.png",
+          "ancho": 24,
+          "alto": 24,
+          "meta": {
+            "categoria": "Talladas",
+            "rareza": "Común",
+            "colorRareza": "#a9a7b8",
+            "tecnicas": [
+              "Lluvia de Escamas",
+              "Piel de Pez",
+              "Escudo Imbricado"
+            ],
+            "debilidad": "Las escamas se le caen con el agua dulce caliente.",
+            "silueta": "frutas/siluetas/escama.png"
+          }
+        },
+        {
+          "id": "anzuelo",
+          "nombre": "Fruta Anzuelo",
+          "descripcion": "De sus dedos salen anzuelos con sedal: engancha, arrastra y recoge lo que quiera.",
+          "archivo": "frutas/anzuelo.png",
+          "ancho": 24,
+          "alto": 24,
+          "meta": {
+            "categoria": "Talladas",
+            "rareza": "Rara",
+            "colorRareza": "#5cc3d8",
+            "tecnicas": [
+              "Lance",
+              "Recogida",
+              "Cebo Falso"
+            ],
+            "debilidad": "Si el sedal se enreda en algo grande, lo arrastra a él.",
+            "silueta": "frutas/siluetas/anzuelo.png"
+          }
+        },
+        {
+          "id": "tiburon",
+          "nombre": "Fruta Fiera modelo Tiburón Martillo",
+          "descripcion": "Se transforma en un tiburón martillo: huele la sangre a millas y muerde con fuerza brutal.",
+          "archivo": "frutas/tiburon.png",
+          "ancho": 24,
+          "alto": 24,
+          "meta": {
+            "categoria": "Salvajes",
+            "rareza": "Épica",
+            "colorRareza": "#b89ae0",
+            "tecnicas": [
+              "Mordida Martillo",
+              "Olfato de Sangre",
+              "Embestida de Aleta"
+            ],
+            "debilidad": "Lejos de la humedad se agota enseguida: necesita mojarse cada poco.",
+            "silueta": "frutas/siluetas/tiburon.png"
+          }
+        },
+        {
+          "id": "manta",
+          "nombre": "Fruta Fiera modelo Manta Raya",
+          "descripcion": "Alas planas enormes para planear sobre las olas y una cola que da descargas.",
+          "archivo": "frutas/manta.png",
+          "ancho": 24,
+          "alto": 24,
+          "meta": {
+            "categoria": "Salvajes",
+            "rareza": "Rara",
+            "colorRareza": "#5cc3d8",
+            "tecnicas": [
+              "Vuelo Rasante",
+              "Coletazo",
+              "Sombra Plana"
+            ],
+            "debilidad": "En tierra seca y sin viento se arrastra torpemente.",
+            "silueta": "frutas/siluetas/manta.png"
+          }
+        },
+        {
+          "id": "tortuga",
+          "nombre": "Fruta Fiera modelo Tortuga",
+          "descripcion": "Un caparazón durísimo que aguanta cañonazos. Lento, pero imposible de tumbar.",
+          "archivo": "frutas/tortuga.png",
+          "ancho": 24,
+          "alto": 24,
+          "meta": {
+            "categoria": "Salvajes",
+            "rareza": "Común",
+            "colorRareza": "#a9a7b8",
+            "tecnicas": [
+              "Caparazón",
+              "Mordida Lenta",
+              "Bola Rodante"
+            ],
+            "debilidad": "Si lo ponen boca arriba tarda una eternidad en darse la vuelta.",
+            "silueta": "frutas/siluetas/tortuga.png"
+          }
+        },
+        {
+          "id": "rinoceronte",
+          "nombre": "Fruta Fiera modelo Rinoceronte",
+          "descripcion": "Piel de coraza y un cuerno que derriba muros. Cuando embiste, no hay quien lo pare.",
+          "archivo": "frutas/rinoceronte.png",
+          "ancho": 24,
+          "alto": 24,
+          "meta": {
+            "categoria": "Salvajes",
+            "rareza": "Rara",
+            "colorRareza": "#5cc3d8",
+            "tecnicas": [
+              "Embestida Cornuda",
+              "Piel de Coraza",
+              "Estampida"
+            ],
+            "debilidad": "Ve muy poco: si se queda quieto pierde de vista al rival.",
+            "silueta": "frutas/siluetas/rinoceronte.png"
+          }
+        },
+        {
+          "id": "escorpion",
+          "nombre": "Fruta Fiera modelo Escorpión",
+          "descripcion": "Pinzas que aprietan como cepos y una cola con aguijón que adormece.",
+          "archivo": "frutas/escorpion.png",
+          "ancho": 24,
+          "alto": 24,
+          "meta": {
+            "categoria": "Salvajes",
+            "rareza": "Épica",
+            "colorRareza": "#b89ae0",
+            "tecnicas": [
+              "Aguijón",
+              "Pinza Cepo",
+              "Danza del Desierto"
+            ],
+            "debilidad": "El frío lo aletarga hasta casi dormirlo.",
+            "silueta": "frutas/siluetas/escorpion.png"
+          }
+        },
+        {
+          "id": "cangrejo",
+          "nombre": "Fruta Fiera modelo Cangrejo",
+          "descripcion": "Caparazón, pinzas que cortan cabos y un paso lateral que nadie sabe seguir.",
+          "archivo": "frutas/cangrejo.png",
+          "ancho": 24,
+          "alto": 24,
+          "meta": {
+            "categoria": "Salvajes",
+            "rareza": "Común",
+            "colorRareza": "#a9a7b8",
+            "tecnicas": [
+              "Tijereta",
+              "Paso de Lado",
+              "Concha Cerrada"
+            ],
+            "debilidad": "Las patas traseras son su punto débil: si se las tocan, se cae.",
+            "silueta": "frutas/siluetas/cangrejo.png"
+          }
+        },
+        {
+          "id": "camaleon",
+          "nombre": "Fruta Fiera modelo Camaleón",
+          "descripcion": "Cambia de color hasta volverse invisible y dispara una lengua larguísima.",
+          "archivo": "frutas/camaleon.png",
+          "ancho": 24,
+          "alto": 24,
+          "meta": {
+            "categoria": "Salvajes",
+            "rareza": "Épica",
+            "colorRareza": "#b89ae0",
+            "tecnicas": [
+              "Lengua Látigo",
+              "Piel del Paisaje",
+              "Ojos Giratorios"
+            ],
+            "debilidad": "Cuando se asusta o se enfada se pone de colores chillones y se delata.",
+            "silueta": "frutas/siluetas/camaleon.png"
+          }
+        },
+        {
+          "id": "puercoespin",
+          "nombre": "Fruta Fiera modelo Puercoespín",
+          "descripcion": "Se cubre de púas: quien le golpea se pincha, y puede lanzarlas en ráfaga.",
+          "archivo": "frutas/puercoespin.png",
+          "ancho": 24,
+          "alto": 24,
+          "meta": {
+            "categoria": "Salvajes",
+            "rareza": "Común",
+            "colorRareza": "#a9a7b8",
+            "tecnicas": [
+              "Erizarse",
+              "Ráfaga de Púas",
+              "Bola de Pinchos"
+            ],
+            "debilidad": "Tras lanzar las púas tarda en que le vuelvan a crecer.",
+            "silueta": "frutas/siluetas/puercoespin.png"
+          }
+        },
+        {
+          "id": "gorila",
+          "nombre": "Fruta Fiera modelo Gorila",
+          "descripcion": "Fuerza descomunal, brazos larguísimos y un rugido que hace temblar la cubierta.",
+          "archivo": "frutas/gorila.png",
+          "ancho": 24,
+          "alto": 24,
+          "meta": {
+            "categoria": "Salvajes",
+            "rareza": "Rara",
+            "colorRareza": "#5cc3d8",
+            "tecnicas": [
+              "Golpe de Pecho",
+              "Puño de Selva",
+              "Lanzamiento de Barril"
+            ],
+            "debilidad": "Se enfada con facilidad y entonces deja de defenderse.",
+            "silueta": "frutas/siluetas/gorila.png"
+          }
+        },
+        {
+          "id": "marea",
+          "nombre": "Fruta Marea",
+          "descripcion": "Se vuelve agua de mar que sube y baja a su voluntad, arrastrando todo lo que pilla.",
+          "archivo": "frutas/marea.png",
+          "ancho": 24,
+          "alto": 24,
+          "meta": {
+            "categoria": "Primordiales",
+            "rareza": "Legendaria",
+            "colorRareza": "#f2b63d",
+            "tecnicas": [
+              "Pleamar",
+              "Resaca",
+              "Ola Gigante"
+            ],
+            "debilidad": "Bajo el sol del desierto se evapora poco a poco y pierde fuerza.",
+            "silueta": "frutas/siluetas/marea.png"
+          }
+        },
+        {
+          "id": "viento",
+          "nombre": "Fruta Viento",
+          "descripcion": "Se convierte en viento: empuja barcos, corta como cuchillas de aire y se vuelve intocable.",
+          "archivo": "frutas/viento.png",
+          "ancho": 24,
+          "alto": 24,
+          "meta": {
+            "categoria": "Primordiales",
+            "rareza": "Legendaria",
+            "colorRareza": "#f2b63d",
+            "tecnicas": [
+              "Ráfaga Cortante",
+              "Calma Chicha",
+              "Tornado de Cubierta"
+            ],
+            "debilidad": "Dentro de un lugar cerrado se queda sin fuerza y se marea.",
+            "silueta": "frutas/siluetas/viento.png"
+          }
+        },
+        {
+          "id": "mercurio",
+          "nombre": "Fruta Mercurio",
+          "descripcion": "Metal líquido y plateado: se escurre de cualquier golpe y se endurece al instante.",
+          "archivo": "frutas/mercurio.png",
+          "ancho": 24,
+          "alto": 24,
+          "meta": {
+            "categoria": "Primordiales",
+            "rareza": "Legendaria",
+            "colorRareza": "#f2b63d",
+            "tecnicas": [
+              "Gota de Plata",
+              "Hoja Líquida",
+              "Espejo Fundido"
+            ],
+            "debilidad": "El frío extremo lo congela en una estatua de plata.",
+            "silueta": "frutas/siluetas/mercurio.png"
+          }
+        },
+        {
+          "id": "oxido",
+          "nombre": "Fruta Óxido",
+          "descripcion": "Se deshace en polvo de herrumbre que corroe armas, cadenas y cascos de hierro.",
+          "archivo": "frutas/oxido.png",
+          "ancho": 24,
+          "alto": 24,
+          "meta": {
+            "categoria": "Primordiales",
+            "rareza": "Épica",
+            "colorRareza": "#b89ae0",
+            "tecnicas": [
+              "Herrumbre",
+              "Nube Rojiza",
+              "Corrosión"
+            ],
+            "debilidad": "No le hace nada a la madera ni a la piedra, y el aceite lo repele.",
+            "silueta": "frutas/siluetas/oxido.png"
+          }
+        },
+        {
+          "id": "arcilla",
+          "nombre": "Fruta Arcilla",
+          "descripcion": "Barro moldeable: toma cualquier forma, absorbe los golpes y se endurece al secarse.",
+          "archivo": "frutas/arcilla.png",
+          "ancho": 24,
+          "alto": 24,
+          "meta": {
+            "categoria": "Primordiales",
+            "rareza": "Épica",
+            "colorRareza": "#b89ae0",
+            "tecnicas": [
+              "Moldeado",
+              "Ladrillo Volador",
+              "Gólem de Barro"
+            ],
+            "debilidad": "Si se seca del todo se agrieta y se rompe con un buen golpe.",
+            "silueta": "frutas/siluetas/arcilla.png"
+          }
+        },
+        {
+          "id": "musgo",
+          "nombre": "Fruta Musgo",
+          "descripcion": "Se vuelve musgo verde y húmedo que crece sobre todo, ablanda caídas y lo cura despacio.",
+          "archivo": "frutas/musgo.png",
+          "ancho": 24,
+          "alto": 24,
+          "meta": {
+            "categoria": "Primordiales",
+            "rareza": "Rara",
+            "colorRareza": "#5cc3d8",
+            "tecnicas": [
+              "Alfombra Verde",
+              "Musgo Curativo",
+              "Enredadera Húmeda"
+            ],
+            "debilidad": "Se seca y se apaga al sol del mediodía.",
+            "silueta": "frutas/siluetas/musgo.png"
+          }
+        },
+        {
+          "id": "polen",
+          "nombre": "Fruta Polen",
+          "descripcion": "Una nube dorada de polen que hace estornudar, adormece y ciega a quien la respira.",
+          "archivo": "frutas/polen.png",
+          "ancho": 24,
+          "alto": 24,
+          "meta": {
+            "categoria": "Primordiales",
+            "rareza": "Rara",
+            "colorRareza": "#5cc3d8",
+            "tecnicas": [
+              "Estornudo",
+              "Nube Dorada",
+              "Siesta de Primavera"
+            ],
+            "debilidad": "La lluvia lo pega al suelo y lo deja inútil.",
+            "silueta": "frutas/siluetas/polen.png"
+          }
+        },
+        {
+          "id": "sal",
+          "nombre": "Fruta Sal",
+          "descripcion": "Cristales de sal que resecan, escuecen en las heridas y forman muros blancos.",
+          "archivo": "frutas/sal.png",
+          "ancho": 24,
+          "alto": 24,
+          "meta": {
+            "categoria": "Primordiales",
+            "rareza": "Rara",
+            "colorRareza": "#5cc3d8",
+            "tecnicas": [
+              "Salazón",
+              "Muro Blanco",
+              "Lluvia Salada"
+            ],
+            "debilidad": "El agua dulce lo disuelve: con una buena tormenta se queda en nada.",
+            "silueta": "frutas/siluetas/sal.png"
+          }
         }
       ]
     },
