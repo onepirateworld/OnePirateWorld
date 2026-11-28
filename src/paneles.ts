@@ -20,6 +20,8 @@ import { cargarMensajes, enviarMensaje, escucharMensajes, estado as estadoServid
 import { botsDelMar, islaDePersonaje, islasDelMundo, nombreZona, posicionBot, type Bot } from './mundo/habitantes';
 import { cronica, frutasDelMar, formatoDoblones, haceCuanto, rangoDe, recompensa, type Suceso } from './mundo/cronica';
 import { icono } from './iconos';
+import { REQUISITOS, estadoPrenda } from './datos/vestuario';
+import { OPCIONES } from './arte/personajes';
 import { NIVEL_FUNDAR, botsDeTripulaciones, resumenTripulacion, tripulacionDe, tripulacionesDelMar } from './mundo/tripulaciones';
 import { ultimosDuelos } from './servidor';
 import { adminBorrar, adminPersonaje, adminRol, adminRoles, adminTodos, disolverTripulacion, fundarTripulacion } from './servidor';
@@ -602,14 +604,40 @@ export function crearPaneles(acc: Acciones) {
 
   // --- Cofre ------------------------------------------------------------------
   function cofre() {
+    const p = cuentaActual() ? personajeActivo() : null;
+    if (!p) return { titulo: 'Cofre', html: `<p class="vacio">Crea un personaje para tener cofre.</p><button class="boton-oro ancho" data-accion="perfil">Crear personaje</button>`, despues: enlazarAcciones };
+    const a = arsenalDe(p), bolsa = bolsaDe(p);
+    const c = p.capturas ?? { pirata: 0, revolucionario: 0 };
+    const m = { bando: p.bando, nivel: p.nivel, recompensa: p.recompensa ?? 0, capturas: c.pirata + c.revolucionario, creador: p.creador };
+    const ranura = (titulo: string, texto: string) => `<div class="ranura"><b>${titulo}</b><small>${texto}</small></div>`;
+    const objetos = `<div class="ranuras">
+        ${ranura('🍶 Grog', `${bolsa.grog} en la bolsa`)}${ranura('🩹 Botiquines', `${bolsa.botiquin} en la bolsa`)}
+        ${ranura('⛵ Barco', esc(BARCOS.find((x) => x.id === (p.barco ?? 'barca'))!.nombre))}
+        ${ranura('🗡 Armas', `${Object.keys(a.armas).length} de ${CATALOGO_ARMAS.length}`)}
+        ${ranura('📖 Habilidades', `${Object.keys(a.habilidades).length} de ${CATALOGO_HABILIDADES.length}`)}
+        ${ranura('💰 Doblones', p.creador ? '∞' : formatoDoblones(p.doblones))}</div>`;
+    // Prendas especiales de su bando: las que tiene y lo que falta para las demás
+    const prendas = Object.keys(REQUISITOS).map((k) => { const [campo, valor] = k.split(':'); return { campo, valor, estado: estadoPrenda(campo, valor, m) }; })
+      .filter((x) => x.estado !== 'oculta');
+    const nombre = (campo: string, valor: string) => (OPCIONES as unknown as Record<string, Record<string, string>>)[campo]?.[valor] ?? valor;
+    const prendasHtml = `<p class="nota-hoja">Prendas especiales de tu bando. Póntelas en el sastre (Tienda → Sastre).</p>
+      <div class="logros">${prendas.map((x) => `<div class="logro ${x.estado === 'libre' ? 'hecho' : ''}"><span class="candado">${x.estado === 'libre' ? '✅' : '🔒'}</span><b>${esc(nombre(x.campo, x.valor))}</b><small>${x.estado === 'libre' ? 'Desbloqueada' : esc(x.estado)}</small></div>`).join('')}</div>`;
+    const f = p.fruta ? FRUTAS.find((x) => x.id === p.fruta) : null;
+    const frutaHtml = f ? `<div class="fruta-cofre"><i data-sprite="mi-fruta"></i><div><b>${esc(f.nombre)}</b><small>${CATEGORIAS[f.categoria].nombre} · ${RAREZAS[f.rareza].nombre}</small><p>${esc(f.poder)}</p><small>Técnicas: ${esc(f.tecnicas.join(', '))}</small><small>Debilidad: ${esc(f.debilidad)}</small></div></div>`
+      : `<p class="vacio">${p.busqueda ? `Sigues la pista de una fruta (${Math.min(p.busqueda.pistas, 3)} de 3 pistas). Mira «Mi pirata».` : 'No tienes ninguna fruta. Desde el nivel 5, al explorar, oirás rumores. Mira el Compendio para ver cuáles hay.'}</p>`;
+    const tengo = new Set(p.creador ? LOGROS.map((l) => l.id) : p.logros ?? []);
+    const logrosHtml = `<p class="nota-hoja">${tengo.size} de ${LOGROS.length} logros.</p><div class="logros">${LOGROS.map((l) => `<div class="logro ${tengo.has(l.id) ? 'hecho' : ''}"><span class="candado">${tengo.has(l.id) ? l.icono : '🔒'}</span><b>${esc(l.nombre)}</b><small>${esc(l.como)}</small></div>`).join('')}</div>`;
     return {
       titulo: 'Cofre',
-      html: `<div class="pestanas-hoja"><button class="sel" data-filtro="obj">Objetos</button><button data-filtro="tes">Tesoros</button><button data-filtro="fru">Frutas</button><button data-filtro="log">Logros</button></div>
-        <div data-vista="obj"><div class="ranuras">${Array.from({ length: 6 }, () => bloqueado('Vacío', 'Los objetos llegarán con el equipo.')).join('')}</div></div>
-        <div data-vista="tes" hidden><p class="vacio">Aún no has encontrado ningún tesoro. Tu personaje los busca en ruinas y en islas con rumores.</p></div>
-        <div data-vista="fru" hidden><p class="vacio">No tienes ninguna fruta. Mira el Compendio para ver cuáles hay.</p></div>
-        <div data-vista="log" hidden><div class="logros">${LOGROS.map((l) => `<div class="logro"><span class="candado">🔒</span><b>${esc(l.nombre)}</b><small>${esc(l.como)}</small></div>`).join('')}</div></div>`,
-      despues: pestanasLocales,
+      html: `<div class="pestanas-hoja"><button class="sel" data-filtro="obj">Objetos</button><button data-filtro="pre">Prendas</button><button data-filtro="fru">Fruta</button><button data-filtro="log">Logros</button></div>
+        <div data-vista="obj">${objetos}</div>
+        <div data-vista="pre" hidden>${prendasHtml}</div>
+        <div data-vista="fru" hidden>${frutaHtml}</div>
+        <div data-vista="log" hidden>${logrosHtml}</div>`,
+      despues: (el: HTMLElement) => {
+        pestanasLocales(el);
+        if (f) ponerSprites(el, new Map([['mi-fruta', aCanvas(dibujarFruta(f.id), 4)]]));
+      },
     };
   }
 

@@ -31,6 +31,8 @@ const NIVEL_FURIA = 10, BONO_FURIA = 0.5;
 import { nivelGuardian, PISTAS_NECESARIAS, frutaSigueLibre, ganarMeritos, ganarRecompensa, guardianAqui, islaDeBusqueda, meritosPorCaptura, nombreFruta, recompensaPorVictoria } from './mundo/busqueda';
 import { OPCIONES, aspectoAlAzar } from './arte/personajes';
 import { REQUISITOS, estadoPrenda } from './datos/vestuario';
+import { logrosNuevos } from './mundo/logros';
+import { LOGROS } from './datos/progreso';
 import { dibujarFruta } from './arte/frutas';
 import { FRUTAS } from './datos/frutas';
 import { formatoDoblones } from './mundo/cronica';
@@ -482,10 +484,21 @@ function avisarDesbloqueos(p: PersonajeGuardado) {
     .filter(([k, r]) => (r.nivel || r.recompensa || r.capturas) && !ya.has(k))
     .filter(([k]) => { const [campo, valor] = k.split(':'); return estadoPrenda(campo, valor, m) === 'libre'; })
     .map(([k]) => k);
-  if (!nuevas.length) return;
-  const nombres = nuevas.map((k) => { const [campo, valor] = k.split(':'); return (OPCIONES as unknown as Record<string, Record<string, string>>)[campo]?.[valor] ?? valor; });
-  actualizarPersonaje({ ...p, prendasAvisadas: [...ya, ...nuevas] });
-  aviso(`🔓 ¡Desbloqueado: ${nombres.join(', ')}! Pásate por el sastre (Tienda → Sastre).`);
+  const logros = logrosNuevos(p);
+  const mensajes: string[] = [];
+  if (logros.length) {
+    p = { ...p, logros: [...(p.logros ?? []), ...logros] };
+    const ls = logros.map((id) => LOGROS.find((x) => x.id === id)!);
+    mensajes.push(ls.length === 1 ? `${ls[0].icono} ¡Logro: ${ls[0].nombre}!` : `🏆 ¡${ls.length} logros: ${ls.map((l) => l.nombre).join(', ')}!`);
+  }
+  if (nuevas.length) {
+    const nombres = nuevas.map((k) => { const [campo, valor] = k.split(':'); return (OPCIONES as unknown as Record<string, Record<string, string>>)[campo]?.[valor] ?? valor; });
+    p = { ...p, prendasAvisadas: [...ya, ...nuevas] };
+    mensajes.push(`🔓 Desbloqueado: ${nombres.join(', ')} (pásate por el sastre).`);
+  }
+  if (!mensajes.length) return;
+  actualizarPersonaje(p);
+  aviso(mensajes.join(' '));
 }
 
 // --- Duelos contra otros jugadores ------------------------------------------

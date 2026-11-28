@@ -49,6 +49,8 @@ export interface PersonajeGuardado {
   ultimaFechoria?: number;
   /** Hasta cuándo se ha aplicado ya la bajada de recompensa. */
   bajadaHasta?: number;
+  /** Logros conseguidos (para siempre). */
+  logros?: string[];
   /** Prendas desbloqueadas de las que ya se avisó. */
   prendasAvisadas?: string[];
   /** Lo que hizo mientras su dueño no jugaba (lo escribe el servidor; se enseña al entrar). */

@@ -64,7 +64,7 @@ export async function iniciar(mar: number): Promise<void> {
         escribir('srv.nombrePendiente', null);
         estado.perfil = p.data as Perfil;
       }
-      if (m.data) estado.mios = m.data as FilaPersonaje[];
+      if (m.data) { estado.mios = m.data as FilaPersonaje[]; recordar(estado.mios); }
       // Cambios que no llegaron a enviarse (página cerrada o cambiada justo después)
       const sinEnviar = leer<FilaPersonaje[]>('srv.pendientes', []).filter((f) => f.dueno === estado.usuario!.id);
       for (const f of sinEnviar) {
@@ -121,8 +121,17 @@ function escucharMundo(mar: number) {
       if (f.dueno === estado.usuario?.id) {
         // Un cambio en uno de los míos que no hice yo (por ejemplo, un regalo del Creador)
         if (cambio.eventType === 'DELETE') { estado.mios = estado.mios.filter((x) => x.id !== f.id); escribir('srv.mios', estado.mios); return; }
+        const nuevo = cambio.new as FilaPersonaje;
         const i = estado.mios.findIndex((x) => x.id === f.id);
-        if (i >= 0 && !pendientes.has(f.id)) { estado.mios[i] = cambio.new as FilaPersonaje; escribir('srv.mios', estado.mios); }
+        if (i >= 0) {
+          if (pendientes.has(f.id)) {
+            const c = combinar(pendientes.get(f.id)!, nuevo);
+            pendientes.set(f.id, c); estado.mios[i] = c;
+            escribir('srv.pendientes', [...pendientes.values()]);
+          } else estado.mios[i] = nuevo;
+          escribir('srv.mios', estado.mios);
+        }
+        recordar([nuevo]);
         return;
       }
       if (cambio.eventType === 'DELETE') estado.otros.delete(f.id);
@@ -189,6 +198,27 @@ export async function cambiarNombre(nombre: string) {
 // --- Personajes -----------------------------------------------------------
 
 const pendientes = new Map<string, FilaPersonaje>();
+/** Última versión que conocemos del servidor de cada personaje propio (para combinar cambios). */
+const delServidor = new Map<string, FilaPersonaje>();
+const recordar = (filas: FilaPersonaje[]) => { for (const f of filas) delServidor.set(f.id, structuredClone(f)); };
+const CAMPOS = ['nombre', 'apodo', 'nivel', 'doblones', 'recompensa', 'mar', 'bando'] as const;
+/**
+ * Combina un cambio que llega del servidor (por ejemplo, un regalo del Creador) con lo que
+ * tenemos pendiente de enviar: lo que cambió en el servidor y no tocamos nosotros, se conserva.
+ */
+function combinar(mio: FilaPersonaje, nuevo: FilaPersonaje): FilaPersonaje {
+  const antes = delServidor.get(nuevo.id);
+  if (!antes) return mio;
+  const r: FilaPersonaje = { ...mio, datos: { ...mio.datos } };
+  for (const k of CAMPOS) if (JSON.stringify(nuevo[k]) !== JSON.stringify(antes[k])) (r as unknown as Record<string, unknown>)[k] = nuevo[k];
+  const dN = nuevo.datos as Record<string, unknown>, dA = antes.datos as Record<string, unknown>;
+  for (const k of new Set([...Object.keys(dN), ...Object.keys(dA)])) {
+    if (JSON.stringify(dN[k]) !== JSON.stringify(dA[k])) {
+      if (k in dN) (r.datos as Record<string, unknown>)[k] = dN[k]; else delete (r.datos as Record<string, unknown>)[k];
+    }
+  }
+  return r;
+}
 let temporizador: number | undefined;
 
 /** Guarda (crea o actualiza) un personaje propio. Se agrupan los cambios cada 1,5 s. */
@@ -222,6 +252,7 @@ async function enviarPendientes(): Promise<string | null> {
     return error.message;
   }
   // El servidor puede corregir cosas (por ejemplo, los datos del creador)
+  recordar((data ?? []) as FilaPersonaje[]);
   for (const f of (data ?? []) as FilaPersonaje[]) {
     const i = estado.mios.findIndex((x) => x.id === f.id);
     // Solo si no ha cambiado nada más desde que lo enviamos (si no, pisaríamos lo nuevo)

@@ -35,16 +35,22 @@ export const OBJETIVOS: Objetivo[] = [
 ];
 export const objetivosPara = (b: Bando) => OBJETIVOS.filter((o) => !o.bandos || o.bandos.includes(b));
 
-export interface Logro { id: string; nombre: string; como: string }
+export interface Logro { id: string; nombre: string; como: string; icono: string }
 export const LOGROS: Logro[] = [
-  { id: 'primer-viaje', nombre: 'Primera travesía', como: 'Viaja a otra isla.' },
-  { id: 'primer-duelo', nombre: 'Primer duelo', como: 'Gana un combate.' },
-  { id: 'amigos', nombre: 'Buena compañía', como: 'Haz 5 amigos.' },
-  { id: 'tripulacion', nombre: 'Capitán', como: 'Forma tu propia tripulación.' },
-  { id: 'cartel', nombre: 'Se busca', como: 'Sal en un cartel con recompensa.' },
-  { id: 'fruta', nombre: 'Sabor prohibido', como: 'Cómete una fruta del poder.' },
-  { id: 'maestro', nombre: 'Discípulo', como: 'Entrena con un maestro.' },
-  { id: 'tesoro', nombre: 'Cazatesoros', como: 'Encuentra un tesoro.' },
-  { id: 'senda', nombre: 'Más allá de la calma', como: 'Llega a la Senda de las Mareas.' },
-  { id: 'nivel25', nombre: 'Veterano', como: 'Llega al nivel 25.' },
+  { id: 'primer-viaje', nombre: 'Primera travesía', como: 'Viaja a otra isla.', icono: '⛵' },
+  { id: 'primera-victoria', nombre: 'Primera victoria', como: 'Gana un combate.', icono: '⚔' },
+  { id: 'duelista', nombre: 'Duelista', como: 'Gana un duelo contra otro jugador.', icono: '🤺' },
+  { id: 'a-bordo', nombre: 'A bordo', como: 'Únete a una tripulación.', icono: '🏴‍☠️' },
+  { id: 'capitan', nombre: 'Capitán', como: 'Funda tu propia tripulación.', icono: '🧭' },
+  { id: 'cartel', nombre: 'Se busca', como: 'Ten una recompensa por tu cabeza.', icono: '📜' },
+  { id: 'muy-buscado', nombre: 'Muy buscado', como: 'Llega a 100 M de recompensa.', icono: '💀' },
+  { id: 'capturas', nombre: 'Mano dura', como: 'Captura a 10 piratas o revolucionarios (marines).', icono: '⚓' },
+  { id: 'almirante', nombre: 'Almirante', como: 'Llega al rango de Almirante (marines).', icono: '🎖' },
+  { id: 'pista', nombre: 'Tras la pista', como: 'Reúne las 3 pistas de una fruta.', icono: '🔎' },
+  { id: 'fruta', nombre: 'Sabor prohibido', como: 'Cómete una fruta del poder.', icono: '🍈' },
+  { id: 'nivel10', nombre: 'Curtido', como: 'Llega al nivel 10.', icono: '⭐' },
+  { id: 'nivel25', nombre: 'Veterano', como: 'Llega al nivel 25.', icono: '🌟' },
+  { id: 'nivel50', nombre: 'Leyenda', como: 'Llega al nivel 50.', icono: '👑' },
+  { id: 'rico', nombre: 'Bolsillos llenos', como: 'Junta 100.000 doblones.', icono: '💰' },
+  { id: 'galeon', nombre: 'Señor de los mares', como: 'Compra un galeón.', icono: '🚢' },
 ];

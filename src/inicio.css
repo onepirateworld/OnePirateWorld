@@ -594,3 +594,12 @@ a.boton-oro { display: inline-block; text-decoration: none; }
 .admin-form .fila-mini { display: flex; flex-wrap: wrap; gap: 6px; }
 .admin-fila { overflow: hidden; }
 .noticias li.n-mio { border-left: 3px solid #f2b63d; padding-left: 6px; }
+
+/* Cofre */
+.logro.hecho { border-color: #f2b63d; background: #1d3a5f; }
+.logro.hecho .candado { filter: none; }
+.fruta-cofre { display: flex; gap: 14px; align-items: flex-start; }
+.fruta-cofre canvas { image-rendering: pixelated; flex: none; }
+.fruta-cofre div { display: flex; flex-direction: column; gap: 4px; }
+.fruta-cofre p { margin: 4px 0; }
+.fruta-cofre small { color: var(--texto-suave); }
