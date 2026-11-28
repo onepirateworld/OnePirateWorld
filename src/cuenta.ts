@@ -45,6 +45,8 @@ export interface PersonajeGuardado {
   meritos?: number;
   /** Recompensa o méritos ganados hoy (tope diario). */
   notoriedad?: { dia: string; valor: number };
+  /** Lo que hizo mientras su dueño no jugaba (lo escribe el servidor; se enseña al entrar). */
+  mientras?: [number, string][];
   /** Cuenta dueña (la pone el servidor; no se guarda en «datos»). */
   dueno?: string;
   /** Tripulación a la que pertenece (id). */
@@ -78,7 +80,7 @@ function escribir(clave: string, v: unknown) {
 }
 
 // --- Conversión entre el personaje del juego y la fila del servidor ---------
-function filaAPersonaje(f: FilaPersonaje): PersonajeGuardado {
+export function filaAPersonaje(f: FilaPersonaje): PersonajeGuardado {
   const d = f.datos as Partial<PersonajeGuardado>;
   return {
     ...d, rasgos: d.rasgos ?? [], sueno: d.sueno ?? '', aspecto: d.aspecto!,
@@ -86,7 +88,7 @@ function filaAPersonaje(f: FilaPersonaje): PersonajeGuardado {
     doblones: Number(f.doblones), recompensa: f.bando === 'marine' ? 0 : Number(f.recompensa), creador: f.creador, mar: f.mar, creado: Date.parse(f.creado),
   };
 }
-function personajeAFila(p: PersonajeGuardado): FilaPersonaje {
+export function personajeAFila(p: PersonajeGuardado): FilaPersonaje {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { id, nombre, apodo, bando, nivel, doblones, recompensa, creador, mar, creado, dueno: _dueno, ...datos } = p;
   return {

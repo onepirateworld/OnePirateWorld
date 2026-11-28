@@ -25,6 +25,7 @@ export interface FilaPersonaje {
   recompensa: number;
   creador: boolean;
   creado: string;
+  jugado?: string;
 }
 
 export const estado = {
@@ -199,7 +200,7 @@ export function guardar(f: FilaPersonaje) {
   pendientes.set(f.id, f);
   escribir('srv.pendientes', [...pendientes.values()]);   // por si se cierra la página antes de enviarlos
   clearTimeout(temporizador);
-  temporizador = window.setTimeout(enviarPendientes, 1500);
+  temporizador = setTimeout(enviarPendientes, 1500) as unknown as number;
 }
 /** Envía ya lo pendiente (antes de cambiar de página). Devuelve un error en texto o null. */
 export async function guardarAhora(): Promise<string | null> {
@@ -211,7 +212,9 @@ async function enviarPendientes(): Promise<string | null> {
   pendientes.clear();
   if (!filas.length || !estado.usuario) return null;
   escribir('srv.pendientes', []);
-  const { data, error } = await sb.from('personajes').upsert(filas.map((f) => ({ ...f, dueno: estado.usuario!.id }))).select();
+  // «jugado»: el dueño está jugando (el servidor no moverá a este personaje mientras tanto)
+  const jugado = new Date().toISOString();
+  const { data, error } = await sb.from('personajes').upsert(filas.map((f) => ({ ...f, dueno: estado.usuario!.id, jugado }))).select();
   if (error) {
     console.warn('No se pudo guardar en el servidor', error.message);
     for (const f of filas) if (!pendientes.has(f.id)) pendientes.set(f.id, f);   // se reintenta luego
@@ -227,7 +230,7 @@ async function enviarPendientes(): Promise<string | null> {
   escribir('srv.mios', estado.mios);
   return null;
 }
-window.addEventListener('beforeunload', () => { if (pendientes.size) void enviarPendientes(); });
+if (typeof window !== 'undefined') window.addEventListener('beforeunload', () => { if (pendientes.size) void enviarPendientes(); });
 
 export async function borrar(id: string) {
   estado.mios = estado.mios.filter((x) => x.id !== id);

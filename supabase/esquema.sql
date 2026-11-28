@@ -368,3 +368,16 @@ grant execute on function public.admin_personaje(text, jsonb), public.admin_rol(
 do $$ begin
   begin alter publication supabase_realtime add table public.duelos; exception when duplicate_object then null; end;
 end $$;
+
+-- ---------------------------------------------------------------------------
+-- Mundo vivo: «jugado» = última vez que el dueño guardó desde el juego.
+-- El proceso del servidor (función vida-mundo, cada 5 min) solo mueve a los que llevan >10 min sin jugar.
+alter table public.personajes add column if not exists jugado timestamptz not null default now();
+create extension if not exists pg_net;
+-- La función del servidor (rol service_role) necesita leer y escribir el mundo
+grant usage on schema public to service_role;
+grant select, insert, update, delete on public.personajes, public.tripulaciones, public.duelos to service_role;
+-- Reloj del mundo (cada 5 minutos). El secreto x-secreto está en los secretos de las funciones (TICK_SECRETO):
+-- select cron.schedule('vida-del-mundo', '*/5 * * * *', $$select net.http_post(
+--   url := 'https://umifpodyelcyfrgtdvlf.supabase.co/functions/v1/vida-mundo',
+--   headers := jsonb_build_object('Content-Type','application/json','x-secreto','<TICK_SECRETO>'), body := '{}'::jsonb)$$);

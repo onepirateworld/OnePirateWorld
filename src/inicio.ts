@@ -696,11 +696,16 @@ function refrescarVida(primera = false) {
   const v = volverConTripulacion(p, primera);
   if (v.p !== p) actualizarPersonaje(v.p);
   if (v.volvio) aviso(`${p.nombre} ha vuelto al barco de su tripulación.`);
-  const { p: nuevo, resumen } = avanzarVida(v.p);
+  const { p: avanzado, resumen } = avanzarVida(v.p);
+  let nuevo = avanzado;
+  // Lo que hizo mientras no jugabas (lo apunta el servidor, que mueve el mundo cada 5 minutos)
+  const delServidor = primera ? (nuevo.mientras ?? []).map(([, t]) => t) : [];
+  if (primera && nuevo.mientras?.length) { nuevo = { ...nuevo, mientras: undefined }; actualizarPersonaje(nuevo); }
   miEstado = nuevo;
-  if (primera && resumen.length) {
-    $('#resumen-lista').innerHTML = resumen.slice(-12).map((r) => `<li>${esc(nuevo.nombre)} ${esc(r)}.</li>`).join('')
-      + (resumen.length > 12 ? `<li>…y ${resumen.length - 12} cosas más (míralo en su diario).</li>` : '');
+  const todo = [...delServidor, ...resumen.map((r) => `${nuevo.nombre} ${r}`)];
+  if (primera && todo.length) {
+    $('#resumen-lista').innerHTML = todo.slice(-12).map((r) => `<li>${esc(r)}.</li>`).join('')
+      + (todo.length > 12 ? `<li>…y ${todo.length - 12} cosas más (míralo en su diario).</li>` : '');
     abrir('#dlg-resumen');
   } else if (resumen.length) aviso(`${nuevo.nombre} ${resumen[resumen.length - 1]}.`);
   if (antes !== undefined && antes !== nuevo.nivel) pintar();
