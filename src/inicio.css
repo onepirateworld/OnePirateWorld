@@ -545,3 +545,11 @@ a.boton-oro { display: inline-block; text-decoration: none; }
 @keyframes parpadeo { from { opacity: 0.35; } to { opacity: 1; } }
 .logo-pacto { display: block; width: 100%; height: auto; border-radius: 10px; margin-bottom: 8px; }
 .logo-mas { display: block; width: 100%; height: auto; border-radius: 12px; margin-bottom: 12px; }
+
+/* Jugadores en los rankings */
+.chip-jugador { display: inline-block; width: auto; font-size: 10px; padding: 1px 5px; border-radius: 6px; background: #2c4a8a; color: #e8f1ff; vertical-align: middle; font-weight: 400; }
+.chip-jugador.mio { background: #3f7a3a; }
+.chip-jugador.creador { background: #f2b63d; color: #1a1423; }
+.ranking li.fila-mia { outline: 2px solid #f2b63d; border-radius: 8px; }
+.cartel.cartel-mio { outline: 3px solid #f2b63d; }
+.ranking span.chip-jugador, .lista-gente span.chip-jugador { flex: none; display: inline-block; min-width: 0; }

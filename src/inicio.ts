@@ -379,7 +379,7 @@ async function pelearCon(bot: Bot, motivo: string) {
   // Enemigos adaptados: cerca de tu nivel para que un personaje nuevo pueda ganar
   const nivelRival = Math.max(1, p.nivel + (h % 3) - 1);
   const jugador = crearLuchador({ nombre: p.nombre, bando: p.bando, aspecto: p.aspecto, nivel: p.nivel, rasgos: p.rasgos, arsenal: arsenalDe(p), fruta: p.fruta, creador: p.creador, bolsa: bolsaDe(p) });
-  const frutaBot = [...frutasDelMar(marActual()).entries()].find(([, id]) => id === bot.id)?.[0];
+  const frutaBot = [...frutasDelMar(marActual(), [...personajes(), ...personajesDeOtros()].filter((x) => x.mar === marActual() && x.fruta).map((x) => x.fruta!)).entries()].find(([, id]) => id === bot.id)?.[0];
   const rival = crearLuchador({ nombre: bot.nombre, bando: bot.bando, aspecto: bot.aspecto, nivel: nivelRival, rasgos: bot.rasgos, arsenal: arsenalBot(nivelRival, azar(h)), fruta: frutaBot });
   const isla = islaDePersonaje(p);
   await iniciarCombate(jugador, rival, {

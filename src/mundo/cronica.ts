@@ -35,10 +35,14 @@ export const rangoDe = (nivel: number) => RANGOS[Math.min(RANGOS.length - 1, Mat
 export const formatoDoblones = (n: number) =>
   n >= 1_000_000 ? `${(n / 1_000_000).toLocaleString('es-ES', { maximumFractionDigits: n >= 100_000_000 ? 0 : 1 })} M` : n.toLocaleString('es-ES');
 
-// --- Frutas: los bots NO tienen frutas. Solo las consiguen los jugadores (muy difícil).
-// idFruta -> id del dueño. De momento vacío hasta que existan las búsquedas de frutas.
-export function frutasDelMar(_mar: number): Map<string, string> {
-  return new Map();
+// --- Frutas: solo UN bot por mar tiene fruta (el más fuerte), y nunca una legendaria.
+// Las demás solo las pueden conseguir los jugadores. idFruta -> id del bot.
+export function frutasDelMar(mar: number, ocupadas: string[] = []): Map<string, string> {
+  const fuerte = [...botsDelMar(mar)].sort((a, b) => b.nivel - a.nivel)[0];
+  const libres = FRUTAS.filter((f) => f.rareza !== 'legendaria' && !ocupadas.includes(f.id));
+  if (!fuerte || !libres.length) return new Map();
+  const f = libres[Math.floor(azar(mar * 4441)() * libres.length)];
+  return new Map([[f.id, fuerte.id]]);
 }
 
 // --- Sucesos

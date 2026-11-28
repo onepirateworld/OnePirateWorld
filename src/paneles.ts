@@ -9,7 +9,7 @@ import { RASGOS } from './datos/caracter';
 import { abrirCartel } from './cartel';
 import { LOGROS, NOMBRES_ESTADISTICAS, estadisticasIniciales, objetivosPara, type Estadisticas } from './datos/progreso';
 import {
-  BANDOS, actualizarPersonaje, arsenalDe, cuentaActual, esModerador, marActual, personajeActivo, type PersonajeGuardado,
+  BANDOS, actualizarPersonaje, arsenalDe, cuentaActual, esModerador, marActual, personajeActivo, personajes, personajesDeOtros, type Bando, type PersonajeGuardado,
 } from './cuenta';
 import {
   CATALOGO_ARMAS, CATALOGO_HABILIDADES, MAX_EQUIPADAS, MEJORA_POR_PUNTO, NIVEL_MAX, arma, habilidadUsable, precioForja, precioHabilidad,
@@ -263,31 +263,59 @@ export function crearPaneles(acc: Acciones) {
     };
   }
 
+  /** Bots y jugadores reales de este mar, en un mismo formato para los rankings. */
+  interface Entrada { id: string; nombre: string; bando: Bando; nivel: number; aspecto: AspectoPersonaje; recompensa: number; jugador: boolean; mio: boolean; creador: boolean }
+  function entradasDelMar(mar: number): Entrada[] {
+    const yo = personajes().filter((x) => x.mar === mar);
+    const jug = (x: PersonajeGuardado, mio: boolean): Entrada => ({ id: `j-${x.id}`, nombre: x.apodo ? `${x.nombre} «${x.apodo}»` : x.nombre, bando: x.bando, nivel: x.nivel, aspecto: x.aspecto,
+      recompensa: x.bando === 'marine' ? 0 : x.recompensa ?? 0, jugador: true, mio, creador: !!x.creador });
+    return [
+      ...botsDelMar(mar).map((b): Entrada => ({ id: `b-${b.id}`, nombre: nombreBot(b), bando: b.bando, nivel: b.nivel, aspecto: b.aspecto, recompensa: recompensa(b), jugador: false, mio: false, creador: false })),
+      ...yo.map((x) => jug(x, true)),
+      ...personajesDeOtros().filter((x) => x.mar === mar && !yo.some((y) => y.id === x.id)).map((x) => jug(x, false)),
+    ];
+  }
+  const marcaJugador = (e: Entrada) => e.creador ? ' <span class="chip-jugador creador">Creador</span>' : e.mio ? ' <span class="chip-jugador mio">Tú</span>' : e.jugador ? ' <span class="chip-jugador">Jugador</span>' : '';
+
   // --- Tablones ---------------------------------------------------------------
   function tablones() {
     const mar = marActual();
-    const bots = botsDelMar(mar);
+    const todosMar = entradasDelMar(mar);
     const p = cuentaActual() ? personajeActivo() : null;
-    const fila = (i: number, b: Bot, valor: string) => `<li><span class="pos">${i + 1}</span><i data-sprite="b-${b.id}"></i><span><b>${esc(nombreBot(b))}</b><small class="bando-${b.bando}">${BANDOS[b.bando].nombre} · Nv. ${b.nivel}</small></span><em>${valor}</em></li>`;
-    const buscados = bots.filter((b) => b.bando !== 'marine').sort((a, b) => recompensa(b) - recompensa(a)).slice(0, 15);
-    const marines = bots.filter((b) => b.bando === 'marine').sort((a, b) => b.nivel - a.nivel).slice(0, 15);
-    const fuertes = [...bots].sort((a, b) => b.nivel - a.nivel).slice(0, 15);
-    const frutas = frutasDelMar(mar);
-    const todos = [...buscados, ...marines, ...fuertes, ...bots.filter((b) => [...frutas.values()].includes(b.id))];
+    const fila = (i: number, e: Entrada, valor: string) => `<li class="${e.mio ? 'fila-mia' : ''}"><span class="pos">${i + 1}</span><i data-sprite="${e.id}"></i><span><b>${esc(e.nombre)}${marcaJugador(e)}</b><small class="bando-${e.bando}">${BANDOS[e.bando].nombre} · Nv. ${e.nivel}</small></span><em>${valor}</em></li>`;
+    const top = (lista: Entrada[]) => {
+      // Los 15 primeros y, si tu personaje no está entre ellos, también él con su puesto
+      const r = lista.slice(0, 15).map((e, i) => [i, e] as const);
+      const i = lista.findIndex((e) => e.mio);
+      if (i >= 15) r.push([i, lista[i]]);
+      return r;
+    };
+    const buscados = todosMar.filter((e) => e.bando !== 'marine' && (e.recompensa > 0 || e.jugador)).sort((a, b) => b.recompensa - a.recompensa);
+    const marines = todosMar.filter((e) => e.bando === 'marine').sort((a, b) => b.nivel - a.nivel);
+    const fuertes = [...todosMar].sort((a, b) => b.nivel - a.nivel);
+    const lr = top(buscados), lm = top(marines), lf = top(fuertes);
+    const conFruta = [...personajes(), ...personajesDeOtros()].filter((x) => x.mar === mar && x.fruta);
+    const frutas = frutasDelMar(mar, conFruta.map((x) => x.fruta!));
+    const botFruta = [...frutas.entries()].map(([fid, bid]) => ({ e: todosMar.find((y) => y.id === `b-${bid}`)!, fid }));
+    const visibles = new Map<string, Entrada>();
+    for (const [, e] of [...lr, ...lm, ...lf]) visibles.set(e.id, e);
+    for (const x of conFruta) { const e = todosMar.find((y) => y.id === `j-${x.id}`); if (e) visibles.set(e.id, e); }
+    for (const { e } of botFruta) visibles.set(e.id, e);
+    const yoSinRec = p && p.bando !== 'marine' && !(p.recompensa ?? 0);
     const html = `
       <div class="pestanas-hoja"><button class="sel" data-filtro="rec">Recompensas</button><button data-filtro="rangos">Marina</button><button data-filtro="fuertes">Más fuertes</button><button data-filtro="trip">Tripulaciones</button><button data-filtro="frutas">Frutas</button></div>
-      <div data-vista="rec"><ol class="ranking">${buscados.map((b, i) => fila(i, b, `${formatoDoblones(recompensa(b))}`)).join('')}</ol>
-        ${p && p.bando !== 'marine' ? `<p class="nota-hoja">${esc(p.nombre)} aún no tiene recompensa.</p>` : ''}</div>
-      <div data-vista="rangos" hidden><ol class="ranking">${marines.map((b, i) => fila(i, b, rangoDe(b.nivel))).join('')}</ol></div>
-      <div data-vista="fuertes" hidden><ol class="ranking">${fuertes.map((b, i) => fila(i, b, `Nv. ${b.nivel}`)).join('')}</ol></div>
+      <div data-vista="rec"><ol class="ranking">${lr.map(([i, e]) => fila(i, e, e.recompensa ? formatoDoblones(e.recompensa) : 'Sin recompensa')).join('')}</ol>
+        ${yoSinRec ? `<p class="nota-hoja">${esc(p!.nombre)} aún no tiene recompensa.</p>` : ''}</div>
+      <div data-vista="rangos" hidden><ol class="ranking">${lm.map(([i, e]) => fila(i, e, e.creador ? 'Creador' : rangoDe(e.nivel))).join('')}</ol></div>
+      <div data-vista="fuertes" hidden><ol class="ranking">${lf.map(([i, e]) => fila(i, e, `Nv. ${e.nivel}`)).join('')}</ol></div>
       <div data-vista="trip" hidden>${bloqueado('Tripulaciones', 'Cuando los personajes formen tripulaciones (fase 7), aquí estarán las más famosas.')}</div>
-      <div data-vista="frutas" hidden><ol class="ranking">${[...frutas.entries()].map(([fid, bid], i) => {
-        const b = bots.find((x) => x.id === bid)!; const f = FRUTAS.find((x) => x.id === fid)!;
-        return fila(i, b, esc(f.nombre));
-      }).join('')}</ol><p class="nota-hoja">${frutas.size} de ${FRUTAS.length} frutas encontradas en este mar. Solo los jugadores pueden conseguirlas, y no es fácil.</p></div>`;
+      <div data-vista="frutas" hidden><ol class="ranking">${conFruta.map((x, i) => {
+        const e = visibles.get(`j-${x.id}`)!; const f = FRUTAS.find((y) => y.id === x.fruta);
+        return fila(i, e, esc(f?.nombre ?? '???'));
+      }).join('')}${botFruta.map(({ e, fid }, i) => fila(conFruta.length + i, e, esc(FRUTAS.find((f) => f.id === fid)!.nombre))).join('')}</ol><p class="nota-hoja">${conFruta.length + frutas.size} de ${FRUTAS.length} frutas encontradas en este mar. Solo un bot por mar tiene una; las demás son para los jugadores, y no es fácil conseguirlas.</p></div>`;
     return {
       titulo: 'Tablones', html, despues: (el: HTMLElement) => {
-        ponerSprites(el, new Map(todos.map((b) => [`b-${b.id}`, cara(b.aspecto, 1.6)])));
+        ponerSprites(el, new Map([...visibles.values()].map((e) => [e.id, cara(e.aspecto, 1.6)])));
         pestanasLocales(el);
       },
     };
@@ -314,14 +342,15 @@ export function crearPaneles(acc: Acciones) {
 
   // --- Se busca ---------------------------------------------------------------
   function seBusca() {
-    const bots = botsDelMar(marActual()).filter((b) => b.bando !== 'marine').sort((a, b) => recompensa(b) - recompensa(a)).slice(0, 8);
+    const buscados = entradasDelMar(marActual()).filter((e) => e.bando !== 'marine' && e.recompensa > 0).sort((a, b) => b.recompensa - a.recompensa).slice(0, 8);
     const p = cuentaActual() ? personajeActivo() : null;
+    const yoSinRec = p && p.bando !== 'marine' && !(p.recompensa ?? 0);
     return {
       titulo: 'Se busca',
       html: `<p class="nota-hoja">Carteles publicados al amanecer. La recompensa baja poco a poco si el buscado pasa días tranquilo.</p>
-        <div class="carteles">${bots.map((b) => `<div class="cartel"><span class="cartel-titulo">SE BUSCA</span><i data-sprite="b-${b.id}"></i><b>${esc(b.nombre)}</b>${b.apodo ? `<small>«${esc(b.apodo)}»</small>` : ''}<span class="cartel-cifra">${formatoDoblones(recompensa(b))}</span><small class="cartel-pie">doblones</small></div>`).join('')}</div>
-        ${p && p.bando !== 'marine' ? `<p class="vacio">Todavía nadie busca a ${esc(p.nombre)}. Con unas cuantas fechorías, su cara acabará aquí.</p>` : ''}`,
-      despues: (el: HTMLElement) => ponerSprites(el, new Map(bots.map((b) => [`b-${b.id}`, cara(b.aspecto, 3)]))),
+        <div class="carteles">${buscados.map((e) => `<div class="cartel ${e.mio ? 'cartel-mio' : ''}"><span class="cartel-titulo">SE BUSCA</span><i data-sprite="${e.id}"></i><b>${esc(e.nombre)}</b>${e.jugador ? `<small>${e.creador ? 'Creador' : e.mio ? 'Tú' : 'Jugador'}</small>` : ''}<span class="cartel-cifra">${formatoDoblones(e.recompensa)}</span><small class="cartel-pie">doblones</small></div>`).join('')}</div>
+        ${yoSinRec ? `<p class="vacio">Todavía nadie busca a ${esc(p!.nombre)}. Con unas cuantas fechorías, su cara acabará aquí.</p>` : ''}`,
+      despues: (el: HTMLElement) => ponerSprites(el, new Map(buscados.map((e) => [e.id, cara(e.aspecto, 3)]))),
     };
   }
 
@@ -408,15 +437,18 @@ export function crearPaneles(acc: Acciones) {
 
   // --- Compendio de frutas ----------------------------------------------------
   function compendio() {
-    const bots = botsDelMar(marActual());
-    const duenos = frutasDelMar(marActual());
+    const mar = marActual();
+    const bots = botsDelMar(mar);
+    const jugadores = [...personajes(), ...personajesDeOtros()].filter((x) => x.mar === mar && x.fruta);
+    const nombres = new Map<string, string>(jugadores.map((x) => [x.fruta!, x.nombre]));
+    for (const [fid, bid] of frutasDelMar(mar, jugadores.map((x) => x.fruta!))) nombres.set(fid, nombreBot(bots.find((x) => x.id === bid)!));
+    const duenos = nombres;
     return {
       titulo: 'Compendio de frutas',
       html: `<p class="nota-hoja">Solo existe una de cada fruta en cada mar. ${duenos.size} de ${FRUTAS.length} ya tienen dueño.</p>
         <div class="compendio">${FRUTAS.map((f) => {
-          const due = duenos.get(f.id);
-          const b = due ? bots.find((x) => x.id === due) : null;
-          return b ? `<div class="fruta conocida" style="--rareza:${RAREZAS[f.rareza].color}"><i data-sprite="f-${f.id}"></i><b>${esc(f.nombre)}</b><small>${CATEGORIAS[f.categoria].nombre} · ${RAREZAS[f.rareza].nombre}</small><small>${esc(f.poder)}</small><em>La tiene ${esc(nombreBot(b))}</em></div>`
+          const quien = duenos.get(f.id);
+          return quien ? `<div class="fruta conocida" style="--rareza:${RAREZAS[f.rareza].color}"><i data-sprite="f-${f.id}"></i><b>${esc(f.nombre)}</b><small>${CATEGORIAS[f.categoria].nombre} · ${RAREZAS[f.rareza].nombre}</small><small>${esc(f.poder)}</small><em>La tiene ${esc(quien)}</em></div>`
             : `<div class="fruta" style="--rareza:${RAREZAS[f.rareza].color}"><i data-sprite="s-${f.id}"></i><b>???</b><small>${CATEGORIAS[f.categoria].nombre} · ${RAREZAS[f.rareza].nombre}</small><em>Nadie la ha encontrado</em></div>`;
         }).join('')}</div>
         <h3>Debilidad común: ${esc(DEBILIDAD_COMUN.nombre)}</h3><p class="nota-hoja">${esc(DEBILIDAD_COMUN.descripcion)}</p>`,
