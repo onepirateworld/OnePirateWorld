@@ -116,7 +116,14 @@ function escucharMundo(mar: number) {
   canalMundo = sb.channel(`mundo-${mar}`)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'personajes', filter: `mar=eq.${mar}` }, (cambio) => {
       const f = (cambio.new ?? cambio.old) as FilaPersonaje;
-      if (!f?.id || f.dueno === estado.usuario?.id) return;
+      if (!f?.id) return;
+      if (f.dueno === estado.usuario?.id) {
+        // Un cambio en uno de los míos que no hice yo (por ejemplo, un regalo del Creador)
+        if (cambio.eventType === 'DELETE') { estado.mios = estado.mios.filter((x) => x.id !== f.id); escribir('srv.mios', estado.mios); return; }
+        const i = estado.mios.findIndex((x) => x.id === f.id);
+        if (i >= 0 && !pendientes.has(f.id)) { estado.mios[i] = cambio.new as FilaPersonaje; escribir('srv.mios', estado.mios); }
+        return;
+      }
       if (cambio.eventType === 'DELETE') estado.otros.delete(f.id);
       else estado.otros.set(f.id, cambio.new as FilaPersonaje);
     })
@@ -251,4 +258,59 @@ export function escucharMensajes(mar: number, alLlegar: (m: FilaMensaje) => void
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mensajes', filter: `mar=eq.${mar}` }, (c) => alLlegar(c.new as FilaMensaje))
     .subscribe();
   return () => { void canal.unsubscribe(); };
+}
+
+// --- Duelos entre jugadores ---------------------------------------------------
+
+export interface FilaDuelo {
+  id: number; mar: number; atacante: string; atacante_dueno: string; atacante_nombre: string;
+  defensor: string; defensor_dueno: string; defensor_nombre: string; ganador: 'atacante' | 'defensor' | 'huida'; premio: number; visto: boolean; creado: string;
+}
+export async function registrarDuelo(d: Omit<FilaDuelo, 'id' | 'atacante_dueno' | 'visto' | 'creado'>): Promise<string | null> {
+  const { error } = await sb.from('duelos').insert(d);
+  return error ? error.message : null;
+}
+/** Duelos de hoy que ya hice (para los límites). */
+export async function misDuelosDeHoy(): Promise<FilaDuelo[]> {
+  if (!estado.usuario) return [];
+  const { data } = await sb.from('duelos').select('*').eq('atacante_dueno', estado.usuario.id).gte('creado', new Date(Date.now() - 86400_000).toISOString());
+  return (data ?? []) as FilaDuelo[];
+}
+/** Duelos en los que me atacaron y aún no he visto. */
+export async function duelosRecibidos(): Promise<FilaDuelo[]> {
+  if (!estado.usuario) return [];
+  const { data } = await sb.from('duelos').select('*').eq('defensor_dueno', estado.usuario.id).eq('visto', false).order('creado');
+  return (data ?? []) as FilaDuelo[];
+}
+export async function marcarDuelosVistos(ids: number[]) {
+  if (ids.length) await sb.from('duelos').update({ visto: true }).in('id', ids);
+}
+export async function ultimosDuelos(mar: number, n = 20): Promise<FilaDuelo[]> {
+  const { data } = await sb.from('duelos').select('*').eq('mar', mar).order('creado', { ascending: false }).limit(n);
+  return (data ?? []) as FilaDuelo[];
+}
+
+// --- Panel del Creador ----------------------------------------------------------
+
+export async function adminTodos(): Promise<FilaPersonaje[]> {
+  const { data } = await sb.from('personajes').select('*').order('mar').order('nombre').limit(1000);
+  return (data ?? []) as FilaPersonaje[];
+}
+export async function adminRoles(): Promise<Map<string, string>> {
+  const { data } = await sb.rpc('admin_roles');
+  return new Map(((data ?? []) as { personaje: string; rol: string }[]).map((x) => [x.personaje, x.rol]));
+}
+export async function adminPersonaje(id: string, cambios: Record<string, unknown>): Promise<string | null> {
+  const { error } = await sb.rpc('admin_personaje', { p_id: id, p_cambios: cambios });
+  if (!error) return null;
+  if (/fruta_unica|duplicate/i.test(error.message)) return 'Otro jugador de ese mar ya tiene esa fruta.';
+  return error.message;
+}
+export async function adminRol(id: string, rol: 'jugador' | 'moderador'): Promise<string | null> {
+  const { error } = await sb.rpc('admin_rol', { p_id: id, p_rol: rol });
+  return error ? error.message : null;
+}
+export async function adminBorrar(id: string): Promise<string | null> {
+  const { error } = await sb.rpc('admin_borrar', { p_id: id });
+  return error ? error.message : null;
 }

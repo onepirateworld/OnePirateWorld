@@ -21,14 +21,14 @@ import { botsDelMar, islaDePersonaje, islasDelMundo, nombreZona, posicionBot, ty
 import { cronica, frutasDelMar, formatoDoblones, haceCuanto, rangoDe, recompensa, type Suceso } from './mundo/cronica';
 import { icono } from './iconos';
 import { NIVEL_FUNDAR, botsDeTripulaciones, resumenTripulacion, tripulacionDe, tripulacionesDelMar } from './mundo/tripulaciones';
-import { disolverTripulacion, fundarTripulacion } from './servidor';
+import { adminBorrar, adminPersonaje, adminRol, adminRoles, adminTodos, disolverTripulacion, fundarTripulacion } from './servidor';
 import { volverConTripulacion } from './mundo/vida';
 import { NIVEL_RUMORES, PISTAS_NECESARIAS, nivelGuardian, guardianAqui, islaDeBusqueda, rangoMarine, textoPista, topeMeritosDia, topeRecompensaDia } from './mundo/busqueda';
 import { ruta } from './rutas';
 import { BARCOS_PRUEBA } from './arte/barcos';
 import { BARCOS, PRECIO_SASTRE, PROVISIONES, bolsaDe, type IdBarco } from './datos/tienda';
 
-export type IdPanel = 'arsenal' | 'mi-pirata' | 'noticias' | 'taberna' | 'tablones' | 'mas' | 'en-vivo' | 'se-busca' | 'cofre' | 'compendio' | 'guia' | 'normas' | 'privacidad' | 'tienda';
+export type IdPanel = 'arsenal' | 'mi-pirata' | 'noticias' | 'taberna' | 'tablones' | 'mas' | 'en-vivo' | 'se-busca' | 'cofre' | 'compendio' | 'guia' | 'normas' | 'privacidad' | 'tienda' | 'creador';
 
 interface Acciones {
   aviso(t: string): void;
@@ -40,6 +40,7 @@ interface Acciones {
   guardian(): void;
   navegarA(isla: number): void;
   comerFruta(): void;
+  desafiar(id: string): void;
   rutaGaleria: string;
 }
 
@@ -127,6 +128,7 @@ export function crearPaneles(acc: Acciones) {
     normas,
     privacidad,
     tienda,
+    creador: panelCreador,
   };
 
   // --- Mi pirata --------------------------------------------------------------
@@ -370,7 +372,7 @@ export function crearPaneles(acc: Acciones) {
     const mar = marActual();
     const todosMar = entradasDelMar(mar);
     const p = cuentaActual() ? personajeActivo() : null;
-    const fila = (i: number, e: Entrada, valor: string) => `<li class="${e.mio ? 'fila-mia' : ''}"><span class="pos">${i + 1}</span><i data-sprite="${e.id}"></i><span><b>${esc(e.nombre)}${marcaJugador(e)}</b><small class="bando-${e.bando}">${BANDOS[e.bando].nombre} · Nv. ${e.nivel}</small></span><em>${valor}</em></li>`;
+    const fila = (i: number, e: Entrada, valor: string) => `<li class="${e.mio ? 'fila-mia' : ''}"><span class="pos">${i + 1}</span><i data-sprite="${e.id}"></i><span><b>${esc(e.nombre)}${marcaJugador(e)}</b><small class="bando-${e.bando}">${BANDOS[e.bando].nombre} · Nv. ${e.nivel}</small></span><em>${valor}</em>${e.jugador && !e.mio && p ? `<button class="mini-boton duelo" data-desafiar="${e.id.slice(2)}" title="Desafiar a un duelo">⚔</button>` : ''}</li>`;
     const top = (lista: Entrada[]) => {
       // Los 15 primeros y, si tu personaje no está entre ellos, también él con su puesto
       const r = lista.slice(0, 15).map((e, i) => [i, e] as const);
@@ -406,6 +408,7 @@ export function crearPaneles(acc: Acciones) {
         ponerSprites(el, new Map([...visibles.values()].map((e) => [e.id, cara(e.aspecto, 1.6)])));
         pestanasLocales(el);
         enlazarTripulacion(el, 'tablones');
+        el.querySelectorAll<HTMLButtonElement>('[data-desafiar]').forEach((b) => b.addEventListener('click', () => { cerrar(); acc.desafiar(b.dataset.desafiar!); }));
         // Recordar la pestaña (por ejemplo, al unirse a una tripulación)
         el.querySelectorAll<HTMLButtonElement>('[data-filtro]').forEach((b) => b.addEventListener('click', () => (pestanaTablones = b.dataset.filtro!)));
         if (pestanaTablones !== 'rec') el.querySelector<HTMLButtonElement>(`[data-filtro="${pestanaTablones}"]`)?.click();
@@ -424,6 +427,7 @@ export function crearPaneles(acc: Acciones) {
       html: `<img class="logo-mas" src="${ruta('assets/logo/logo-banner.jpg')}" alt="OnePirateWorld" /><div class="rejilla-mas">${items.map(([id, t, s]) => `<button data-ir="${id}"><b>${t}</b><small>${s}</small></button>`).join('')}
         <button data-accion="mares"><b>Cambiar de mar</b><small>Mar ${marActual()}</small></button>
         <a href="${acc.rutaGaleria}"><b>Galería de arte</b><small>Todos los dibujos</small></a>
+        ${estadoServidor.perfil?.rol === 'creador' ? '<button data-ir="creador" class="boton-creador"><b>👑 Panel del Creador</b><small>Regalos, nombres, roles</small></button>' : ''}
         ${cuentaActual() ? '<button data-accion="salir"><b>Cerrar sesión</b><small>Salir de tu cuenta</small></button>' : ''}</div>`,
       despues: (el: HTMLElement) => {
         el.querySelectorAll<HTMLButtonElement>('[data-ir]').forEach((b) => b.addEventListener('click', () => abrir(b.dataset.ir as IdPanel)));
@@ -444,6 +448,68 @@ export function crearPaneles(acc: Acciones) {
         ${yoSinRec ? `<p class="vacio">Todavía nadie busca a ${esc(p!.nombre)}. Con unas cuantas fechorías, su cara acabará aquí.</p>` : ''}`,
       despues: (el: HTMLElement) => ponerSprites(el, new Map(buscados.map((e) => [e.id, cara(e.aspecto, 3)]))),
     };
+  }
+
+  // --- Panel del Creador (solo cuentas con rol «creador»; el servidor lo vuelve a comprobar) ---
+  let filtroCreador = '';
+  function panelCreador() {
+    if (estadoServidor.perfil?.rol !== 'creador') return { titulo: 'Panel del Creador', html: '<p class="vacio">Solo para el Creador.</p>' };
+    return {
+      titulo: '👑 Panel del Creador',
+      html: `<p class="nota-hoja">Todos los personajes de todos los mares. Toca uno para editarlo. Los cambios llegan al momento.</p>
+        <input id="buscar-creador" class="buscador" placeholder="Buscar por nombre…" value="${esc(filtroCreador)}" />
+        <div id="lista-creador"><p class="vacio">Cargando…</p></div>`,
+      despues: (el: HTMLElement) => { void pintarCreador(el); },
+    };
+  }
+  async function pintarCreador(el: HTMLElement) {
+    const [todos, roles] = await Promise.all([adminTodos(), adminRoles()]);
+    const lista = el.querySelector<HTMLElement>('#lista-creador');
+    if (!lista) return;
+    const opcionesFruta = `<option value="">— Sin fruta —</option>${FRUTAS.map((f) => `<option value="${f.id}">${esc(f.nombre)} (${RAREZAS[f.rareza].nombre})</option>`).join('')}`;
+    const pinta = () => {
+      const q = filtroCreador.toLowerCase();
+      const vis = todos.filter((f) => !q || f.nombre.toLowerCase().includes(q));
+      lista.innerHTML = vis.map((f) => {
+        const d = f.datos as { fruta?: string };
+        const rol = roles.get(f.id) ?? 'jugador';
+        return `<details class="admin-fila" data-id="${f.id}"><summary><b>${esc(f.nombre)}</b> <small class="bando-${f.bando}">${BANDOS[f.bando as Bando].nombre}</small>
+            <small>Mar ${f.mar} · Nv. ${f.nivel} · ${formatoDoblones(Number(f.doblones))} 🪙${f.bando !== 'marine' ? ` · 💀 ${formatoDoblones(Number(f.recompensa))}` : ''}${d.fruta ? ` · 🍈 ${esc(FRUTAS.find((x) => x.id === d.fruta)?.nombre ?? d.fruta)}` : ''}${rol !== 'jugador' ? ` · <b class="creador">${rol}</b>` : ''}</small></summary>
+          <div class="admin-form">
+            <label>Dar doblones <span><input type="number" data-campo="doblones" value="100000" /><button class="mini-boton" data-op="doblones">Dar</button></span></label>
+            ${f.bando !== 'marine' ? `<label>Recompensa <span><input type="number" data-campo="recompensa" value="${Number(f.recompensa)}" /><button class="mini-boton" data-op="recompensa">Poner</button></span></label>` : ''}
+            <label>Nivel <span><input type="number" min="1" max="80" data-campo="nivel" value="${f.nivel}" /><button class="mini-boton" data-op="nivel">Poner</button></span></label>
+            <label>Fruta <span><select data-campo="fruta">${opcionesFruta.replace(`value="${d.fruta ?? ''}"`, `value="${d.fruta ?? ''}" selected`)}</select><button class="mini-boton" data-op="fruta">Dar</button></span></label>
+            <label>Nombre <span><input data-campo="nombre" maxlength="24" value="${esc(f.nombre)}" /><button class="mini-boton" data-op="nombre">Cambiar</button></span></label>
+            ${rol === 'creador' ? '' : `<div class="fila-mini"><button class="mini-boton" data-op="rol" data-rol="${rol === 'moderador' ? 'jugador' : 'moderador'}">${rol === 'moderador' ? 'Quitar moderador' : 'Hacer moderador'}</button>
+              ${f.creador ? '' : '<button class="mini-boton peligro" data-op="borrar">Borrar personaje</button>'}</div>`}
+          </div></details>`;
+      }).join('') || '<p class="vacio">No hay nadie con ese nombre.</p>';
+    };
+    pinta();
+    el.querySelector<HTMLInputElement>('#buscar-creador')?.addEventListener('input', (e) => { filtroCreador = (e.target as HTMLInputElement).value; pinta(); });
+    lista.addEventListener('click', async (e) => {
+      const b = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-op]');
+      if (!b) return;
+      e.preventDefault();
+      const fila = b.closest<HTMLElement>('.admin-fila')!;
+      const id = fila.dataset.id!;
+      const f = todos.find((x) => x.id === id)!;
+      const valor = (campo: string) => fila.querySelector<HTMLInputElement | HTMLSelectElement>(`[data-campo="${campo}"]`)!.value;
+      let error: string | null = null, msg = '';
+      b.disabled = true;
+      switch (b.dataset.op) {
+        case 'doblones': { const n = Math.round(Number(valor('doblones'))); error = await adminPersonaje(id, { doblones_suma: n, nota: `El Creador le regaló ${formatoDoblones(n)} doblones.` }); msg = `${f.nombre} recibe ${formatoDoblones(n)} doblones.`; break; }
+        case 'recompensa': { const n = Math.max(0, Math.round(Number(valor('recompensa')))); error = await adminPersonaje(id, { recompensa: n, nota: `La Marina publicó un cartel nuevo: SE BUSCA por ${formatoDoblones(n)} doblones.` }); msg = `Recompensa de ${f.nombre}: ${formatoDoblones(n)}.`; break; }
+        case 'nivel': { const n = Math.round(Number(valor('nivel'))); error = await adminPersonaje(id, { nivel: n }); msg = `${f.nombre} pasa a nivel ${n}.`; break; }
+        case 'fruta': { const fr = valor('fruta') || null; const nom = fr ? FRUTAS.find((x) => x.id === fr)!.nombre : ''; error = await adminPersonaje(id, { fruta: fr, ...(fr ? { nota: `Un mensajero del Creador le entregó la ${nom}. Se la comió de un bocado.` } : {}) }); msg = fr ? `${f.nombre} tiene ahora la ${nom}.` : `${f.nombre} se queda sin fruta.`; break; }
+        case 'nombre': { const n = valor('nombre').trim(); if (n.length < 1) { b.disabled = false; return; } error = await adminPersonaje(id, { nombre: n }); msg = `Ahora se llama ${n}.`; break; }
+        case 'rol': { const r = b.dataset.rol as 'jugador' | 'moderador'; error = await adminRol(id, r); msg = r === 'moderador' ? `El dueño de ${f.nombre} ya es moderador.` : `El dueño de ${f.nombre} ya no es moderador.`; break; }
+        case 'borrar': { if (!confirm(`¿Borrar a ${f.nombre} para siempre?`)) { b.disabled = false; return; } error = await adminBorrar(id); msg = `${f.nombre} ha sido borrado.`; break; }
+      }
+      acc.aviso(error ?? msg);
+      if (!error) abrir('creador', false); else b.disabled = false;
+    });
   }
 
   // --- Tienda -----------------------------------------------------------------

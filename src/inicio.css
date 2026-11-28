@@ -577,3 +577,19 @@ a.boton-oro { display: inline-block; text-decoration: none; }
 .mini-boton.peligro { background: #7a2430; color: #fff; }
 .hoja h4 { margin: 12px 0 6px; font-size: 14px; color: var(--texto-suave); }
 .tripulacion > b, .tripulacion > small { display: block; } .tripulacion > small { margin-top: 2px; color: var(--texto-suave); }
+
+/* Duelos y Panel del Creador */
+.mini-boton.duelo { flex: none; margin-left: 6px; }
+.boton-creador { border-color: #f2b63d !important; }
+.buscador { width: 100%; font: inherit; font-size: 16px; padding: 8px 10px; border-radius: 8px; border: 2px solid var(--panel-borde); background: #0b1124; color: var(--texto); margin: 4px 0 10px; }
+.admin-fila { background: #12304f; border-radius: 10px; padding: 8px 10px; margin-bottom: 6px; }
+.admin-fila summary { cursor: pointer; display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; }
+.admin-fila summary small { color: var(--texto-suave); }
+.admin-form { display: grid; gap: 8px; margin-top: 10px; }
+.admin-form label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--texto-suave); }
+.admin-form label span { display: flex; gap: 6px; }
+.admin-form input, .admin-form select { flex: 1; min-width: 0; font: inherit; font-size: 16px; padding: 6px 8px; border-radius: 6px; border: 2px solid var(--panel-borde); background: #0b1124; color: var(--texto); }
+.admin-form label span > input, .admin-form label span > select { flex: 1 1 0; width: 0; }
+.admin-form label span > button { flex: none; }
+.admin-form .fila-mini { display: flex; flex-wrap: wrap; gap: 6px; }
+.admin-fila { overflow: hidden; }

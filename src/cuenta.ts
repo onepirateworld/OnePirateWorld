@@ -45,6 +45,8 @@ export interface PersonajeGuardado {
   meritos?: number;
   /** Recompensa o méritos ganados hoy (tope diario). */
   notoriedad?: { dia: string; valor: number };
+  /** Cuenta dueña (la pone el servidor; no se guarda en «datos»). */
+  dueno?: string;
   /** Tripulación a la que pertenece (id). */
   tripulacion?: string;
   /** Lo mandaste a navegar lejos de su tripulación (vuelve al entrar de nuevo). */
@@ -80,12 +82,13 @@ function filaAPersonaje(f: FilaPersonaje): PersonajeGuardado {
   const d = f.datos as Partial<PersonajeGuardado>;
   return {
     ...d, rasgos: d.rasgos ?? [], sueno: d.sueno ?? '', aspecto: d.aspecto!,
-    id: f.id, nombre: f.nombre, apodo: f.apodo ?? undefined, bando: f.bando as Bando, nivel: f.nivel,
+    id: f.id, dueno: f.dueno, nombre: f.nombre, apodo: f.apodo ?? undefined, bando: f.bando as Bando, nivel: f.nivel,
     doblones: Number(f.doblones), recompensa: f.bando === 'marine' ? 0 : Number(f.recompensa), creador: f.creador, mar: f.mar, creado: Date.parse(f.creado),
   };
 }
 function personajeAFila(p: PersonajeGuardado): FilaPersonaje {
-  const { id, nombre, apodo, bando, nivel, doblones, recompensa, creador, mar, creado, ...datos } = p;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { id, nombre, apodo, bando, nivel, doblones, recompensa, creador, mar, creado, dueno: _dueno, ...datos } = p;
   return {
     id, dueno: estado.usuario?.id ?? '', mar, nombre, apodo: apodo ?? null, bando, datos, nivel: Math.min(80, nivel),
     doblones, recompensa: bando === 'marine' ? 0 : recompensa ?? 0, creador: !!creador, creado: new Date(creado).toISOString(),

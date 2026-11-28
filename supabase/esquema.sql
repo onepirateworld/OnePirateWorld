@@ -96,7 +96,7 @@ begin
   if new.bando = 'marine' then new.recompensa := 0; end if;
   -- Antitrampas: nadie (salvo el creador) puede subirse el dinero o el nivel de golpe
   -- (Guardar desde el juego es «insertar o actualizar»: comparamos con la fila que ya exista)
-  if not new.creador then
+  if not new.creador and coalesce(current_setting('opw.admin', true), '') <> '1' then
     select doblones, nivel, recompensa, datos into antes from public.personajes where id = new.id;
     if not found then
       new.doblones := least(new.doblones, 1000);
@@ -262,4 +262,109 @@ grant select on public.tripulaciones to anon, authenticated;
 grant insert, delete on public.tripulaciones to authenticated;
 do $$ begin
   begin alter publication supabase_realtime add table public.tripulaciones; exception when duplicate_object then null; end;
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- Duelos entre jugadores. El atacante controla a su personaje; el defensor pelea solo
+-- con sus datos reales. El defensor ve el resultado al entrar (y aplica lo suyo).
+create table if not exists public.duelos (
+  id bigint generated always as identity primary key,
+  mar int not null,
+  atacante text not null references public.personajes(id) on delete cascade,
+  atacante_dueno uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  atacante_nombre text not null,
+  defensor text not null references public.personajes(id) on delete cascade,
+  defensor_dueno uuid not null references auth.users(id) on delete cascade,
+  defensor_nombre text not null,
+  ganador text not null check (ganador in ('atacante', 'defensor', 'huida')),
+  premio bigint not null default 0,
+  visto boolean not null default false,
+  creado timestamptz not null default now()
+);
+create index if not exists duelos_defensor on public.duelos (defensor_dueno, visto);
+create index if not exists duelos_atacante on public.duelos (atacante_dueno, creado desc);
+alter table public.duelos enable row level security;
+drop policy if exists "ver duelos" on public.duelos;
+create policy "ver duelos" on public.duelos for select using (true);
+drop policy if exists "registrar duelo" on public.duelos;
+create policy "registrar duelo" on public.duelos for insert with check (
+  auth.uid() = atacante_dueno
+  and exists (select 1 from public.personajes a where a.id = atacante and a.dueno = auth.uid())
+  and exists (select 1 from public.personajes d where d.id = defensor and d.dueno = defensor_dueno and d.dueno <> auth.uid()));
+drop policy if exists "marcar visto" on public.duelos;
+create policy "marcar visto" on public.duelos for update using (auth.uid() = defensor_dueno) with check (auth.uid() = defensor_dueno);
+grant select on public.duelos to anon, authenticated;
+grant insert, update on public.duelos to authenticated;
+
+-- Límites: 5 duelos al día por atacante y 1 al día contra el mismo rival
+create or replace function public.antes_de_duelo() returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if (select count(*) from public.duelos where atacante_dueno = new.atacante_dueno and creado > now() - interval '1 day') >= 5 then
+    raise exception 'Como mucho 5 duelos al día.';
+  end if;
+  if exists (select 1 from public.duelos where atacante = new.atacante and defensor = new.defensor and creado > now() - interval '1 day') then
+    raise exception 'Ya te enfrentaste a ese rival hoy.';
+  end if;
+  new.creado := now(); new.visto := false;
+  new.premio := least(greatest(new.premio, 0), 50000000);
+  return new;
+end $$;
+drop trigger if exists antes_de_duelo on public.duelos;
+create trigger antes_de_duelo before insert on public.duelos for each row execute function public.antes_de_duelo();
+
+-- ---------------------------------------------------------------------------
+-- Panel del Creador: funciones que solo puede usar una cuenta con rol «creador».
+create or replace function public.soy_creador() returns boolean language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.perfiles where id = auth.uid() and rol = 'creador');
+$$;
+
+create or replace function public.admin_personaje(p_id text, p_cambios jsonb) returns public.personajes
+language plpgsql security definer set search_path = public as $$
+declare r public.personajes;
+begin
+  if not public.soy_creador() then raise exception 'Solo el Creador puede hacer esto.'; end if;
+  perform set_config('opw.admin', '1', true);   -- el antitrampas no limita al Creador
+  update public.personajes set
+    doblones   = greatest(0, doblones + coalesce((p_cambios->>'doblones_suma')::bigint, 0)),
+    recompensa = coalesce((p_cambios->>'recompensa')::bigint, recompensa),
+    nivel      = coalesce(least(80, greatest(1, (p_cambios->>'nivel')::int)), nivel),
+    nombre     = coalesce(nullif(trim(p_cambios->>'nombre'), ''), nombre),
+    datos      = case
+                   when p_cambios ? 'fruta' and p_cambios->>'fruta' is null then datos - 'fruta'
+                   when p_cambios ? 'fruta' then (datos - 'busqueda') || jsonb_build_object('fruta', p_cambios->>'fruta')
+                   else datos end
+              || case when p_cambios ? 'nota' then jsonb_build_object('registro',
+                   coalesce(datos->'registro', '[]'::jsonb) || jsonb_build_array(jsonb_build_array((extract(epoch from now()) * 1000)::bigint, p_cambios->>'nota')))
+                 else '{}'::jsonb end
+  where id = p_id returning * into r;
+  if r.id is null then raise exception 'No existe ese personaje.'; end if;
+  return r;
+end $$;
+
+create or replace function public.admin_rol(p_id text, p_rol text) returns text
+language plpgsql security definer set search_path = public as $$
+begin
+  if not public.soy_creador() then raise exception 'Solo el Creador puede hacer esto.'; end if;
+  if p_rol not in ('jugador', 'moderador') then raise exception 'Rol no válido.'; end if;
+  update public.perfiles set rol = p_rol where id = (select dueno from public.personajes where id = p_id) and rol <> 'creador';
+  return p_rol;
+end $$;
+
+create or replace function public.admin_borrar(p_id text) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not public.soy_creador() then raise exception 'Solo el Creador puede hacer esto.'; end if;
+  delete from public.personajes where id = p_id and not creador;
+end $$;
+
+-- Rol de la cuenta dueña de cada personaje (solo para el Creador; los nombres de usuario siguen ocultos)
+create or replace function public.admin_roles() returns table (personaje text, rol text)
+language sql stable security definer set search_path = public as $$
+  select p.id, f.rol from public.personajes p join public.perfiles f on f.id = p.dueno where public.soy_creador();
+$$;
+
+revoke all on function public.admin_personaje(text, jsonb), public.admin_rol(text, text), public.admin_borrar(text), public.admin_roles() from public, anon;
+grant execute on function public.admin_personaje(text, jsonb), public.admin_rol(text, text), public.admin_borrar(text), public.admin_roles() to authenticated;
+do $$ begin
+  begin alter publication supabase_realtime add table public.duelos; exception when duplicate_object then null; end;
 end $$;

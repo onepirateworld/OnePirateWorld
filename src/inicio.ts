@@ -33,7 +33,7 @@ import { aspectoAlAzar } from './arte/personajes';
 import { dibujarFruta } from './arte/frutas';
 import { FRUTAS } from './datos/frutas';
 import { formatoDoblones } from './mundo/cronica';
-import { guardarAhora } from './servidor';
+import { duelosRecibidos, guardarAhora, marcarDuelosVistos, misDuelosDeHoy, registrarDuelo } from './servidor';
 import {
   BANDOS, MARES, META_COMUNIDAD, cerrarSesion, cuentaActual, elegirActivo, firmarPacto, marActual,
   personajeActivo, personajes, type Bando,
@@ -262,6 +262,7 @@ const paneles = crearPaneles({
   guardian: () => { paneles.cerrar(); enfrentarGuardian(); },
   navegarA: (id: number) => { paneles.cerrar(); const d = islasDelMundo()[id]; if (d) zarpar(d); },
   comerFruta: () => abrirComerFruta(),
+  desafiar: (id: string) => { const o = personajesDeOtros().find((x) => x.id === id); if (o) void desafiarJugador(o); else aviso('Ese jugador no está en este mar ahora.'); },
   entrenar: () => {
     const p = personajeActivo();
     if (!p) return;
@@ -469,6 +470,104 @@ async function pelearCon(bot: Bot, motivo: string, guardian = false) {
   if (frutaGanada) abrirComerFruta();
 }
 
+// --- Duelos contra otros jugadores ------------------------------------------
+const MAX_DUELOS_DIA = 5, DIFERENCIA_NIVEL = 10;
+/** ¿Pueden pelear? Marines contra el resto, y piratas de tripulaciones distintas. */
+function rivalesJugadores(a: PersonajeGuardado, b: PersonajeGuardado) {
+  if ((a.bando === 'marine') !== (b.bando === 'marine')) return true;
+  if (a.bando === 'pirata' && b.bando === 'pirata') return !a.tripulacion || a.tripulacion !== b.tripulacion;
+  return a.bando === 'revolucionario' && b.bando === 'pirata' || a.bando === 'pirata' && b.bando === 'revolucionario';
+}
+/** Motivo por el que no se puede (o null si se puede). */
+function porQueNoDuelo(yo: PersonajeGuardado, otro: PersonajeGuardado): string | null {
+  if (!rivalesJugadores(yo, otro)) return yo.bando === otro.bando && yo.bando === 'pirata' ? 'Misma tripulación' : 'Sois aliados';
+  if (otro.nivel < yo.nivel - DIFERENCIA_NIVEL && !yo.creador) return 'Es de nivel muy bajo';
+  if (miEstado && navegandoAhora(miEstado)) return 'Estás navegando';
+  return null;
+}
+
+async function desafiarJugador(otro: PersonajeGuardado) {
+  const p = personajeActivo();
+  if (!p || combatiendo) return;
+  const no = porQueNoDuelo(p, otro);
+  if (no) { aviso(no); return; }
+  const hechos = await misDuelosDeHoy();
+  if (hechos.length >= MAX_DUELOS_DIA && !p.creador) { aviso(`Como mucho ${MAX_DUELOS_DIA} duelos al día. Vuelve mañana.`); return; }
+  if (hechos.some((d) => d.defensor === otro.id)) { aviso(`Ya te enfrentaste a ${otro.nombre} hoy.`); return; }
+  combatiendo = true;
+  const jugador = crearLuchador({ nombre: p.nombre, bando: p.bando, aspecto: p.aspecto, nivel: p.nivel, rasgos: p.rasgos, arsenal: arsenalDe(p), fruta: p.fruta, creador: p.creador, bolsa: bolsaDe(p) });
+  // El rival pelea solo, con todo lo suyo de verdad
+  const rival = crearLuchador({ nombre: otro.nombre, bando: otro.bando, aspecto: otro.aspecto, nivel: otro.nivel, rasgos: otro.rasgos, arsenal: arsenalDe(otro), fruta: otro.fruta, creador: otro.creador, bolsa: bolsaDe(otro) });
+  if (p.bando === 'revolucionario' && p.nivel >= NIVEL_FURIA && otro.bando !== 'revolucionario') { jugador.fuerza *= 1 + BONO_FURIA; jugador.tecnica *= 1 + BONO_FURIA; }
+  const isla = islaDePersonaje(p);
+  let resultado: 'atacante' | 'defensor' | 'huida' = 'huida', premio = 0;
+  await iniciarCombate(jugador, rival, {
+    bioma: isla.bioma, motivo: `¡Duelo! ${p.nombre} desafía a ${otro.nombre}${otro.creador ? ', el Creador' : ''}.`,
+    alTerminar: (ganador) => {
+      const yo = personajeActivo()!;
+      let tmp: PersonajeGuardado = { ...yo };
+      const lineas: string[] = [];
+      const nota = (t: string) => { tmp = { ...tmp, registro: [...(tmp.registro ?? []), [Date.now(), t] as [number, string]].slice(-30) }; };
+      if (ganador === 0) {
+        resultado = 'atacante';
+        const v = contarVictoria(tmp); tmp = v.p;
+        const gx = ganarXp(tmp, 30 + 6 * otro.nivel); tmp = gx.p;
+        lineas.push(`¡${yo.nombre} gana el duelo contra ${otro.nombre}!`, `+${gx.xp} de experiencia.`);
+        if (gx.subidas) lineas.push(`¡${yo.nombre} sube a nivel ${tmp.nivel}!`);
+        if (yo.bando !== 'marine') {
+          // Vencer a alguien buscado da fama: el doble de lo normal o el 10% de su recompensa
+          const gr = ganarRecompensa(tmp, Math.max(recompensaPorVictoria(otro.nivel, otro.bando === 'marine') * 2, Math.floor((otro.recompensa ?? 0) * 0.1))); tmp = gr.p;
+          premio = gr.sube;
+          lineas.push(gr.sube ? `Tu recompensa sube ${formatoDoblones(gr.sube)}: ahora ${formatoDoblones(tmp.recompensa ?? 0)}.` : 'Hoy tu recompensa ya no sube más.');
+        } else {
+          const gm = ganarMeritos(tmp, meritosPorCaptura(otro.nivel, otro.bando === 'revolucionario') * 3 + Math.floor((otro.recompensa ?? 0) / 1_000_000)); tmp = gm.p;
+          premio = gm.sube;
+          const cap = tmp.capturas ?? { pirata: 0, revolucionario: 0 };
+          if (otro.bando !== 'marine') tmp = { ...tmp, capturas: { ...cap, [otro.bando]: cap[otro.bando as 'pirata' | 'revolucionario'] + 1 } };
+          lineas.push(`${otro.nombre} queda capturado.`, gm.sube ? `+${gm.sube} méritos (llevas ${tmp.meritos}).` : 'Hoy ya no ganas más méritos.');
+        }
+        nota(`Ganó un duelo contra ${otro.nombre} en ${isla.nombre}.`);
+      } else if (ganador === 1) {
+        resultado = 'defensor';
+        const pierde = Math.min(2000, Math.floor(tmp.doblones * 0.05));
+        tmp = { ...tmp, doblones: tmp.doblones - pierde };
+        lineas.push(`${otro.nombre} gana el duelo...`, `${yo.nombre} pierde ${pierde} doblones.`);
+        nota(`Perdió un duelo contra ${otro.nombre}. Juró revancha.`);
+      } else nota(`Huyó de un duelo contra ${otro.nombre}.`);
+      actualizarPersonaje({ ...tmp, bolsa: yo.creador ? bolsaDe(yo) : { grog: jugador.pociones, botiquin: jugador.botiquines } });
+      return lineas;
+    },
+  });
+  combatiendo = false;
+  const error = await registrarDuelo({ mar: marActual(), atacante: p.id, atacante_nombre: p.nombre, defensor: otro.id, defensor_dueno: otro.dueno ?? '', defensor_nombre: otro.nombre, ganador: resultado, premio });
+  if (error) console.warn('No se pudo registrar el duelo', error);
+  pintar();
+}
+
+/** Al entrar: duelos en los que te atacaron mientras no estabas. */
+async function duelosMientrasNoEstabas(): Promise<string[]> {
+  const lista = await duelosRecibidos();
+  const lineas: string[] = [];
+  for (const d of lista) {
+    const yo = personajes().find((x) => x.id === d.defensor);
+    if (!yo) continue;
+    let tmp: PersonajeGuardado = { ...yo };
+    if (d.ganador === 'atacante') {
+      const pierde = Math.min(2000, Math.floor(tmp.doblones * 0.05));
+      tmp = { ...tmp, doblones: tmp.doblones - pierde };
+      lineas.push(`${d.atacante_nombre} desafió a ${yo.nombre} y ganó: perdiste ${pierde} doblones.`);
+    } else if (d.ganador === 'defensor') {
+      const r = yo.bando === 'marine' ? ganarMeritos(tmp, 5 + yo.nivel) : ganarRecompensa(tmp, recompensaPorVictoria(yo.nivel, false));
+      tmp = r.p;
+      lineas.push(`${d.atacante_nombre} desafió a ${yo.nombre} y perdió.${r.sube ? (yo.bando === 'marine' ? ` +${r.sube} méritos.` : ` Tu recompensa sube ${formatoDoblones(r.sube)}.`) : ''}`);
+    } else lineas.push(`${d.atacante_nombre} desafió a ${yo.nombre}, pero salió huyendo.`);
+    tmp = { ...tmp, registro: [...(tmp.registro ?? []), [Date.parse(d.creado), `Duelo contra ${d.atacante_nombre}: ${d.ganador === 'defensor' ? 'ganó' : d.ganador === 'atacante' ? 'perdió' : 'el rival huyó'}.`] as [number, string]].slice(-30) };
+    actualizarPersonaje(tmp);
+  }
+  await marcarDuelosVistos(lista.map((d) => d.id));
+  return lineas;
+}
+
 // --- Frutas: el guardián y el momento de comérsela --------------------------
 function enfrentarGuardian() {
   const p = personajeActivo();
@@ -548,6 +647,15 @@ function mostrarTarjeta(m: Marcador | null, isla: IslaMundo | null) {
       b.className = 'boton-oro boton-pelear';
       b.textContent = esRival(mio.bando, bot.bando) ? '¡Pelear!' : 'Retar';
       b.addEventListener('click', () => { ocultarTarjeta(); pelearCon(bot, `¡${mio.nombre} se planta delante de ${bot.nombre}!`); });
+      t.append(b);
+    }
+    if (otro && mio) {
+      const motivo = porQueNoDuelo(mio, otro);
+      const b = document.createElement('button');
+      b.className = 'boton-oro boton-pelear';
+      b.textContent = '⚔ Desafiar';
+      if (motivo) { b.disabled = true; b.title = motivo; b.textContent = `⚔ ${motivo}`; }
+      b.addEventListener('click', () => { ocultarTarjeta(); void desafiarJugador(otro); });
       t.append(b);
     }
   } else if (isla) {
@@ -720,6 +828,16 @@ function abrirDecidir(modo: 'todo' | 'navegar' = 'todo') {
 document.addEventListener('click', (e) => { if ((e.target as HTMLElement).closest('#ficha-accion')) abrirDecidir(); });
 
 refrescarVida(true);
+// Duelos que te hicieron mientras no estabas
+void duelosMientrasNoEstabas().then((lineas) => {
+  if (!lineas.length) return;
+  const d = $<HTMLDialogElement>('#dlg-resumen');
+  const ul = $('#resumen-lista');
+  if (!d.open) ul.innerHTML = '';
+  ul.insertAdjacentHTML('beforeend', lineas.map((x) => `<li>⚔ ${esc(x)}</li>`).join(''));
+  if (!d.open) abrir('#dlg-resumen');
+  pintar();
+});
 setInterval(() => refrescarVida(), 2000);
 
 requestAnimationFrame(() => {
