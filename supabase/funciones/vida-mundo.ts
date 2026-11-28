@@ -37,7 +37,7 @@ async function tick() {
     const d = f.datos as { aspecto?: unknown };
     if (!d.aspecto) continue;
     let p: PersonajeGuardado = filaAPersonaje(f);
-    const antes = JSON.stringify([p.accion, p.islaId, p.nivel, p.doblones, p.busqueda]);
+    const antes = JSON.stringify([p.accion, p.islaId, p.nivel, p.doblones, p.busqueda, p.recompensa]);
     p = volverConTripulacion(p, false, ahora).p;             // sigue a su capitán
     const r = avanzarVida(p, ahora);
     p = r.p;
@@ -45,7 +45,7 @@ async function tick() {
       const nuevas = r.resumen.map((t) => [ahora, `${p.nombre} ${t}`] as [number, string]);
       p = { ...p, mientras: [...(p.mientras ?? []), ...nuevas].slice(-MAX_MIENTRAS) };
     }
-    if (JSON.stringify([p.accion, p.islaId, p.nivel, p.doblones, p.busqueda]) === antes && !r.resumen.length) continue;
+    if (JSON.stringify([p.accion, p.islaId, p.nivel, p.doblones, p.busqueda, p.recompensa]) === antes && !r.resumen.length) continue;
     const fila = personajeAFila(p);
     cambios.push({ ...fila, dueno: f.dueno, jugado: f.jugado });   // «jugado» no cambia: lo hizo el servidor
     estado.otros.set(f.id, { ...f, ...fila, dueno: f.dueno });

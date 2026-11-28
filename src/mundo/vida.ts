@@ -203,8 +203,25 @@ export function avanzarVida(p: PersonajeGuardado, ahora = Date.now()): { p: Pers
     a = elegir(p, r, a.hasta);
   }
   p = { ...p, accion: a };
-  if (a !== original) actualizarPersonaje(p);   // solo se guarda si ha pasado algo
+  const baja = bajarRecompensa(p, ahora);
+  if (baja) { p = baja.p; resumen.push(baja.texto); }
+  if (a !== original || baja) actualizarPersonaje(p);   // solo se guarda si ha pasado algo
   return { p, resumen };
+}
+
+// --- La recompensa baja si pasa días tranquilo ----------------------------------
+const DIA = 86_400_000;
+/** Días de calma antes de que empiece a bajar, y cuánto baja cada día. */
+export const DIAS_CALMA = 3, BAJADA_DIARIA = 0.02;
+function bajarRecompensa(p: PersonajeGuardado, ahora: number): { p: PersonajeGuardado; texto: string } | null {
+  if (p.bando === 'marine' || p.creador || !(p.recompensa ?? 0)) return null;
+  const desde = Math.max((p.ultimaFechoria ?? p.creado) + DIAS_CALMA * DIA, p.bajadaHasta ?? 0);
+  const dias = Math.floor((ahora - desde) / DIA);
+  if (dias < 1) return null;
+  const antes = p.recompensa!;
+  const ahoraR = Math.max(0, Math.round((antes * Math.pow(1 - BAJADA_DIARIA, dias)) / 1000) * 1000);
+  const texto = `pasó ${dias === 1 ? 'un día' : `${dias} días`} sin dar guerra y su recompensa bajó a ${ahoraR.toLocaleString('es-ES')} doblones`;
+  return { p: { ...p, recompensa: ahoraR, bajadaHasta: desde + dias * DIA }, texto };
 }
 
 /** Mandar al personaje a hacer algo ahora mismo. */

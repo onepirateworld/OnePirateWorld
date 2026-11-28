@@ -181,7 +181,7 @@ export function crearPaneles(acc: Acciones) {
       <h3>${p.bando === 'marine' ? 'Méritos' : 'Recompensa'}</h3>
       <p class="nota-hoja">${p.bando === 'marine'
         ? `Llevas <b>${p.meritos ?? 0}</b> méritos (${rangoMarine(p)}). Capturar piratas y revolucionarios te da méritos: como mucho ${topeMeritosDia(p.nivel)} al día. Solo los 4 marines con más méritos de cada mar llegan a Almirante.`
-        : `Tu recompensa es <b>${formatoDoblones(p.recompensa ?? 0)}</b> doblones. Sube al ganar combates (mucho más contra marines): como mucho ${formatoDoblones(topeRecompensaDia(p.nivel))} al día.`}</p>
+        : `Tu recompensa es <b>${formatoDoblones(p.recompensa ?? 0)}</b> doblones. Sube al ganar combates (mucho más contra marines): como mucho ${formatoDoblones(topeRecompensaDia(p.nivel))} al día. Si pasas 3 días sin ganar ninguno, baja un 2% cada día.`}</p>
 
       <h3>Carácter</h3>
       <div class="rasgos-hoja">${rasgos.map((r) => `<div><b>${r!.nombre}</b><small class="mas">▲ ${esc(r!.ventaja)}</small><small class="menos">▼ ${esc(r!.desventaja)}</small></div>`).join('') || '<p class="vacio">Sin rasgos.</p>'}</div>

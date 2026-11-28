@@ -108,7 +108,7 @@ export function ganarRecompensa(p: PersonajeGuardado, cuanto: number, t = Date.n
   const dia = diaDe(t);
   const hoy = p.notoriedad?.dia === dia ? p.notoriedad.valor : 0;
   const sube = Math.max(0, Math.min(cuanto, topeRecompensaDia(p.nivel) - hoy));
-  return { p: { ...p, recompensa: (p.recompensa ?? 0) + sube, notoriedad: { dia, valor: hoy + sube } }, sube };
+  return { p: { ...p, recompensa: (p.recompensa ?? 0) + sube, notoriedad: { dia, valor: hoy + sube }, ...(sube > 0 ? { ultimaFechoria: t } : {}) }, sube };
 }
 export function ganarMeritos(p: PersonajeGuardado, cuanto: number, t = Date.now()): { p: PersonajeGuardado; sube: number } {
   if (p.bando !== 'marine') return { p, sube: 0 };
