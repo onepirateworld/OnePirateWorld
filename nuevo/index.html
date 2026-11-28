@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="raiz" content="../" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Nuevo personaje · OnePirateWorld</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/logo/icono-32.png" />
+    <link rel="icon" type="image/png" sizes="64x64" href="../assets/logo/icono-64.png" />
+    <link rel="apple-touch-icon" href="../assets/logo/icono-180.png" />
+    <meta property="og:title" content="OnePirateWorld" />
+    <meta property="og:description" content="Un mundo pirata en pixel art: crea tu pirata, marine o revolucionario y suéltalo en los mares." />
+    <meta property="og:image" content="https://onepirateworld.github.io/OnePirateWorld/assets/logo/logo-banner.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script type="module" crossorigin src="../app/nuevo-CNOq1isY.js"></script>
+    <link rel="modulepreload" crossorigin href="../app/frutas-CnIhnYQ7.js">
+    <link rel="modulepreload" crossorigin href="../app/_commonjsHelpers-C4iS2aBk.js">
+    <link rel="modulepreload" crossorigin href="../app/browser-Be3LZzHR.js">
+    <link rel="modulepreload" crossorigin href="../app/palabras-BewA-_bX.js">
+    <link rel="stylesheet" crossorigin href="../app/frutas-DmjEfuFg.css">
+    <link rel="stylesheet" crossorigin href="../app/nuevo-BG6A90yY.css">
+  </head>
+  <body>
+    <header class="cabecera panel-madera">
+      <h1><a href="../index.html" class="volver" title="Volver al mundo">←</a> Nuevo personaje</h1>
+      <ol class="pasos" aria-label="Pasos de la creación">
+        <li id="paso-bando" class="hecho">1 · Bando</li>
+        <li><button data-paso="aspecto">2 · Aspecto</button></li>
+        <li><button data-paso="estilo">3 · Estilo</button></li>
+        <li><button data-paso="caracter">4 · Carácter</button></li>
+        <li><button data-paso="sueno">5 · Sueño</button></li>
+      </ol>
+    </header>
+
+    <main class="creador">
+      <aside class="vista panel-madera">
+        <div class="escenario">
+          <canvas id="vista-grande" aria-label="Tu personaje"></canvas>
+        </div>
+        <div class="fila-real">
+          <canvas id="vista-real" title="Tamaño real en el mapa"></canvas>
+          <small>Así se verá en el mapa</small>
+        </div>
+        <div class="acciones">
+          <button class="boton" id="deshacer">↶ Deshacer</button>
+          <button class="boton" id="azar">🎲 Al azar</button>
+          <button class="boton" id="cero">Empezar de cero</button>
+        </div>
+        <dl id="resumen"></dl>
+      </aside>
+
+      <section class="editor panel-pergamino">
+        <nav id="pestanas" class="pestanas" aria-label="Partes del personaje"></nav>
+        <div id="panel"></div>
+      </section>
+    </main>
+  </body>
+</html>

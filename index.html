@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="raiz" content="./" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0b1124" />
+    <title>OnePirateWorld</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="./assets/logo/icono-32.png" />
+    <link rel="icon" type="image/png" sizes="64x64" href="./assets/logo/icono-64.png" />
+    <link rel="apple-touch-icon" href="./assets/logo/icono-180.png" />
+    <meta property="og:title" content="OnePirateWorld" />
+    <meta property="og:description" content="Un mundo pirata en pixel art: crea tu pirata, marine o revolucionario y suéltalo en los mares." />
+    <meta property="og:image" content="https://onepirateworld.github.io/OnePirateWorld/assets/logo/logo-banner.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script type="module" crossorigin src="./app/inicio-CarkxyGp.js"></script>
+    <link rel="modulepreload" crossorigin href="./app/frutas-CnIhnYQ7.js">
+    <link rel="modulepreload" crossorigin href="./app/_commonjsHelpers-C4iS2aBk.js">
+    <link rel="modulepreload" crossorigin href="./app/browser-Be3LZzHR.js">
+    <link rel="modulepreload" crossorigin href="./app/palabras-BewA-_bX.js">
+    <link rel="modulepreload" crossorigin href="./app/tecnicas-CFOPusQ2.js">
+    <link rel="stylesheet" crossorigin href="./app/frutas-DmjEfuFg.css">
+    <link rel="stylesheet" crossorigin href="./app/inicio-BS2x9RE3.css">
+  </head>
+  <body class="inicio">
+    <div id="portada-carga" class="portada-carga"><img src="./assets/logo/logo-banner.jpg" alt="OnePirateWorld" /><span>Izando velas…</span></div>
+    <div id="mundo" class="mundo" aria-label="Planeta. Arrastra para girarlo y pellizca o usa la rueda para acercarte.">
+      <div id="etiquetas" class="etiquetas"></div>
+    </div>
+    <div id="mapa" class="mapa" aria-label="Mapa. Arrastra para moverte y pellizca o usa la rueda para acercarte."></div>
+
+    <header class="barra-sup">
+      <button class="btn-cuadro" id="btn-mapa" title="Mapa de cerca"></button>
+      <button class="pastilla-mar" id="btn-mar">
+        <span class="pastilla-icono" id="ico-brujula"></span>
+        <span class="pastilla-texto">
+          <small>ESTÁS EN</small>
+          <b id="nombre-mar">Mar Esmeralda</b>
+          <span class="meta" title="Meta de la comunidad"><i id="meta-barra"></i></span>
+        </span>
+        <span class="pastilla-cambiar">Cambiar</span>
+      </button>
+      <button class="btn-perfil" id="btn-perfil" title="Tu cuenta"></button>
+    </header>
+
+    <div class="aviso" id="aviso" role="status" hidden></div>
+
+    <aside class="flotantes">
+      <button class="btn-cuadro" id="btn-localizar" title="¿Dónde está mi personaje?"></button>
+      <button class="btn-cuadro" id="btn-envivo" title="En vivo"></button>
+      <button class="btn-cuadro activo" id="btn-globo" title="Planeta"></button>
+      <button class="btn-cuadro" id="btn-guia" title="Guía"></button>
+    </aside>
+
+    <section class="tarjeta" id="tarjeta" hidden></section>
+    <section class="hoja" id="hoja" hidden aria-live="polite">
+      <header class="hoja-cabecera">
+        <button class="hoja-volver" aria-label="Volver" hidden>←</button>
+        <h2 class="hoja-titulo"></h2>
+        <button class="hoja-cerrar" aria-label="Cerrar">✕</button>
+      </header>
+      <div class="hoja-cuerpo"></div>
+    </section>
+    <section class="ficha" id="ficha"></section>
+
+    <nav class="barra-inf">
+      <button data-panel="noticias"><span class="ico" data-ico="noticias"></span>Noticias</button>
+      <button data-panel="taberna"><span class="ico" data-ico="taberna"></span>Taberna</button>
+      <button class="mi-pirata" id="btn-mi-pirata" data-panel="mi-pirata"><span class="aro" id="avatar-nav"></span><span id="texto-mi-pirata">Mi pirata</span></button>
+      <button data-panel="tablones"><span class="ico" data-ico="tablones"></span>Tablones</button>
+      <button data-panel="mas"><span class="ico" data-ico="mas"></span>Más</button>
+    </nav>
+
+    <!-- Firmar el pacto (crear cuenta) -->
+    <dialog id="dlg-pacto" class="dialogo">
+      <form method="dialog" id="form-pacto">
+        <img class="logo-pacto" src="./assets/logo/logo-banner.jpg" alt="OnePirateWorld" />
+        <h2>Firma el pacto</h2>
+        <p>Para soltar a tu personaje en el mundo necesitas una cuenta. Sin contraseñas: la primera vez se crea, y para volver a entrar usa el mismo nombre y correo.</p>
+        <label>Nombre de usuario <small>(secreto: es como tu contraseña, nadie más lo ve)</small>
+          <input id="pacto-nombre" maxlength="20" required autocomplete="username" placeholder="Tu nombre de usuario" />
+        </label>
+        <label>Tu correo
+          <input id="pacto-correo" type="email" required autocomplete="email" placeholder="tu@correo.com" />
+        </label>
+        <button type="submit" class="boton-grande" id="pacto-correo-btn">Entrar</button>
+        <p class="pacto-estado" id="pacto-estado" role="status"></p>
+        <p class="nota-hoja">En el juego solo se verá el nombre de tu pirata. No le digas a nadie tu nombre de usuario: con él y tu correo se entra en tu cuenta.</p>
+        <button type="button" class="cerrar" data-cerrar aria-label="Cerrar">✕</button>
+      </form>
+    </dialog>
+
+    <!-- Perfil: tus personajes y crear uno nuevo -->
+    <dialog id="dlg-perfil" class="dialogo">
+      <div>
+        <h2 id="perfil-titulo">Tu cuenta</h2>
+        <div id="perfil-lista"></div>
+        <h3>Crear un personaje nuevo</h3>
+        <div class="bandos" id="perfil-bandos"></div>
+        <button type="button" class="enlace" id="cerrar-sesion">Cerrar sesión</button>
+        <button type="button" class="cerrar" data-cerrar aria-label="Cerrar">✕</button>
+      </div>
+    </dialog>
+
+    <!-- Decidir qué hace el personaje -->
+    <dialog id="dlg-decidir" class="dialogo">
+      <div>
+        <h2>¿Qué hace?</h2>
+        <div id="decidir-cuerpo"></div>
+        <button type="button" class="cerrar" data-cerrar aria-label="Cerrar">✕</button>
+      </div>
+    </dialog>
+
+    <!-- Resumen al volver -->
+    <dialog id="dlg-resumen" class="dialogo">
+      <div>
+        <h2>Mientras no estabas...</h2>
+        <ul id="resumen-lista" class="resumen-lista"></ul>
+        <button type="button" class="boton-grande" data-cerrar>¡A seguir!</button>
+      </div>
+    </dialog>
+
+    <!-- Cambiar de mar (servidor) -->
+    <dialog id="dlg-mares" class="dialogo">
+      <div>
+        <h2>Elige tu mar</h2>
+        <p>Cada mar es un mundo aparte, con sus propios personajes, noticias y taberna.</p>
+        <div id="lista-mares" class="lista-mares"></div>
+        <button type="button" class="cerrar" data-cerrar aria-label="Cerrar">✕</button>
+      </div>
+    </dialog>
+
+  </body>
+</html>
