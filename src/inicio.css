@@ -603,3 +603,15 @@ a.boton-oro { display: inline-block; text-decoration: none; }
 .fruta-cofre div { display: flex; flex-direction: column; gap: 4px; }
 .fruta-cofre p { margin: 4px 0; }
 .fruta-cofre small { color: var(--texto-suave); }
+.insignia.puntos-libres { cursor: pointer; background: #3f7a3a; color: #fff; border: 2px solid #8fd07a; font: inherit; animation: latido 1.6s infinite; }
+
+/* Mi barco */
+.mi-barco { background: #12304f; border-radius: 12px; padding: 10px 12px 12px; margin-bottom: 14px; }
+.mi-barco h3 { margin-top: 0; }
+.vista-barco { display: grid; place-items: center; min-height: 104px; background: linear-gradient(#5cc3d8 70%, #2c79b8 70%); border-radius: 8px; margin-bottom: 8px; }
+.vista-barco canvas { image-rendering: pixelated; }
+.nombre-barco { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--texto-suave); }
+.nombre-barco input { font: inherit; font-size: 16px; padding: 8px 10px; border-radius: 8px; border: 2px solid var(--panel-borde); background: #0b1124; color: var(--texto); }
+.colores-barco { display: flex; flex-wrap: wrap; gap: 6px; }
+.color-barco { width: 30px; height: 30px; border-radius: 6px; border: 2px solid #0b1124; cursor: pointer; }
+.color-barco.sel { outline: 3px solid #f2b63d; outline-offset: 1px; }

@@ -107,7 +107,11 @@ begin
       new.doblones := least(new.doblones, antes.doblones + 1500 + case
         when new.bando = 'marine' and new.nivel >= 10 and antes.nivel < 10 and coalesce(antes.datos->>'regalo10', '') = '' then 10000 else 0 end);
       if coalesce(antes.datos->>'regalo10', '') <> '' then new.datos := new.datos || '{"regalo10": true}'::jsonb; end if;
-      new.nivel := least(new.nivel, antes.nivel + 2);
+      new.nivel := least(greatest(new.nivel, antes.nivel), antes.nivel + 2);   -- el nivel nunca baja
+      -- Una fruta comida no se pierde por un guardado viejo (solo el Creador puede quitarla)
+      if antes.datos->>'fruta' is not null and new.datos->>'fruta' is null then
+        new.datos := new.datos || jsonb_build_object('fruta', antes.datos->>'fruta');
+      end if;
       new.recompensa := least(new.recompensa, antes.recompensa + 5000000);
     end if;
   end if;

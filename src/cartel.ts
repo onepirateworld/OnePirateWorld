@@ -72,6 +72,7 @@ export function abrirCartel(p: PersonajeGuardado) {
         <div><b>${dias}</b><small>${dias === 1 ? 'DÍA' : 'DÍAS'} EN EL MAR</small></div>
       </div>
       ${rasgos.length ? `<p class="cartel-rasgos">~ ${rasgos.map((r) => esc(r!)).join(' ~ ')} ~</p>` : ''}
+      ${p.navio?.nombre ? `<p class="cartel-lugar">A bordo de «${esc(p.navio.nombre)}»</p>` : ''}
       <p class="cartel-lugar">Visto por última vez en ${esc(islaDePersonaje(p).nombre)} · ${esc(mar)}</p>
     </div>`;
   dlg.querySelector('.cartel-retrato')!.append(lienzoACanvas(dibujarPersonaje(p.aspecto), 4));

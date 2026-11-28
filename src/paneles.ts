@@ -28,7 +28,9 @@ import { adminBorrar, adminPersonaje, adminRol, adminRoles, adminTodos, disolver
 import { volverConTripulacion } from './mundo/vida';
 import { NIVEL_RUMORES, PISTAS_NECESARIAS, nivelGuardian, guardianAqui, islaDeBusqueda, rangoMarine, textoPista, topeMeritosDia, topeRecompensaDia } from './mundo/busqueda';
 import { ruta } from './rutas';
-import { BARCOS_PRUEBA } from './arte/barcos';
+import { BARCOS_PRUEBA, COLORES_BARCO, PALETA_BARCO, dibujarBarco } from './arte/barcos';
+import { PALETA } from './arte/paleta';
+import { nombreLimpio } from './datos/palabras';
 import { BARCOS, PRECIO_SASTRE, PROVISIONES, bolsaDe, type IdBarco } from './datos/tienda';
 
 export type IdPanel = 'arsenal' | 'mi-pirata' | 'noticias' | 'taberna' | 'tablones' | 'mas' | 'en-vivo' | 'se-busca' | 'cofre' | 'compendio' | 'guia' | 'normas' | 'privacidad' | 'tienda' | 'creador';
@@ -199,7 +201,7 @@ export function crearPaneles(acc: Acciones) {
 
       <h3>Equipo</h3>
       <div class="ranuras">
-        <div class="ranura"><b>Barco</b><small>${esc(BARCOS.find((x) => x.id === (p.barco ?? 'barca'))!.nombre)}</small></div>
+        <div class="ranura"><b>Barco</b><small>${esc(BARCOS.find((x) => x.id === (p.barco ?? 'barca'))!.nombre)}${p.navio?.nombre ? ` «${esc(p.navio.nombre)}»` : ''}</small></div>
         <div class="ranura"><b>Bolsa</b><small>${bolsaDe(p).grog} grog · ${bolsaDe(p).botiquin} botiquines</small></div>
         <div class="ranura"><b>Arma</b><small>${esc(arma(arsenalDe(p).principal).nombre)}${arsenalDe(p).escudo ? ` + ${esc(arma(arsenalDe(p).escudo!).nombre)}` : ''}</small></div>
         <div class="ranura"><b>Fruta del poder</b><small>${p.fruta ? esc(FRUTAS.find((f) => f.id === p.fruta)?.nombre ?? '') : 'Ninguna (aún)'}</small></div>
@@ -556,13 +558,22 @@ export function crearPaneles(acc: Acciones) {
         : `<button class="mini-boton" data-barco="${x.id}" ${tiene(x.precio) ? '' : 'disabled'}>Comprar · ${formatoDoblones(x.precio)}</button>`;
       return `<div class="item tienda-item ${propio ? 'puesta' : ''}"><i data-sprite="bc-${x.id}"></i><b>${x.nombre}</b><small>${esc(x.texto)}</small>${boton}</div>`;
     }).join('')}</div>`;
+    // Personalizar el barco: nombre y colores (vista previa en vivo, gratis)
+    const borrador = { ...COLORES_BARCO[barco], ...p.navio };
+    const filaColores = (campo: keyof typeof PALETA_BARCO, titulo: string) => `<h4>${titulo}</h4><div class="colores-barco">${PALETA_BARCO[campo].map((c) =>
+      `<button class="color-barco ${borrador[campo] === c ? 'sel' : ''}" style="background:${PALETA[c - 1].hex}" data-navio="${campo}" data-c="${c}" aria-label="${PALETA[c - 1].nombre}"></button>`).join('')}</div>`;
+    const miBarco = `<div class="mi-barco"><h3>Tu barco</h3>
+        <div class="vista-barco" id="vista-barco"></div>
+        <label class="nombre-barco">Nombre del barco <input id="nombre-barco" maxlength="20" placeholder="Por ejemplo: La Gaviota Roja" value="${esc(p.navio?.nombre ?? '')}" /></label>
+        ${filaColores('colorCasco', 'Casco')}${filaColores('colorVela', 'Velas')}${filaColores('colorBandera', 'Bandera')}${filaColores('colorInsignia', 'Insignia de la bandera')}
+        <button class="boton-oro ancho" data-guardar-navio>⚓ Guardar mi barco (gratis)</button></div>`;
     const sastre = `<div class="sastre"><i data-sprite="yo"></i><div>
         <p>Cambia el peinado, la ropa, el sombrero, la complexión o lo que quieras de tu personaje.</p>
         <a class="boton-oro ${tiene(PRECIO_SASTRE) ? '' : 'apagado'}" href="${tiene(PRECIO_SASTRE) ? ruta(`nuevo/index.html?sastre=${encodeURIComponent(p.id)}&mar=${marActual()}`) : '#'}">✂ Ir al sastre · ${p.creador ? 'gratis' : formatoDoblones(PRECIO_SASTRE)}</a>
         <small>Solo pagas si guardas los cambios.</small></div></div>`;
     const armeria = `<p class="nota-hoja">Espadas, pistolas, puños y escudos. También puedes forjarlas y aprender habilidades.</p>
       <button class="boton-oro ancho" data-ir="arsenal">🗡 Ir a la armería</button>`;
-    const pest = [['provisiones', 'Provisiones', provisiones], ['barcos', 'Barcos', barcos], ['sastre', 'Sastre', sastre], ['armeria', 'Armería', armeria]];
+    const pest = [['provisiones', 'Provisiones', provisiones], ['barcos', 'Barcos', miBarco + barcos], ['sastre', 'Sastre', sastre], ['armeria', 'Armería', armeria]];
     return {
       titulo: 'Tienda',
       html: `<p class="saldo">${icono('moneda', '#f2b63d')} <b>${p.creador ? '∞' : formatoDoblones(p.doblones)}</b> doblones</p>
@@ -576,11 +587,30 @@ export function crearPaneles(acc: Acciones) {
         sprites.set('pr-grog', aCanvas(dibujarProvision('grog'), 3));
         sprites.set('pr-botiquin', aCanvas(dibujarProvision('botiquin'), 3));
         ponerSprites(el, sprites);
+        const vista = el.querySelector<HTMLElement>('#vista-barco')!;
+        const pintarBarco = () => { vista.innerHTML = ''; vista.append(aCanvas(dibujarBarco(barco, borrador), 4)); };
+        pintarBarco();
         el.querySelectorAll<HTMLButtonElement>('[data-ir]').forEach((b) => b.addEventListener('click', () => abrir(b.dataset.ir as IdPanel)));
         el.addEventListener('click', (e) => {
           const b = (e.target as HTMLElement).closest('button');
           if (!b || b.disabled || b.dataset.filtro || b.dataset.ir) return;
+          if (b.dataset.navio) {
+            (borrador as unknown as Record<string, number>)[b.dataset.navio] = Number(b.dataset.c);
+            b.parentElement!.querySelectorAll('.color-barco').forEach((x) => x.classList.toggle('sel', x === b));
+            pintarBarco();
+            return;
+          }
           const yo = personajeActivo()!;
+          if ('guardarNavio' in b.dataset) {
+            const nombre = el.querySelector<HTMLInputElement>('#nombre-barco')!.value.trim();
+            if (nombre && !nombreLimpio(nombre)) { acc.aviso('Ese nombre de barco no está permitido.'); return; }
+            const { colorCasco, colorVela, colorBandera, colorInsignia } = borrador;
+            actualizarPersonaje({ ...yo, navio: { nombre: nombre || undefined, colorCasco, colorVela, colorBandera, colorInsignia } });
+            acc.aviso(nombre ? `¡«${nombre}» luce como nuevo!` : '¡Tu barco luce como nuevo!');
+            pestanaTienda = 'barcos';
+            abrir('tienda', false);
+            return;
+          }
           const pagar = (n: number) => (yo.creador ? yo.doblones : yo.doblones - n);
           if (b.dataset.provision) {
             const x = PROVISIONES.find((y) => y.id === b.dataset.provision)!;
@@ -760,7 +790,8 @@ export function crearPaneles(acc: Acciones) {
         return `<div class="item ${n ? '' : 'sin-aprender'}"><b>${esc(h.nombre)}</b><span class="tipo-hab">${h.tipo}</span><small>${esc(h.descripcion)}</small><small>Por nivel: ${esc(h.porNivel)}${h.requiere ? ` · Necesita ${h.requiere}` : ''}</small><em>${n ? `Nivel ${n} de ${NIVEL_MAX}` : 'Sin aprender'}</em>${boton}</div>`;
       }).join('')}</div>`;
     const mejoras = `
-      <p class="nota-hoja">Ganas 3 puntos por cada nivel. Te quedan <b>${p.creador ? '∞' : libres}</b>.</p>
+      <p class="nota-hoja">Ganas 3 puntos por cada nivel. Te quedan <b>${p.creador ? '∞' : libres}</b>. ¡Úsalos! Sin ellos tu personaje pelea muy por debajo de su nivel.</p>
+      ${libres > 0 && !p.creador ? `<button class="boton-oro ancho" data-repartir>✨ Repartir ${libres} puntos automáticamente</button>` : ''}
       <div class="mejoras">${(Object.keys(MEJORA_POR_PUNTO) as Estadistica[]).map((k) => `
         <div class="mejora"><b>${k[0].toUpperCase() + k.slice(1)}</b><small>${MEJORA_POR_PUNTO[k].texto} por punto</small><em>${a.mejoras[k]} puntos</em>
           <button class="mini-boton" data-punto="${k}" ${libres > 0 || p.creador ? '' : 'disabled'}>+1</button></div>`).join('')}</div>`;
@@ -795,6 +826,15 @@ export function crearPaneles(acc: Acciones) {
           else if (d.escudo) n.escudo = d.escudo;
           else if ('quitarEscudo' in d) n.escudo = undefined;
           else if (d.punto) n.mejoras[d.punto as Estadistica]++;
+          else if ('repartir' in d) {
+            // Reparto equilibrado: vida 30%, fuerza 25%, resistencia 20%, técnica 15%, velocidad 10%
+            const libresAhora = puntosLibres(p.nivel, n);
+            const peso: [Estadistica, number][] = [['vida', 0.3], ['fuerza', 0.25], ['resistencia', 0.2], ['tecnica', 0.15], ['velocidad', 0.1]];
+            let dados = 0;
+            for (const [k, w] of peso) { const x = Math.floor(libresAhora * w); n.mejoras[k] += x; dados += x; }
+            for (let i = 0; dados < libresAhora; i++, dados++) n.mejoras[peso[i % peso.length][0]]++;
+            msg = `Repartidos ${libresAhora} puntos de mejora.`;
+          }
           else return;
           if (gasto && !p.creador && p.doblones < gasto) return;
           actualizarPersonaje({ ...p, arsenal: n, doblones: p.creador ? p.doblones : p.doblones - gasto });
@@ -826,7 +866,9 @@ export function crearPaneles(acc: Acciones) {
     }));
   }
 
-  return { abrir, cerrar, get actual() { return actual; } };
+  /** Abre el Arsenal directamente en una pestaña (por ejemplo, «mejoras»). */
+  function abrirArsenal(pestana: string) { pestanaArsenal = pestana; abrir('arsenal'); }
+  return { abrir, cerrar, abrirArsenal, get actual() { return actual; } };
 }
 
 // ---------------------------------------------------------------------------

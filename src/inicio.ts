@@ -11,7 +11,7 @@ import { botsDelMar, islaDePersonaje, islasDelMundo, nombreZona, posicionBot, ty
 import { RASGOS } from './datos/caracter';
 import { crearPaneles, type IdPanel } from './paneles';
 import { crearLuchador } from './combate/motor';
-import { arsenalBot } from './datos/arsenal';
+import { arsenalBot, puntosLibres } from './datos/arsenal';
 import { frutasDelMar } from './mundo/cronica';
 import { azar } from './arte/lienzo';
 import { arsenalDe, migrarLocales, modoCreador, personajesDeOtros } from './cuenta';
@@ -137,6 +137,7 @@ function pintar() {
         ${p.creador ? '<span class="insignia creador-ins">Creador</span>' : ''}
         <span class="insignia oro">${icono('moneda', '#f2b63d')} ${p.creador ? '∞' : p.doblones}</span>
         <span class="insignia">Nv. ${p.nivel}</span>
+        ${!p.creador && puntosLibres(p.nivel, arsenalDe(p)) > 0 ? `<button class="insignia puntos-libres" id="btn-puntos">💪 ${puntosLibres(p.nivel, arsenalDe(p))} puntos</button>` : ''}
       </span>
       <button class="ficha-lugar" id="ficha-lugar">${icono('diana', '#f2b63d')} <span id="ficha-lugar-texto">En ${esc(islaDePersonaje(p).nombre)} · ${esc(nombreZona(islaDePersonaje(p).zona))}</span></button>`;
     const pendiente = p.busqueda && (p.busqueda.vencido || p.busqueda.pistas >= PISTAS_NECESARIAS) ? 1 : 0;
@@ -258,6 +259,7 @@ $('#btn-mapa').addEventListener('click', () => { if (!mapa?.visible) abrirMapa()
 $('#btn-localizar').innerHTML = icono('diana', '#f2b63d');
 $('#btn-localizar').addEventListener('click', localizar);
 document.addEventListener('click', (e) => { if ((e.target as HTMLElement).closest('#ficha-lugar')) localizar(); });
+document.addEventListener('click', (e) => { if ((e.target as HTMLElement).closest('#btn-puntos')) paneles.abrirArsenal('mejoras'); });
 document.addEventListener('click', (e) => { if ((e.target as HTMLElement).closest('#btn-hoja')) { const p = personajeActivo(); if (p) abrirCartel(p); } });
 const paneles = crearPaneles({
   aviso, localizar: () => localizar(), abrirPerfil: () => abrirPerfil(), abrirMares: () => abrirMares(),
@@ -332,13 +334,13 @@ function marcadores(): Marcador[] {
   // Los personajes de los demás jugadores de este mar
   for (const o of personajesDeOtros()) {
     const tipo = o.accion && ahora < o.accion.hasta ? o.accion.tipo : 'pasear';
-    lista.push({ id: `j-${o.id}`, nombre: o.apodo ? `${o.nombre} «${o.apodo}»` : o.nombre, bando: o.bando, aspecto: o.aspecto, barco: o.barco ?? 'barca',
+    lista.push({ id: `j-${o.id}`, nombre: o.apodo ? `${o.nombre} «${o.apodo}»` : o.nombre, bando: o.bando, aspecto: o.aspecto, barco: o.barco ?? 'barca', navio: o.navio,
       esMio: false, posicion: posicionPersonaje(o, ahora), quieto: tipo === 'entrenar' || tipo === 'descansar', actividad: TEXTO_ACCION[tipo] });
   }
   const yo = miEstado && cuentaActual() && p?.id === miEstado.id ? miEstado : null;
   if (yo) {
     const tipo = yo.accion?.tipo ?? 'pasear';
-    lista.push({ id: yo.id, nombre: yo.nombre, bando: yo.bando, aspecto: yo.aspecto, barco: yo.barco ?? 'barca', esMio: true,
+    lista.push({ id: yo.id, nombre: yo.nombre, bando: yo.bando, aspecto: yo.aspecto, barco: yo.barco ?? 'barca', navio: yo.navio, esMio: true,
       posicion: posicionPersonaje(yo, ahora), quieto: tipo === 'entrenar' || tipo === 'descansar', actividad: TEXTO_ACCION[tipo] });
   }
   return lista;
@@ -434,7 +436,7 @@ async function pelearCon(bot: Bot, motivo: string, guardian = false, entrenamien
         ganado = tmp.ganado;
         lineas.push(`¡${yo.nombre} gana el combate!`, go.oro || gx.xp ? `+${gx.xp} de experiencia y +${go.oro} doblones.` : 'Hoy ya no ganas más premios: vuelve mañana.');
         if (v.premio === false && (go.oro || gx.xp)) lineas.push('Has llegado al límite de victorias con premio por hoy.');
-        if (gx.subidas) lineas.push(`¡${yo.nombre} sube a nivel ${nivel}!`);
+        if (gx.subidas) lineas.push(`¡${yo.nombre} sube a nivel ${nivel}! Tienes ${3 * gx.subidas} puntos de mejora nuevos: úsalos en el Arsenal.`);
         if (guardian) {
           frutaGanada = true;
           tmp = { ...tmp, busqueda: tmp.busqueda ? { ...tmp.busqueda, vencido: true } : undefined };
@@ -741,6 +743,10 @@ function refrescarVida(primera = false) {
   } else if (resumen.length) aviso(`${nuevo.nombre} ${resumen[resumen.length - 1]}.`);
   if (antes !== undefined && antes !== nuevo.nivel) pintar();
   avisarDesbloqueos(nuevo);
+  // El botón de puntos de mejora se mantiene al día (desaparece al gastarlos)
+  const bp = document.querySelector<HTMLElement>('#btn-puntos');
+  const libres = nuevo.creador ? 0 : puntosLibres(nuevo.nivel, arsenalDe(nuevo));
+  if (bp && !libres) bp.remove(); else if (bp) bp.textContent = `💪 ${libres} puntos`; else if (libres) pintar();
   lineaAccion();
 }
 

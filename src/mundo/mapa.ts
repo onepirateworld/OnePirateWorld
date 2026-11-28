@@ -3,7 +3,7 @@
 import { Lienzo } from '../arte/lienzo';
 import { PALETA, C, hexARgb } from '../arte/paleta';
 import { dibujarPersonaje, type AspectoPersonaje } from '../arte/personajes';
-import { BARCOS_PRUEBA } from '../arte/barcos';
+import { BARCOS_PRUEBA, dibujarBarco, type AspectoBarco } from '../arte/barcos';
 import { FRACCION_TIERRA, lienzoACanvas, spriteIsla } from '../arte/islaDetalle';
 import { diametroEscena, escenario, sueloEscena } from '../arte/escena';
 
@@ -30,6 +30,8 @@ export interface Marcador {
   aspecto: AspectoPersonaje;
   posicion: Posicion;
   barco: TipoBarco;
+  /** Colores propios del barco (si el jugador lo ha personalizado). */
+  navio?: Partial<AspectoBarco>;
   esMio: boolean;
   /** Si está quieto haciendo algo (entrenando, descansando...), no pasea. */
   quieto?: boolean;
@@ -96,6 +98,13 @@ export function crearMapa(
     const L = b.dibujar();
     return [b.id, { der: aCanvas(L), izq: aCanvas(L.voltear()) }];
   })) as Record<TipoBarco, { der: HTMLCanvasElement; izq: HTMLCanvasElement }>;
+  const barcosPropios = new Map<string, { der: HTMLCanvasElement; izq: HTMLCanvasElement }>();
+  const barcoPropio = (tipo: TipoBarco, navio: Partial<AspectoBarco>) => {
+    const clave = tipo + JSON.stringify(navio);
+    let b = barcosPropios.get(clave);
+    if (!b) { const L = dibujarBarco(tipo, navio); b = { der: aCanvas(L), izq: aCanvas(L.voltear()) }; barcosPropios.set(clave, b); }
+    return b;
+  };
   const spritesPersonaje = new Map<string, HTMLCanvasElement>();
   const spritePersonaje = (m: Marcador, izq = false) => {
     const clave = `${m.id}:${izq ? 'i' : 'd'}:${JSON.stringify(m.aspecto).length}`;
@@ -293,7 +302,7 @@ export function crearMapa(
       }
       if (x < -60 || x > W + 60 || y < -60 || y > H + 80) continue;
       if (pos.navegando) {
-        const b = barcos[m.barco];
+        const b = m.navio ? barcoPropio(m.barco, m.navio) : barcos[m.barco];
         const sp = pos.rumbo > 0 ? b.der : b.izq;
         const w = Math.max(6, Math.round(sp.width * escGlobal)), h = Math.max(4, Math.round(sp.height * escGlobal));
         const balanceo = Math.round(Math.sin(ahora / 400 + x) * escGlobal);

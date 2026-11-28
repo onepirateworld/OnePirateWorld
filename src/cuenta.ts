@@ -31,6 +31,8 @@ export interface PersonajeGuardado {
   /** Solo marines: piratas y revolucionarios que ha capturado. */
   capturas?: { pirata: number; revolucionario: number };
   barco?: 'barca' | 'carabela' | 'galeon';
+  /** Barco personalizado: nombre y colores. */
+  navio?: { nombre?: string; colorCasco?: number; colorVela?: number; colorBandera?: number; colorInsignia?: number };
   /** Provisiones compradas en la tienda (se gastan en combate). */
   bolsa?: { grog: number; botiquin: number };
   /** Personaje de una cuenta con rol de creador. */

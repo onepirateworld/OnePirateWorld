@@ -98,17 +98,28 @@ export function dibujarGaleon(a: AspectoBarco): Lienzo {
   return L;
 }
 
+export type TipoNave = 'barca' | 'carabela' | 'galeon';
+/** Colores de serie de cada barco. */
+export const COLORES_BARCO: Record<TipoNave, AspectoBarco> = {
+  barca: { colorCasco: C.madera, colorVela: C.hueso, colorBandera: C.rojo, colorInsignia: C.hueso },
+  carabela: { colorCasco: C.maderaClara, colorVela: C.pergamino, colorBandera: C.tinta, colorInsignia: C.oro },
+  galeon: { colorCasco: C.corteza, colorVela: C.rojo, colorBandera: C.tinta, colorInsignia: C.hueso },
+};
+/** Colores que se pueden elegir para personalizar el barco. */
+export const PALETA_BARCO = {
+  colorCasco: [C.madera, C.maderaClara, C.corteza, C.noche, C.granate, C.azulMarina, C.selva, C.hueso],
+  colorVela: [C.hueso, C.pergamino, C.rojo, C.tinta, C.azulMarina, C.oro, C.selva, C.violeta],
+  colorBandera: [C.tinta, C.rojo, C.azulMarina, C.selva, C.oro, C.hueso, C.granate, C.violeta],
+  colorInsignia: [C.hueso, C.oro, C.rojo, C.tinta, C.limon, C.mar],
+};
+/** Dibuja un barco con sus colores (o los de serie). */
+export function dibujarBarco(tipo: TipoNave, a?: Partial<AspectoBarco>): Lienzo {
+  const c = { ...COLORES_BARCO[tipo], ...a };
+  return tipo === 'barca' ? dibujarBarca(c) : tipo === 'carabela' ? dibujarCarabela(c) : dibujarGaleon(c);
+}
+
 export const BARCOS_PRUEBA = [
-  {
-    id: 'barca', nombre: 'Barca', descripcion: 'El primer barco: una vela, dos remos y mucha fe.',
-    dibujar: () => dibujarBarca({ colorCasco: C.madera, colorVela: C.hueso, colorBandera: C.rojo, colorInsignia: C.hueso }),
-  },
-  {
-    id: 'carabela', nombre: 'Carabela', descripcion: 'Rápida y ágil. Vela latina y dos mástiles.',
-    dibujar: () => dibujarCarabela({ colorCasco: C.maderaClara, colorVela: C.pergamino, colorBandera: C.tinta, colorInsignia: C.oro }),
-  },
-  {
-    id: 'galeon', nombre: 'Galeón', descripcion: 'Tres mástiles, ocho cañones y castillo de popa.',
-    dibujar: () => dibujarGaleon({ colorCasco: C.corteza, colorVela: C.rojo, colorBandera: C.tinta, colorInsignia: C.hueso }),
-  },
+  { id: 'barca', nombre: 'Barca', descripcion: 'El primer barco: una vela, dos remos y mucha fe.', dibujar: () => dibujarBarco('barca') },
+  { id: 'carabela', nombre: 'Carabela', descripcion: 'Rápida y ágil. Vela latina y dos mástiles.', dibujar: () => dibujarBarco('carabela') },
+  { id: 'galeon', nombre: 'Galeón', descripcion: 'Tres mástiles, ocho cañones y castillo de popa.', dibujar: () => dibujarBarco('galeon') },
 ];
