@@ -1,4 +1,4 @@
-// Rasgos de carácter (se eligen 3) y sueños. Los "efectos" los usará el motor de simulación (fase 6).
+// Rasgos de carácter (se eligen 3) y sueños. Los rasgos influyen en la vida automática y en los combates.
 import type { Bando } from '../cuenta';
 
 export interface Rasgo {

@@ -1,5 +1,5 @@
 // Crónica del mundo: lo que hacen los bots, generado a partir del reloj.
-// Mismo mar + misma hora = mismos sucesos para todos (hasta tener el servidor, fase 9).
+// Mismo mar + misma hora = mismos sucesos para todos.
 import { azar } from '../arte/lienzo';
 import { FRUTAS } from '../datos/frutas';
 import { botsDelMar, islasDelMundo, posicionBot, nombreZona, type Bot } from './habitantes';

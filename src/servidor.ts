@@ -318,3 +318,9 @@ export async function adminBorrar(id: string): Promise<string | null> {
   const { error } = await sb.rpc('admin_borrar', { p_id: id });
   return error ? error.message : null;
 }
+
+/** «Estoy jugando»: así el servidor no mueve a mis personajes mientras tengo el juego abierto. */
+export async function marcarJugando() {
+  if (!estado.usuario || !estado.mios.length) return;
+  await sb.from('personajes').update({ jugado: new Date().toISOString() }).eq('dueno', estado.usuario.id);
+}

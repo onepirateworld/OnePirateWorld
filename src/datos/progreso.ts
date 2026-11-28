@@ -1,4 +1,4 @@
-// Estadísticas, objetivos y logros. El motor de simulación (fase 6) los hará avanzar.
+// Estadísticas, objetivos y logros.
 import type { Bando } from '../cuenta';
 
 export interface Estadisticas { vida: number; fuerza: number; tecnica: number; velocidad: number; resistencia: number; fama: number }

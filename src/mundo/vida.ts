@@ -1,6 +1,6 @@
 // La vida propia del personaje: siempre está haciendo algo. Si el jugador no decide,
 // elige él según su carácter y su objetivo. Sigue avanzando aunque el jugador no esté.
-// (Versión local: cuando haya servidor, esto lo hará el tick del servidor, fase 9.)
+// El mismo código lo usa el servidor (supabase/funciones/vida-mundo.ts) cada 5 minutos con el juego cerrado.
 import { azar } from '../arte/lienzo';
 import { actualizarPersonaje, type PersonajeGuardado } from '../cuenta';
 import { islaDePersonaje, islasDelMundo, nombreZona, travesia, type IslaMundo, type Posicion } from './habitantes';

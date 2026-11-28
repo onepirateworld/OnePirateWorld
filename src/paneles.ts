@@ -138,7 +138,10 @@ export function crearPaneles(acc: Acciones) {
     if (!p) return { titulo: 'Mi pirata', html: `<p class="vacio">Aún no tienes personaje.</p><button class="boton-oro ancho" data-accion="perfil">Crear personaje</button>`,
       despues: enlazarAcciones };
     const isla = islaDePersonaje(p);
+    // Estadísticas reales: nivel + rasgos + mejoras del Arsenal (+ fama según recompensa o méritos)
     const est = estadisticasIniciales(p.rasgos, p.nivel);
+    for (const [k, n] of Object.entries(arsenalDe(p).mejoras) as [Estadistica, number][]) (est as unknown as Record<string, number>)[k] += MEJORA_POR_PUNTO[k].cantidad * n;
+    est.fama = Math.min(100, p.bando === 'marine' ? Math.floor((p.meritos ?? 0) / 100) : Math.floor(Math.log10(1 + (p.recompensa ?? 0)) * 10));
     const rasgos = p.rasgos.map((id) => RASGOS.find((r) => r.id === id)).filter(Boolean);
     const objetivos = objetivosPara(p.bando);
     const obj = objetivos.find((o) => o.id === p.objetivo);
@@ -163,7 +166,7 @@ export function crearPaneles(acc: Acciones) {
       <div class="barras">${(Object.keys(NOMBRES_ESTADISTICAS) as (keyof Estadisticas)[]).map((k) => `
         <div class="barra"><span>${NOMBRES_ESTADISTICAS[k]}</span><i><b style="width:${Math.min(100, est[k])}%"></b></i><em>${est[k]}</em></div>`).join('')}
       </div>
-      <p class="nota-hoja">Subirán cuando tu personaje entrene, pelee y viaje (motor de simulación, fase 6).</p>
+      <p class="nota-hoja">Suben con el nivel y con los puntos de mejora del Arsenal. La fama crece con tu ${p.bando === 'marine' ? 'número de méritos' : 'recompensa'}.</p>
 
       <h3>Objetivo</h3>
       ${obj ? `<div class="objetivo">
@@ -196,9 +199,9 @@ export function crearPaneles(acc: Acciones) {
       <div class="ranuras">
         <div class="ranura"><b>Barco</b><small>${esc(BARCOS.find((x) => x.id === (p.barco ?? 'barca'))!.nombre)}</small></div>
         <div class="ranura"><b>Bolsa</b><small>${bolsaDe(p).grog} grog · ${bolsaDe(p).botiquin} botiquines</small></div>
-        ${bloqueado('Arma', 'Consíguela en combates, tesoros o tiendas.')}
-        ${bloqueado('Ropa especial', 'Mejora tu defensa. Llegará con el equipo.')}
-        ${bloqueado('Fruta del poder', 'Ninguna. Si encuentras una, decidirás si te la comes.')}
+        <div class="ranura"><b>Arma</b><small>${esc(arma(arsenalDe(p).principal).nombre)}${arsenalDe(p).escudo ? ` + ${esc(arma(arsenalDe(p).escudo!).nombre)}` : ''}</small></div>
+        <div class="ranura"><b>Fruta del poder</b><small>${p.fruta ? esc(FRUTAS.find((f) => f.id === p.fruta)?.nombre ?? '') : 'Ninguna (aún)'}</small></div>
+        ${p.tripulacion && tripulacionDe(p) ? `<div class="ranura"><b>Tripulación</b><small>${esc(tripulacionDe(p)!.nombre)}</small></div>` : ''}
       </div>
 
       <h3>Relaciones</h3>
@@ -640,9 +643,11 @@ export function crearPaneles(acc: Acciones) {
         <h3>Tú decides lo importante</h3><p>Le pones un <b>objetivo</b> (hacerse fuerte, encontrar una fruta, formar tripulación…) y él lo divide en pasos. En los <b>momentos clave</b> (comerse una fruta, unirse a una tripulación, traicionar…) te pregunta qué hacer. Si no contestas a tiempo, decide según su carácter.</p>
         <h3>El carácter importa</h3><p>Sus 3 rasgos cambian lo que prefiere hacer y cómo le va: un Curioso explora más, un Rudo pega más fuerte pero hace menos amigos.</p>
         <h3>El mundo</h3><p>Cuatro mares (Alba, Ocaso, Coral y Bruma) separados por ${esc('El Espinazo')}, un continente que da la vuelta al planeta, y por las Aguas Dormidas, sin viento. En el centro está la Senda de las Mareas, solo para los más fuertes.</p>
-        <h3>Frutas del poder</h3><p>Hay una de cada en cada mar. Dan poderes enormes, pero todas comparten una debilidad: la Noche Hueca.</p>
-        <h3>Recompensas</h3><p>Las fechorías suben tu notoriedad. Cada amanecer se publican los carteles de Se busca.</p>
-        <h3>Lo que llegará</h3><p>Combates, tripulaciones, el chat compartido y las cuentas de verdad irán llegando por fases.</p></div>`,
+        <h3>Frutas del poder</h3><p>Hay 36, y solo una de cada en cada mar. Para conseguir una: desde el nivel 5, al explorar oirás rumores; reúne 3 pistas (una al día), navega a la isla y vence a su guardián (nivel 39 o más). Si otro se la come antes, llegas tarde. Todas comparten una debilidad: la Noche Hueca.</p>
+        <h3>Recompensas y méritos</h3><p>Los piratas y revolucionarios ganan recompensa al vencer (mucho más contra marines y en duelos). Si pasan 3 días sin ganar, baja un 2% al día. Los marines ganan méritos al capturar: solo los 4 con más méritos de cada mar llegan a Almirante.</p>
+        <h3>Duelos</h3><p>Desafía a otros jugadores desde el mapa o los Tablones (⚔). Tú controlas a tu personaje y el rival pelea solo con sus datos reales. Máximo 5 duelos al día.</p>
+        <h3>Tripulaciones</h3><p>Desde el nivel 10, un pirata puede fundar una tripulación. Cualquier pirata puede unirse, y los bots se van sumando solos. La tripulación va siempre junta, siguiendo al capitán.</p>
+        <h3>Tienda, sastre y prendas</h3><p>En la Tienda compras provisiones para el combate, barcos más rápidos y visitas al sastre. Algunas prendas se desbloquean con el nivel, la recompensa o las capturas.</p></div>`,
     };
   }
   function normas() {
@@ -656,9 +661,16 @@ export function crearPaneles(acc: Acciones) {
   }
   function privacidad() {
     return { titulo: 'Privacidad', html: `<div class="texto">
-      <p><b>Ahora mismo</b> (versión de prueba) todo se guarda solo en tu navegador: tu cuenta, tus personajes y tus mensajes de la taberna. No se envía nada a ningún servidor.</p>
-      <p><b>Cuando haya servidor</b> (fase 9) guardaremos tu correo o tu cuenta de Google para iniciar sesión, tu nombre de jugador, tus personajes y tus mensajes de la taberna. Los mensajes se borran a los 90 días. No vendemos datos a nadie.</p>
-      <p>Podrás pedir que borremos tu cuenta y todo lo tuyo en cualquier momento.</p></div>` };
+      <h3>Qué guardamos</h3>
+      <p>Para tu cuenta: tu <b>correo</b> y tu <b>nombre de usuario</b> (con los dos se entra; no hay contraseña aparte). Para el juego: tus personajes, sus duelos y tus mensajes de la Taberna.</p>
+      <h3>Dónde</h3>
+      <p>En los servidores de Supabase, el servicio que usa el juego, y una copia en tu navegador para que cargue más rápido.</p>
+      <h3>Qué ven los demás</h3>
+      <p>Los demás jugadores ven a tus personajes (nombre, aspecto, nivel, recompensa…) y tus mensajes de la Taberna, firmados con el nombre de tu pirata. <b>Nadie ve tu correo ni tu nombre de usuario.</b> No le digas a nadie tu nombre de usuario: con él y tu correo se entra en tu cuenta.</p>
+      <h3>Cuánto tiempo</h3>
+      <p>Los mensajes de la Taberna se borran a los 90 días. Tus personajes se guardan mientras exista tu cuenta.</p>
+      <h3>Borrar tu cuenta</h3>
+      <p>Puedes pedir que borremos tu cuenta y todo lo tuyo en cualquier momento. No vendemos datos a nadie.</p></div>` };
   }
 
   // -------------------------------------------------------------------------

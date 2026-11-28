@@ -1,5 +1,5 @@
 // Reglas del combate por turnos. Sin interfaz: sirve igual para el combate que juega
-// el jugador y para el que se simula solo cuando no está (fase 6).
+// el jugador y para el rival controlado por la máquina (bots, guardianes y duelos).
 import { azar } from '../arte/lienzo';
 import { estadisticasIniciales } from '../datos/progreso';
 import { arma, habilidad, habilidadUsable, MEJORA_POR_PUNTO, type Arsenal, type Estadistica } from '../datos/arsenal';

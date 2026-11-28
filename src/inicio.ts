@@ -34,7 +34,7 @@ import { REQUISITOS, estadoPrenda } from './datos/vestuario';
 import { dibujarFruta } from './arte/frutas';
 import { FRUTAS } from './datos/frutas';
 import { formatoDoblones } from './mundo/cronica';
-import { duelosRecibidos, guardarAhora, marcarDuelosVistos, misDuelosDeHoy, registrarDuelo } from './servidor';
+import { duelosRecibidos, guardarAhora, marcarJugando, marcarDuelosVistos, misDuelosDeHoy, registrarDuelo } from './servidor';
 import {
   BANDOS, MARES, META_COMUNIDAD, cerrarSesion, cuentaActual, elegirActivo, firmarPacto, marActual,
   personajeActivo, personajes, type Bando,
@@ -269,7 +269,7 @@ const paneles = crearPaneles({
     if (!p) return;
     const rivales = botsDelMar(marActual()).filter((b) => esRival(p.bando, b.bando));
     const bot = rivales[Math.floor(Math.random() * rivales.length)];
-    pelearCon(bot, `${bot.nombre} acepta un combate de entrenamiento. ¡En guardia!`);
+    pelearCon(bot, `${bot.nombre} acepta un combate de entrenamiento. ¡En guardia!`, false, true);
   },
 });
 $('#btn-envivo').addEventListener('click', () => paneles.abrir('en-vivo'));
@@ -396,7 +396,7 @@ function encuentroAutomatico(p: PersonajeGuardado) {
   pelearCon(rival, `¡${quien} te ha visto! ${rival.nombre} te corta el paso.`);
 }
 
-async function pelearCon(bot: Bot, motivo: string, guardian = false) {
+async function pelearCon(bot: Bot, motivo: string, guardian = false, entrenamiento = false) {
   const p = personajeActivo();
   if (!p || combatiendo) return;
   combatiendo = true;
@@ -455,9 +455,10 @@ async function pelearCon(bot: Bot, motivo: string, guardian = false) {
           registro.push([Date.now(), `Capturó a ${bot.nombre} (${bot.bando === 'pirata' ? 'pirata' : 'revolucionario'}) en ${isla.nombre}.`]);
         } else registro.push([Date.now(), `Venció a ${bot.nombre} en ${isla.nombre}.`]);
       } else if (ganador === 1) {
-        const pierde = Math.floor(doblones * 0.1);
+        // En un entrenamiento no se pierde dinero; en una pelea de verdad, el 5% (como mucho 2.000)
+        const pierde = entrenamiento ? 0 : Math.min(2000, Math.floor(doblones * 0.05));
         doblones -= pierde; xp += 5;
-        lineas.push(`${yo.nombre} ha perdido...`, `Pierde ${pierde} doblones y vuelve a curarse.`);
+        lineas.push(`${yo.nombre} ha perdido...`, pierde ? `Pierde ${pierde} doblones y vuelve a curarse.` : 'Era solo un entrenamiento: se cura y aprende de sus errores.');
         registro.push([Date.now(), `Perdió un combate contra ${bot.nombre} en ${isla.nombre}. Se curó las heridas y juró revancha.`]);
       } else {
         registro.push([Date.now(), `Escapó por los pelos de ${bot.nombre}.`]);
@@ -851,6 +852,9 @@ function abrirDecidir(modo: 'todo' | 'navegar' = 'todo') {
 document.addEventListener('click', (e) => { if ((e.target as HTMLElement).closest('#ficha-accion')) abrirDecidir(); });
 
 refrescarVida(true);
+// Avisar al servidor de que estamos jugando (al abrir y cada 4 minutos con la página visible)
+void marcarJugando();
+setInterval(() => { if (document.visibilityState === 'visible') void marcarJugando(); }, 4 * 60_000);
 // Duelos que te hicieron mientras no estabas
 void duelosMientrasNoEstabas().then((lineas) => {
   if (!lineas.length) return;

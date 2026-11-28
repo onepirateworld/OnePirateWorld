@@ -1,4 +1,4 @@
-// Frutas del poder. En la fase 1 hay 10 de prueba; en la fase 4 llegarán a 35+.
+// Frutas del poder: 36 (una de cada por mar). Se consiguen con rumores, pistas y un guardián (mundo/busqueda.ts).
 
 export type CategoriaFruta = 'tallada' | 'salvaje' | 'primordial';
 export type Rareza = 'comun' | 'rara' | 'epica' | 'legendaria';
