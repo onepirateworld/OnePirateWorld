@@ -5,6 +5,7 @@ import { azar } from '../arte/lienzo';
 import { actualizarPersonaje, type PersonajeGuardado } from '../cuenta';
 import { islaDePersonaje, islasDelMundo, nombreZona, travesia, type IslaMundo, type Posicion } from './habitantes';
 import { ZONAS } from './geografia';
+import { PISTAS_NECESARIAS, nombreFruta, oirRumor } from './busqueda';
 
 export type TipoAccion = 'pasear' | 'entrenar' | 'explorar' | 'descansar' | 'viajar';
 
@@ -127,9 +128,14 @@ function terminar(p: PersonajeGuardado, a: AccionPersonaje, r: () => number): { 
           resumen = `encontró ${g.oro} doblones explorando`;
           registro.push([a.hasta, `Exploró ${isla.nombre} y encontró una bolsa con ${g.oro} doblones.`]);
         } else registro.push([a.hasta, `Exploró ${isla.nombre}, pero hoy ya no queda nada que encontrar.`]);
-      } else if (tirada > 0.42) {
-        resumen = 'oyó un rumor interesante';
-        registro.push([a.hasta, `En ${isla.nombre} oyó a un viejo hablar de un tesoro escondido... pero no dijo dónde.`]);
+      } else if (tirada > (p.objetivo === 'fruta' ? 0.3 : 0.4)) {
+        // Rumores de frutas: empezar una búsqueda o sumar una pista (como mucho una al día)
+        const rumor = oirRumor(p, r, a.hasta);
+        if (rumor) {
+          p = rumor.p;
+          resumen = rumor.p.busqueda!.pistas >= PISTAS_NECESARIAS ? `¡descubrió dónde está la ${nombreFruta(rumor.p.busqueda!.fruta).toLowerCase()}!` : 'oyó algo sobre una fruta del poder';
+          registro.push([a.hasta, `En ${isla.nombre}: ${rumor.texto}`]);
+        } else registro.push([a.hasta, `En ${isla.nombre} oyó a un viejo hablar de un tesoro escondido... pero no dijo dónde.`]);
       } else registro.push([a.hasta, `Exploró ${isla.nombre} sin encontrar nada.`]);
       p = ganarXp(p, 10, a.hasta).p;
       break;

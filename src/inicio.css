@@ -553,3 +553,16 @@ a.boton-oro { display: inline-block; text-decoration: none; }
 .ranking li.fila-mia { outline: 2px solid #f2b63d; border-radius: 8px; }
 .cartel.cartel-mio { outline: 3px solid #f2b63d; }
 .ranking span.chip-jugador, .lista-gente span.chip-jugador { flex: none; display: inline-block; min-width: 0; }
+
+/* Frutas y momentos clave */
+.momentos.pendiente { animation: latido 1.2s infinite; }
+@keyframes latido { 50% { transform: scale(1.06); box-shadow: 0 0 18px #f2b63d; } }
+.dlg-fruta { text-align: center; }
+.dlg-fruta .momento-chip { display: inline-block; font-size: 12px; padding: 3px 10px; border-radius: 10px; background: #f2b63d; color: #1a1423; margin-bottom: 6px; }
+.dlg-fruta .fruta-grande { display: grid; place-items: center; margin: 8px 0; }
+.dlg-fruta .fruta-grande canvas { image-rendering: pixelated; }
+.dlg-fruta .nota-fruta { font-size: 13px; }
+.fila-botones { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+.boton-grande.oro { background: #f2b63d; color: #1a1423; border-color: #ffd97a; }
+.busqueda p { margin: 8px 0; }
+.busqueda .boton-oro { margin-top: 6px; }

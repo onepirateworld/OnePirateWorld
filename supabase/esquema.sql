@@ -218,3 +218,10 @@ grant select, insert on public.reportes to authenticated;
 grant usage on all sequences in schema public to authenticated;
 -- roles_especiales: sin permisos para nadie desde el navegador
 revoke all on public.roles_especiales from anon, authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Frutas: solo puede haber una de cada fruta por mar (la carrera la gana quien la guarda primero).
+-- Las cuentas de creador quedan fuera.
+create unique index if not exists personajes_fruta_unica
+  on public.personajes (mar, (datos->>'fruta'))
+  where datos->>'fruta' is not null and not creador;

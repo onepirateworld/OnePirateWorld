@@ -25,6 +25,12 @@ import type { Bot } from './mundo/habitantes';
 import { icono } from './iconos';
 import { abrirCartel } from './cartel';
 import { bolsaDe } from './datos/tienda';
+import { PISTAS_NECESARIAS, frutaSigueLibre, ganarMeritos, ganarRecompensa, guardianAqui, islaDeBusqueda, meritosPorCaptura, nombreFruta, recompensaPorVictoria } from './mundo/busqueda';
+import { aspectoAlAzar } from './arte/personajes';
+import { dibujarFruta } from './arte/frutas';
+import { FRUTAS } from './datos/frutas';
+import { formatoDoblones } from './mundo/cronica';
+import { guardarAhora } from './servidor';
 import {
   BANDOS, MARES, META_COMUNIDAD, cerrarSesion, cuentaActual, elegirActivo, firmarPacto, marActual,
   personajeActivo, personajes, type Bando,
@@ -127,10 +133,12 @@ function pintar() {
         <span class="insignia">Nv. ${p.nivel}</span>
       </span>
       <button class="ficha-lugar" id="ficha-lugar">${icono('diana', '#f2b63d')} <span id="ficha-lugar-texto">En ${esc(islaDePersonaje(p).nombre)} · ${esc(nombreZona(islaDePersonaje(p).zona))}</span></button>`;
-    const momentos = boton('', () => paneles.abrir('mi-pirata'));
+    const pendiente = p.busqueda && (p.busqueda.vencido || p.busqueda.pistas >= PISTAS_NECESARIAS) ? 1 : 0;
+    const momentos = boton('', () => (p.busqueda?.vencido ? abrirComerFruta() : paneles.abrir('mi-pirata')));
     momentos.classList.add('momentos');
+    momentos.classList.toggle('pendiente', pendiente > 0);
     momentos.title = 'Momentos clave pendientes';
-    momentos.innerHTML = '<span class="chispa">✦</span><span class="cuenta">0</span>';
+    momentos.innerHTML = `<span class="chispa">✦</span><span class="cuenta">${pendiente}</span>`;
     const accion = document.createElement('button');
     accion.className = 'ficha-accion'; accion.id = 'ficha-accion';
     const ordenes = document.createElement('div');
@@ -248,6 +256,9 @@ document.addEventListener('click', (e) => { if ((e.target as HTMLElement).closes
 const paneles = crearPaneles({
   aviso, localizar: () => localizar(), abrirPerfil: () => abrirPerfil(), abrirMares: () => abrirMares(),
   cerrarSesion: async () => { await cerrarSesion(); miEstado = null; pintar(); aviso('Sesión cerrada.'); }, rutaGaleria: ruta('galeria/index.html'),
+  guardian: () => { paneles.cerrar(); enfrentarGuardian(); },
+  navegarA: (id: number) => { paneles.cerrar(); const d = islasDelMundo()[id]; if (d) zarpar(d); },
+  comerFruta: () => abrirComerFruta(),
   entrenar: () => {
     const p = personajeActivo();
     if (!p) return;
@@ -371,16 +382,18 @@ function encuentroAutomatico(p: PersonajeGuardado) {
   pelearCon(rival, `¡${quien} te ha visto! ${rival.nombre} te corta el paso.`);
 }
 
-async function pelearCon(bot: Bot, motivo: string) {
+async function pelearCon(bot: Bot, motivo: string, guardian = false) {
   const p = personajeActivo();
   if (!p || combatiendo) return;
   combatiendo = true;
   let h = 0; for (const ch of bot.id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
   // Enemigos adaptados: cerca de tu nivel para que un personaje nuevo pueda ganar
-  const nivelRival = Math.max(1, p.nivel + (h % 3) - 1);
+  const nivelRival = guardian ? p.nivel + 4 : Math.max(1, p.nivel + (h % 3) - 1);
   const jugador = crearLuchador({ nombre: p.nombre, bando: p.bando, aspecto: p.aspecto, nivel: p.nivel, rasgos: p.rasgos, arsenal: arsenalDe(p), fruta: p.fruta, creador: p.creador, bolsa: bolsaDe(p) });
   const frutaBot = [...frutasDelMar(marActual(), [...personajes(), ...personajesDeOtros()].filter((x) => x.mar === marActual() && x.fruta).map((x) => x.fruta!)).entries()].find(([, id]) => id === bot.id)?.[0];
-  const rival = crearLuchador({ nombre: bot.nombre, bando: bot.bando, aspecto: bot.aspecto, nivel: nivelRival, rasgos: bot.rasgos, arsenal: arsenalBot(nivelRival, azar(h)), fruta: frutaBot });
+  const rival = crearLuchador({ nombre: bot.nombre, bando: bot.bando, aspecto: bot.aspecto, nivel: nivelRival, rasgos: bot.rasgos, arsenal: arsenalBot(nivelRival + (guardian ? 4 : 0), azar(h)), fruta: guardian ? undefined : frutaBot });
+  if (guardian) { rival.vidaMax = Math.round(rival.vidaMax * 1.6); rival.vida = rival.vidaMax; }
+  let frutaGanada = false;
   const isla = islaDePersonaje(p);
   await iniciarCombate(jugador, rival, {
     bioma: isla.bioma, motivo,
@@ -392,9 +405,9 @@ async function pelearCon(bot: Bot, motivo: string) {
       let xp = yo.xp ?? 0;
       let capturas = yo.capturas ?? { pirata: 0, revolucionario: 0 };
       let ganado = yo.ganado;
+      let tmp: PersonajeGuardado = { ...yo };
       if (ganador === 0) {
         // Premios con topes diarios (si no, entrenar sin parar rompería la economía)
-        let tmp: PersonajeGuardado = { ...yo };
         const v = contarVictoria(tmp); tmp = v.p;
         const gx = ganarXp(tmp, v.premio ? 20 + 5 * nivelRival : 5); tmp = gx.p;
         const go = ganarOro(tmp, v.premio ? 15 + 3 * nivelRival : 0); tmp = go.p;
@@ -403,7 +416,23 @@ async function pelearCon(bot: Bot, motivo: string) {
         lineas.push(`¡${yo.nombre} gana el combate!`, go.oro || gx.xp ? `+${gx.xp} de experiencia y +${go.oro} doblones.` : 'Hoy ya no ganas más premios: vuelve mañana.');
         if (v.premio === false && (go.oro || gx.xp)) lineas.push('Has llegado al límite de victorias con premio por hoy.');
         if (gx.subidas) lineas.push(`¡${yo.nombre} sube a nivel ${nivel}!`);
-        if (yo.bando === 'marine' && bot.bando !== 'marine') {
+        if (guardian) {
+          frutaGanada = true;
+          tmp = { ...tmp, busqueda: tmp.busqueda ? { ...tmp.busqueda, vencido: true } : undefined };
+          lineas.push('¡El guardián cae derrotado! Detrás de él, en un cofre, brilla la fruta...');
+          registro.push([Date.now(), `Venció al guardián de ${isla.nombre} y encontró la ${nombreFruta(tmp.busqueda?.fruta ?? '')}.`]);
+          const gr = ganarRecompensa(tmp, recompensaPorVictoria(nivelRival, true) * 2); tmp = gr.p;
+          if (gr.sube) lineas.push(`La noticia corre: tu recompensa sube ${formatoDoblones(gr.sube)}.`);
+        } else if (v.premio && yo.bando !== 'marine') {
+          // Piratas y revolucionarios: cada victoria hace crecer la recompensa (más contra la Marina)
+          const gr = ganarRecompensa(tmp, recompensaPorVictoria(nivelRival, bot.bando === 'marine')); tmp = gr.p;
+          if (gr.sube) lineas.push(`Tu recompensa sube ${formatoDoblones(gr.sube)}: ahora ${formatoDoblones(tmp.recompensa ?? 0)} doblones.`);
+          else lineas.push('Hoy la Marina ya no sube más tu recompensa.');
+        } else if (v.premio && yo.bando === 'marine' && bot.bando !== 'marine') {
+          const gm = ganarMeritos(tmp, meritosPorCaptura(nivelRival, bot.bando === 'revolucionario')); tmp = gm.p;
+          if (gm.sube) lineas.push(`+${gm.sube} méritos para la Marina (llevas ${tmp.meritos}).`);
+        }
+        if (guardian) { /* ya anotado */ } else if (yo.bando === 'marine' && bot.bando !== 'marine') {
           capturas = { ...capturas, [bot.bando]: capturas[bot.bando] + 1 };
           lineas.push(`${bot.nombre} queda capturado y bajo custodia de la Marina.`);
           registro.push([Date.now(), `Capturó a ${bot.nombre} (${bot.bando === 'pirata' ? 'pirata' : 'revolucionario'}) en ${isla.nombre}.`]);
@@ -416,12 +445,67 @@ async function pelearCon(bot: Bot, motivo: string) {
       } else {
         registro.push([Date.now(), `Escapó por los pelos de ${bot.nombre}.`]);
       }
-      actualizarPersonaje({ ...yo, nivel, xp, doblones, ganado, registro: registro.slice(-30), bolsa: yo.creador ? bolsaDe(yo) : { grog: jugador.pociones, botiquin: jugador.botiquines }, ...(yo.bando === 'marine' ? { capturas } : {}) });
+      actualizarPersonaje({ ...tmp, nivel, xp, doblones, ganado, registro: registro.slice(-30), bolsa: yo.creador ? bolsaDe(yo) : { grog: jugador.pociones, botiquin: jugador.botiquines }, ...(yo.bando === 'marine' ? { capturas } : {}) });
       return lineas;
     },
   });
   combatiendo = false;
   pintar();
+  if (frutaGanada) abrirComerFruta();
+}
+
+// --- Frutas: el guardián y el momento de comérsela --------------------------
+function enfrentarGuardian() {
+  const p = personajeActivo();
+  if (!p?.busqueda) return;
+  if (!frutaSigueLibre(p)) {
+    actualizarPersonaje({ ...p, busqueda: undefined, registro: [...(p.registro ?? []), [Date.now(), `Llegó tarde: alguien se comió la ${nombreFruta(p.busqueda.fruta)} antes que él.`] as [number, string]].slice(-30) });
+    aviso('Llegas tarde: otro ya se comió esa fruta. El rumor se apaga...');
+    pintar();
+    return;
+  }
+  if (p.busqueda.vencido) { abrirComerFruta(); return; }
+  const r = azar(p.busqueda.empezada % 100000);
+  const aspecto = { ...aspectoAlAzar(r, 'hombre'), complexion: 'fuerte' as const, sombrero: 'ninguno' as const, accesorios: ['parche' as const] };
+  const guardian = { id: `guardian-${p.busqueda.fruta}`, nombre: 'El Guardián', apodo: undefined, bando: p.bando === 'marine' ? 'pirata' : 'marine', aspecto, rasgos: ['valiente', 'rudo', 'orgulloso'], nivel: p.nivel + 4 } as unknown as Bot;
+  pelearCon(guardian, `En ${islaDePersonaje(p).nombre}, una sombra enorme se interpone: «Nadie toca la fruta mientras yo respire».`, true);
+}
+
+function abrirComerFruta() {
+  const p = personajeActivo();
+  const b = p?.busqueda;
+  if (!p || !b?.vencido) return;
+  const f = FRUTAS.find((x) => x.id === b.fruta)!;
+  document.querySelector('#dlg-fruta')?.remove();
+  const dlg = document.createElement('dialog');
+  dlg.id = 'dlg-fruta'; dlg.className = 'dialogo dlg-fruta';
+  dlg.innerHTML = `<div><span class="momento-chip">✦ Momento clave</span><h2>${esc(f.nombre)}</h2><div class="fruta-grande"></div>
+    <p><b>${esc(f.poder)}</b></p><p>Técnicas: ${esc(f.tecnicas.join(', '))}.</p><p>Debilidad: ${esc(f.debilidad)}</p>
+    <p class="nota-fruta">Si te la comes, será tuya para siempre y no podrás comer otra. Si otro jugador se la come antes, la perderás.</p>
+    <div class="fila-botones"><button class="boton-grande oro" data-comer>Comérmela</button><button class="boton-grande" data-cerrar>Ahora no</button></div></div>`;
+  const L = dibujarFruta(f.id);
+  dlg.querySelector('.fruta-grande')!.append(aCanvas(L, 6));
+  document.body.append(dlg);
+  dlg.querySelector('[data-cerrar]')!.addEventListener('click', () => { dlg.close(); dlg.remove(); });
+  dlg.querySelector<HTMLButtonElement>('[data-comer]')!.addEventListener('click', async (e) => {
+    const boton = e.currentTarget as HTMLButtonElement;
+    boton.disabled = true; boton.textContent = 'Mordiendo…';
+    const yo = personajeActivo()!;
+    const nota: [number, string] = [Date.now(), `Se comió la ${f.nombre}. Sabía horrible... pero algo cambió dentro de él para siempre.`];
+    actualizarPersonaje({ ...yo, fruta: f.id, busqueda: undefined, registro: [...(yo.registro ?? []), nota].slice(-30) });
+    const error = await guardarAhora();
+    dlg.close(); dlg.remove();
+    if (error && /fruta_unica|duplicate/i.test(error)) {
+      // Otro jugador fue más rápido: el servidor no deja dos frutas iguales en un mar
+      const otra = personajeActivo()!;
+      actualizarPersonaje({ ...otra, fruta: undefined, busqueda: undefined, registro: [...(otra.registro ?? []), [Date.now(), `Llegó tarde: otro se comió la ${f.nombre} un instante antes.`] as [number, string]].slice(-30) });
+      await guardarAhora();
+      aviso('¡Demasiado tarde! Otro jugador se la comió un instante antes.');
+    } else if (error) aviso(`No se pudo guardar: ${error}. Inténtalo otra vez.`);
+    else aviso(`¡Te has comido la ${f.nombre}! Mira sus técnicas en el Arsenal.`);
+    pintar();
+  });
+  dlg.showModal();
 }
 
 // Tarjeta al tocar un personaje o una isla del mapa
@@ -533,6 +617,7 @@ function ordenar(orden: string) {
   if (navegandoAhora(p)) { aviso(`${p.nombre} está navegando: no puede hacer otra cosa hasta llegar.`); return; }
   const isla = islaDePersonaje(p);
   if (orden === 'navegar') { abrirDecidir('navegar'); return; }
+  if ((orden === 'pelear' || orden === 'explorar') && guardianAqui(p)) { enfrentarGuardian(); return; }
   if (orden === 'pelear') {
     const rival = botsDelMar(marActual()).find((b) => { const pos = posicionBot(b); return !pos.navegando && pos.islaId === isla.id && esRival(p.bando, b.bando); });
     if (!rival) { aviso(`No hay rivales en ${isla.nombre}. Prueba a navegar a otra isla.`); return; }

@@ -39,6 +39,12 @@ export interface PersonajeGuardado {
   accion?: import('./mundo/vida').AccionPersonaje;
   /** Sucesos de su vida para el diario: [fecha, texto]. */
   registro?: [number, string][];
+  /** Búsqueda de fruta en curso (rumor, pistas e isla del guardián). */
+  busqueda?: import('./mundo/busqueda').Busqueda;
+  /** Méritos de marine (deciden su rango). */
+  meritos?: number;
+  /** Recompensa o méritos ganados hoy (tope diario). */
+  notoriedad?: { dia: string; valor: number };
   /** Lo ganado hoy (para los topes diarios de la economía). */
   ganado?: { dia: string; oro: number; xp: number; victorias: number };
   /** Isla donde está ahora (si falta, se le asigna una al cargar). */

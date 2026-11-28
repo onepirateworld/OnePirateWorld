@@ -7,13 +7,14 @@ import { FRUTAS } from './datos/frutas';
 import { BANDOS, MARES, type PersonajeGuardado } from './cuenta';
 import { formatoDoblones, rangoDe } from './mundo/cronica';
 import { islaDePersonaje } from './mundo/habitantes';
+import { rangoMarine } from './mundo/busqueda';
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
 /** Título según el bando y el nivel (los marines usan los rangos de la Marina). */
 export function tituloDe(p: PersonajeGuardado): string {
   if (p.creador) return 'Creador';
-  if (p.bando === 'marine') return rangoDe(p.nivel);
+  if (p.bando === 'marine') return rangoMarine(p);
   const escala = p.bando === 'pirata'
     ? ['Grumete', 'Bucanero', 'Corsario', 'Capitán', 'Señor de los mares']
     : ['Simpatizante', 'Rebelde', 'Agitador', 'Comandante', 'Líder de la revolución'];

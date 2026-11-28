@@ -20,6 +20,7 @@ import { cargarMensajes, enviarMensaje, escucharMensajes, estado as estadoServid
 import { botsDelMar, islaDePersonaje, islasDelMundo, nombreZona, posicionBot, type Bot } from './mundo/habitantes';
 import { cronica, frutasDelMar, formatoDoblones, haceCuanto, rangoDe, recompensa, type Suceso } from './mundo/cronica';
 import { icono } from './iconos';
+import { NIVEL_RUMORES, PISTAS_NECESARIAS, guardianAqui, islaDeBusqueda, rangoMarine, textoPista, topeMeritosDia, topeRecompensaDia } from './mundo/busqueda';
 import { ruta } from './rutas';
 import { BARCOS_PRUEBA } from './arte/barcos';
 import { BARCOS, PRECIO_SASTRE, PROVISIONES, bolsaDe, type IdBarco } from './datos/tienda';
@@ -33,6 +34,9 @@ interface Acciones {
   abrirMares(): void;
   cerrarSesion(): void;
   entrenar(): void;
+  guardian(): void;
+  navegarA(isla: number): void;
+  comerFruta(): void;
   rutaGaleria: string;
 }
 
@@ -138,7 +142,7 @@ export function crearPaneles(acc: Acciones) {
         <i data-sprite="yo"></i>
         <div>
           <b class="perfil-nombre">${esc(p.nombre)}${p.apodo ? ` <span>«${esc(p.apodo)}»</span>` : ''}</b>
-          <span class="bando-${p.bando}">${BANDOS[p.bando].nombre}${p.creador ? ' · <b class="creador">Creador</b>' : p.bando === 'marine' ? ` · ${rangoDe(p.nivel)}` : ''} · Nv. ${p.nivel}</span>
+          <span class="bando-${p.bando}">${BANDOS[p.bando].nombre}${p.creador ? ' · <b class="creador">Creador</b>' : p.bando === 'marine' ? ` · ${rangoMarine(p)} (${p.meritos ?? 0} méritos)` : ''} · Nv. ${p.nivel}</span>
           <span class="oro">${icono('moneda', '#f2b63d')} ${p.creador ? '∞' : formatoDoblones(p.doblones)} doblones</span>
           ${p.bando === 'marine' ? `<span class="recompensa-txt">Capturas: ${p.capturas?.pirata ?? 0} piratas · ${p.capturas?.revolucionario ?? 0} revolucionarios</span>`
             : p.recompensa ? `<span class="recompensa-txt">Recompensa: ${formatoDoblones(p.recompensa)} doblones</span>` : ''}
@@ -163,8 +167,13 @@ export function crearPaneles(acc: Acciones) {
         </div>` : '<p class="nota-hoja">Elige qué quieres que persiga. Lo dividirá en pasos y trabajará en ello aunque no estés.</p>'}
       <div class="chips">${objetivos.map((o) => `<button class="chip-hoja ${o.id === p.objetivo ? 'sel' : ''}" data-objetivo="${o.id}">${esc(o.texto)}</button>`).join('')}</div>
 
-      <h3>Momentos clave</h3>
-      <p class="vacio">No hay ninguno pendiente. Cuando pase algo importante (unirse a una tripulación, comerse una fruta, un duelo…) te preguntaremos aquí qué hacer.</p>
+      <h3>Fruta del poder</h3>
+      ${seccionFruta(p)}
+
+      <h3>${p.bando === 'marine' ? 'Méritos' : 'Recompensa'}</h3>
+      <p class="nota-hoja">${p.bando === 'marine'
+        ? `Llevas <b>${p.meritos ?? 0}</b> méritos (${rangoMarine(p)}). Capturar piratas y revolucionarios te da méritos: como mucho ${topeMeritosDia(p.nivel)} al día. Solo los 4 marines con más méritos de cada mar llegan a Almirante.`
+        : `Tu recompensa es <b>${formatoDoblones(p.recompensa ?? 0)}</b> doblones. Sube al ganar combates (mucho más contra marines): como mucho ${formatoDoblones(topeRecompensaDia(p.nivel))} al día.`}</p>
 
       <h3>Carácter</h3>
       <div class="rasgos-hoja">${rasgos.map((r) => `<div><b>${r!.nombre}</b><small class="mas">▲ ${esc(r!.ventaja)}</small><small class="menos">▼ ${esc(r!.desventaja)}</small></div>`).join('') || '<p class="vacio">Sin rasgos.</p>'}</div>
@@ -306,7 +315,7 @@ export function crearPaneles(acc: Acciones) {
       <div class="pestanas-hoja"><button class="sel" data-filtro="rec">Recompensas</button><button data-filtro="rangos">Marina</button><button data-filtro="fuertes">Más fuertes</button><button data-filtro="trip">Tripulaciones</button><button data-filtro="frutas">Frutas</button></div>
       <div data-vista="rec"><ol class="ranking">${lr.map(([i, e]) => fila(i, e, e.recompensa ? formatoDoblones(e.recompensa) : 'Sin recompensa')).join('')}</ol>
         ${yoSinRec ? `<p class="nota-hoja">${esc(p!.nombre)} aún no tiene recompensa.</p>` : ''}</div>
-      <div data-vista="rangos" hidden><ol class="ranking">${lm.map(([i, e]) => fila(i, e, e.creador ? 'Creador' : rangoDe(e.nivel))).join('')}</ol></div>
+      <div data-vista="rangos" hidden><ol class="ranking">${lm.map(([i, e]) => fila(i, e, e.creador ? 'Creador' : e.jugador ? rangoMarine([...personajes(), ...personajesDeOtros()].find((x) => `j-${x.id}` === e.id)!) : rangoDe(e.nivel))).join('')}</ol></div>
       <div data-vista="fuertes" hidden><ol class="ranking">${lf.map(([i, e]) => fila(i, e, `Nv. ${e.nivel}`)).join('')}</ol></div>
       <div data-vista="trip" hidden>${bloqueado('Tripulaciones', 'Cuando los personajes formen tripulaciones (fase 7), aquí estarán las más famosas.')}</div>
       <div data-vista="frutas" hidden><ol class="ranking">${conFruta.map((x, i) => {
@@ -604,6 +613,9 @@ export function crearPaneles(acc: Acciones) {
       else if (a === 'mares') acc.abrirMares();
       else if (a === 'salir') { cerrar(); acc.cerrarSesion(); }
       else if (a === 'entrenar') { cerrar(); acc.entrenar(); }
+      else if (a === 'guardian') acc.guardian();
+      else if (a === 'comer-fruta') acc.comerFruta();
+      else if (a === 'navegar-busqueda') { const yo = personajeActivo(); if (yo?.busqueda) acc.navegarA(yo.busqueda.isla); }
       else if (a === 'hoja') { const p = personajeActivo(); if (p) abrirCartel(p); }
     }));
   }
@@ -689,6 +701,25 @@ function montarChat(el: HTMLElement, mar: number) {
 }
 
 void islasDelMundo;
+
+/** La búsqueda de fruta en el panel «Mi pirata». */
+function seccionFruta(p: PersonajeGuardado): string {
+  if (p.fruta) return `<p class="nota-hoja">Ya te comiste la <b>${esc(FRUTAS.find((f) => f.id === p.fruta)?.nombre ?? '')}</b>. Nadie puede comer dos.</p>`;
+  const b = p.busqueda;
+  if (!b) return p.nivel < NIVEL_RUMORES
+    ? `<p class="vacio">A partir del nivel ${NIVEL_RUMORES}, al explorar islas tu personaje empezará a oír rumores sobre frutas.</p>`
+    : '<p class="vacio">Aún no has oído ningún rumor. Explora islas: con el objetivo «Encontrar una fruta del poder» los oirás más a menudo.</p>';
+  const isla = islaDeBusqueda(b);
+  const barra = `<div class="progreso"><i style="width:${Math.round((Math.min(b.pistas, PISTAS_NECESARIAS) / PISTAS_NECESARIAS) * 100)}%"></i></div>`;
+  let boton = '';
+  if (b.vencido) boton = '<button class="boton-oro ancho" data-accion="comer-fruta">✦ Decidir: ¿comérsela?</button>';
+  else if (b.pistas >= PISTAS_NECESARIAS) boton = guardianAqui(p)
+    ? '<button class="boton-oro ancho" data-accion="guardian">⚔ Enfrentar al guardián</button>'
+    : `<button class="boton-oro ancho" data-accion="navegar-busqueda">⛵ Navegar a ${esc(isla.nombre)}</button>`;
+  return `<div class="objetivo busqueda"><b>${b.vencido ? 'La fruta te espera' : b.pistas >= PISTAS_NECESARIAS ? 'Ya sabes dónde está' : 'Siguiendo un rumor'}</b>
+    ${barra}<small>${Math.min(b.pistas, PISTAS_NECESARIAS)} de ${PISTAS_NECESARIAS} pistas · como mucho una al día, explorando</small>
+    <p>${esc(textoPista(b))}</p>${boton}</div>`;
+}
 
 /** Dibujitos de las provisiones (16x16). */
 function dibujarProvision(id: 'grog' | 'botiquin'): Lienzo {
