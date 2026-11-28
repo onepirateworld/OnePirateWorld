@@ -136,3 +136,7 @@ canvas { image-rendering: pixelated; display: block; }
 .campo input:focus, .campo textarea:focus { outline: 2px solid var(--oro); }
 .vista-nombre { min-height: 1.4em; font-size: 18px; margin: 10px 0 0; }
 .vista-nombre .falta { color: var(--rojo); font-weight: 700; }
+
+/* Prendas bloqueadas */
+.opcion.bloqueada { opacity: 0.55; filter: grayscale(0.7); }
+.opcion.bloqueada .candado { display: block; font-size: 11px; color: #7a2430; margin-top: 2px; }

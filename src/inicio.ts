@@ -29,7 +29,8 @@ import { bolsaDe } from './datos/tienda';
 /** Furia revolucionaria (desde nivel 10, +50% de daño contra piratas y marines). */
 const NIVEL_FURIA = 10, BONO_FURIA = 0.5;
 import { nivelGuardian, PISTAS_NECESARIAS, frutaSigueLibre, ganarMeritos, ganarRecompensa, guardianAqui, islaDeBusqueda, meritosPorCaptura, nombreFruta, recompensaPorVictoria } from './mundo/busqueda';
-import { aspectoAlAzar } from './arte/personajes';
+import { OPCIONES, aspectoAlAzar } from './arte/personajes';
+import { REQUISITOS, estadoPrenda } from './datos/vestuario';
 import { dibujarFruta } from './arte/frutas';
 import { FRUTAS } from './datos/frutas';
 import { formatoDoblones } from './mundo/cronica';
@@ -470,6 +471,22 @@ async function pelearCon(bot: Bot, motivo: string, guardian = false) {
   if (frutaGanada) abrirComerFruta();
 }
 
+// --- Prendas desbloqueadas (por nivel, recompensa o capturas) ---------------
+function avisarDesbloqueos(p: PersonajeGuardado) {
+  if (p.creador) return;
+  const c = p.capturas ?? { pirata: 0, revolucionario: 0 };
+  const m = { bando: p.bando, nivel: p.nivel, recompensa: p.recompensa ?? 0, capturas: c.pirata + c.revolucionario };
+  const ya = new Set(p.prendasAvisadas ?? []);
+  const nuevas = Object.entries(REQUISITOS)
+    .filter(([k, r]) => (r.nivel || r.recompensa || r.capturas) && !ya.has(k))
+    .filter(([k]) => { const [campo, valor] = k.split(':'); return estadoPrenda(campo, valor, m) === 'libre'; })
+    .map(([k]) => k);
+  if (!nuevas.length) return;
+  const nombres = nuevas.map((k) => { const [campo, valor] = k.split(':'); return (OPCIONES as unknown as Record<string, Record<string, string>>)[campo]?.[valor] ?? valor; });
+  actualizarPersonaje({ ...p, prendasAvisadas: [...ya, ...nuevas] });
+  aviso(`🔓 ¡Desbloqueado: ${nombres.join(', ')}! Pásate por el sastre (Tienda → Sastre).`);
+}
+
 // --- Duelos contra otros jugadores ------------------------------------------
 const MAX_DUELOS_DIA = 5, DIFERENCIA_NIVEL = 10;
 /** ¿Pueden pelear? Marines contra el resto, y piratas de tripulaciones distintas. */
@@ -709,6 +726,7 @@ function refrescarVida(primera = false) {
     abrir('#dlg-resumen');
   } else if (resumen.length) aviso(`${nuevo.nombre} ${resumen[resumen.length - 1]}.`);
   if (antes !== undefined && antes !== nuevo.nivel) pintar();
+  avisarDesbloqueos(nuevo);
   lineaAccion();
 }
 

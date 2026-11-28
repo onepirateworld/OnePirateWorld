@@ -131,7 +131,7 @@ export function montarMuestrario(raiz: HTMLElement) {
     { titulo: 'Sombreros', items: Object.entries(OPCIONES.sombrero).filter(([v]) => v !== 'ninguno').map(([v, t]) => ({ t, a: { ...baseH, sombrero: v as any } })) },
     { titulo: 'Accesorios', items: Object.entries(OPCIONES.accesorios).map(([v, t]) => ({ t, a: { ...baseH, accesorios: [v as any] } })) },
     { titulo: 'Cicatrices', items: Object.entries(OPCIONES.cicatrices).map(([v, t]) => ({ t, a: { ...baseH, cicatrices: [v as any] } })) },
-    { titulo: 'Pantalón y calzado', items: [
+    { titulo: 'Pantalón, calzado y conjuntos', items: [
       { t: 'Largo + botas altas', a: { ...baseH } },
       { t: 'Largo + botas', a: { ...baseH, calzado: 'botas' } },
       { t: 'Bombacho + sandalias', a: { ...baseH, pantalon: 'corto', calzado: 'sandalias' } },
@@ -140,6 +140,14 @@ export function montarMuestrario(raiz: HTMLElement) {
       { t: 'Remendado + descalzo', a: { ...baseH, pantalon: 'rotos', calzado: 'descalzo' } },
       { t: 'Bombacho largo + correas', a: { ...baseH, pantalon: 'ancho', calzado: 'botasHebilla' } },
       { t: 'Bombacho largo ♀', a: { ...baseM, pantalon: 'ancho', calzado: 'botas' } },
+      { t: 'Uniforme de marine completo', a: { ...baseH, ropa: 'uniformeMarine', colorRopa: 28, pantalon: 'uniforme', colorPantalon: 6, sombrero: 'gorraMarine', colorSombrero: 28, calzado: 'botas', colorCalzado: 1, colorFaja: 0, accesorios: ['charreteras', 'medallas'] } },
+      { t: 'Almirante', a: { ...baseH, ropa: 'casacaAlmirante', colorRopa: 28, pantalon: 'uniforme', colorPantalon: 6, sombrero: 'gorraMarine', colorSombrero: 28, calzado: 'botas', colorCalzado: 1, colorFaja: 0, accesorios: ['charreteras', 'medallas'] } },
+      { t: 'Rebelde', a: { ...baseM, ropa: 'gabardina', colorRopa: 2, sombrero: 'boina', colorSombrero: 15, colorFaja: 0, accesorios: ['brazalete'] } },
+      { t: 'Rebelde encapuchado', a: { ...baseH, ropa: 'gabardina', colorRopa: 20, sombrero: 'capucha', colorSombrero: 20, colorFaja: 0, accesorios: ['brazalete'] } },
+      { t: 'Capitán legendario', a: { ...baseH, ropa: 'casacaLegendaria', colorRopa: 15, sombrero: 'plumas', colorSombrero: 1, colorFaja: 0, accesorios: ['loro', 'catalejo'] } },
+      { t: 'Rey pirata', a: { ...baseH, ropa: 'casacaLegendaria', colorRopa: 2, sombrero: 'corona', colorFaja: 0, accesorios: ['loro'] } },
+      { t: 'Chaleco de cuero ♀', a: { ...baseM, ropa: 'chalecoCuero', colorRopa: 8, colorFaja: 0 } },
+      { t: 'Cota de malla', a: { ...baseH, ropa: 'cotaMalla', colorFaja: 0, accesorios: ['catalejo'] } },
     ] },
   ];
 

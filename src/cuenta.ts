@@ -45,6 +45,8 @@ export interface PersonajeGuardado {
   meritos?: number;
   /** Recompensa o méritos ganados hoy (tope diario). */
   notoriedad?: { dia: string; valor: number };
+  /** Prendas desbloqueadas de las que ya se avisó. */
+  prendasAvisadas?: string[];
   /** Lo que hizo mientras su dueño no jugaba (lo escribe el servidor; se enseña al entrar). */
   mientras?: [number, string][];
   /** Cuenta dueña (la pone el servidor; no se guarda en «datos»). */

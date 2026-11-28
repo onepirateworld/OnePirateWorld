@@ -75,7 +75,7 @@ export function botsDelMar(mar: number, cantidad = 70): Bot[] {
     const b = vecinas[Math.floor(r() * vecinas.length)];
     const t = r();
     const bando: Bando = t < 0.55 ? 'pirata' : t < 0.85 ? 'marine' : 'revolucionario';
-    const aspecto = aspectoAlAzar(r);
+    const aspecto = aspectoAlAzar(r, undefined, bando);
     const { nombre, apodo } = nombrePersona(r, aspecto.cuerpo === 'mujer');
     const [n0, n1] = NIVEL_ZONA[a.zona] ?? [1, 10];
     const nivel = n0 + Math.floor(r() * (n1 - n0 + 1));

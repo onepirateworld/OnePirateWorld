@@ -6,8 +6,9 @@ import './creador.css';
 import { Lienzo, azar } from './arte/lienzo';
 import { PALETA } from './arte/paleta';
 import { guardarAhora } from './servidor';
-import { BANDOS, actualizarPersonaje, cuentaActual, guardarPersonaje, marActual, personajes, type Bando } from './cuenta';
+import { BANDOS, actualizarPersonaje, cuentaActual, guardarPersonaje, marActual, modoCreador, personajes, type Bando } from './cuenta';
 import { PRECIO_SASTRE } from './datos/tienda';
+import { estadoPrenda, type Meritos } from './datos/vestuario';
 import { MAX_RASGOS, RASGOS, puedeAnadir, suenosPara } from './datos/caracter';
 import { iniciar as iniciarServidor } from './servidor';
 
@@ -125,6 +126,15 @@ function miniatura(asp: AspectoPersonaje, cabeza: boolean) {
 const hex = (c: number) => PALETA[c - 1].hex;
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
+/** Lo conseguido por el personaje (en el sastre) o por uno nuevo (todo a cero). */
+function meritos(): Meritos {
+  if (enSastre) {
+    const c = enSastre.capturas ?? { pirata: 0, revolucionario: 0 };
+    return { bando: enSastre.bando, nivel: enSastre.nivel, recompensa: enSastre.recompensa ?? 0, capturas: c.pirata + c.revolucionario, creador: enSastre.creador };
+  }
+  return { bando, nivel: 1, recompensa: 0, capturas: 0, creador: modoCreador() };
+}
+
 function hecha(p: Pestana) {
   if (p.multi) return a[p.multi].length > 0;
   return p.clave ? a[p.clave] !== ASPECTO_BASE[p.clave] : false;
@@ -238,14 +248,20 @@ function renderAspecto() {
     `<button class="pestana ${i === pestana ? 'activa' : ''} ${hecha(p) ? 'hecha' : ''}" data-pestana="${i}">${p.titulo}</button>`).join('');
 
   const p = PESTANAS[pestana];
-  const ops = Object.entries(p.opciones(a)).filter(([, t]) => t) as [string, string][];
+  const campo = (p.multi ?? p.clave) as string;
+  const merito = meritos();
+  // Las prendas de otros bandos no se muestran; las que aún no has ganado salen con candado
+  const ops = (Object.entries(p.opciones(a)).filter(([, t]) => t) as [string, string][])
+    .map(([v, t]) => [v, t, estadoPrenda(campo, v, merito)] as const)
+    .filter(([, , e]) => e !== 'oculta');
   panelEl.innerHTML = `
     <h2>${p.titulo}</h2>
     ${p.nota ? `<p class="nota">${p.nota}</p>` : ''}
     <div class="opciones ${p.cabeza ? 'cabeza' : ''}">
-      ${ops.map(([v, t]) => {
+      ${ops.map(([v, t, e]) => {
         const sel = p.multi ? (a[p.multi] as string[]).includes(v) : a[p.clave!] === v;
-        return `<button class="opcion ${sel ? 'sel' : ''}" data-v="${v}" aria-pressed="${sel}"><span class="mini"></span><span>${esc(t)}</span></button>`;
+        const bloqueada = e !== 'libre';
+        return `<button class="opcion ${sel ? 'sel' : ''} ${bloqueada ? 'bloqueada' : ''}" data-v="${v}" aria-pressed="${sel}" ${bloqueada && !sel ? 'disabled' : ''}><span class="mini"></span><span>${esc(t)}</span>${bloqueada ? `<small class="candado">🔒 ${esc(e)}</small>` : ''}</button>`;
       }).join('')}
     </div>
     ${(p.colores ?? []).filter((c) => !c.visible || c.visible(a)).map((c) => `
@@ -332,7 +348,7 @@ document.addEventListener('click', (e) => {
       }
     });
   } else if (d.ck) cambiar((n) => { (n as any)[d.ck!] = Number(d.c); });
-  else if (b.id === 'azar') cambiar((n) => Object.assign(n, aspectoAlAzar(azar(semilla++ * 7919), a.cuerpo)));
+  else if (b.id === 'azar') cambiar((n) => Object.assign(n, aspectoAlAzar(azar(semilla++ * 7919), a.cuerpo, enSastre?.bando ?? bando)));
   else if (b.id === 'cero') cambiar((n) => Object.assign(n, copia(ASPECTO_BASE), { cuerpo: a.cuerpo }));
   else if (b.id === 'deshacer' && historial.length) { a = historial.pop()!; guardar(a); render(); }
 });
