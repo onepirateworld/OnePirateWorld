@@ -27,7 +27,7 @@ export function nombreIsla(id: number, bioma: string): string {
 
 const NOMBRES_H = ['Bruno', 'Teo', 'Gael', 'Simón', 'Darío', 'Iker', 'Mateo', 'Rubén', 'Nilo', 'Ezequiel', 'Tobías', 'Abel', 'Ciro', 'Fermín',
   'Lucio', 'Bastián', 'Rodrigo', 'Amaro', 'Hugo', 'Elio', 'Joaquín', 'Ramiro', 'Tadeo', 'Saúl'];
-const NOMBRES_M = ['Lía', 'Vera', 'Nora', 'Alba', 'Iris', 'Greta', 'Olivia', 'Candela', 'Maite', 'Rocío', 'Selene', 'Lucía', 'Noa', 'Ainhoa',
+const NOMBRES_M = ['Lía', 'Vera', 'Nora', 'Alba', 'Iris', 'Greta', 'Olivia', 'Candela', 'Maite', 'Brisa', 'Selene', 'Lucía', 'Noa', 'Ainhoa',
   'Brisa', 'Dafne', 'Elena', 'Irene', 'Mara', 'Zoe', 'Paloma', 'Carmela', 'Estela', 'Julia'];
 const APODOS = ['el Rojo', 'Diente de Oro', 'Manos de Hierro', 'la Sombra', 'el Tuerto', 'Pies Ligeros', 'Sin Miedo', 'la Brasa', 'el Callado',
   'Ojo de Halcón', 'Barbagris', 'la Tormenta', 'Mil Nudos', 'el Zurdo', 'Risa Loca', 'Cara de Sal', 'el Faro', 'Puño de Ancla'];
