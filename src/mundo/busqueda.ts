@@ -19,6 +19,9 @@ export interface Busqueda {
 }
 export const PISTAS_NECESARIAS = 3;
 export const NIVEL_RUMORES = 5;
+/** El guardián tiene como mínimo nivel 39; desde el nivel 40, el mismo nivel que tú. */
+export const NIVEL_GUARDIAN = 39;
+export const nivelGuardian = (nivelJugador: number) => Math.max(NIVEL_GUARDIAN, nivelJugador);
 const diaDe = (t: number) => new Date(t).toISOString().slice(0, 10);
 
 /** Frutas que ya tienen dueño en este mar (jugadores y el único bot con fruta). */
@@ -53,7 +56,7 @@ export function textoPista(b: Busqueda): string {
   if (b.pistas <= 0) return 'Un viejo marinero habla de una fruta con vetas brillantes escondida en algún lugar del mar.';
   if (b.pistas === 1) return `La fruta está en algún lugar del ${nombreZona(i.zona)}.`;
   if (b.pistas === 2) return `Es ${comoEs(i)}, en el ${nombreZona(i.zona)}.`;
-  return `¡Está en ${i.nombre}! La vigila un guardián.`;
+  return `¡Está en ${i.nombre}! La vigila un guardián de nivel ${NIVEL_GUARDIAN} o más.`;
 }
 
 /**

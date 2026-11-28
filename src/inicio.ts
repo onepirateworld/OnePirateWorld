@@ -25,7 +25,7 @@ import type { Bot } from './mundo/habitantes';
 import { icono } from './iconos';
 import { abrirCartel } from './cartel';
 import { bolsaDe } from './datos/tienda';
-import { PISTAS_NECESARIAS, frutaSigueLibre, ganarMeritos, ganarRecompensa, guardianAqui, islaDeBusqueda, meritosPorCaptura, nombreFruta, recompensaPorVictoria } from './mundo/busqueda';
+import { nivelGuardian, PISTAS_NECESARIAS, frutaSigueLibre, ganarMeritos, ganarRecompensa, guardianAqui, islaDeBusqueda, meritosPorCaptura, nombreFruta, recompensaPorVictoria } from './mundo/busqueda';
 import { aspectoAlAzar } from './arte/personajes';
 import { dibujarFruta } from './arte/frutas';
 import { FRUTAS } from './datos/frutas';
@@ -388,7 +388,7 @@ async function pelearCon(bot: Bot, motivo: string, guardian = false) {
   combatiendo = true;
   let h = 0; for (const ch of bot.id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
   // Enemigos adaptados: cerca de tu nivel para que un personaje nuevo pueda ganar
-  const nivelRival = guardian ? p.nivel + 4 : Math.max(1, p.nivel + (h % 3) - 1);
+  const nivelRival = guardian ? nivelGuardian(p.nivel) : Math.max(1, p.nivel + (h % 3) - 1);
   const jugador = crearLuchador({ nombre: p.nombre, bando: p.bando, aspecto: p.aspecto, nivel: p.nivel, rasgos: p.rasgos, arsenal: arsenalDe(p), fruta: p.fruta, creador: p.creador, bolsa: bolsaDe(p) });
   const frutaBot = [...frutasDelMar(marActual(), [...personajes(), ...personajesDeOtros()].filter((x) => x.mar === marActual() && x.fruta).map((x) => x.fruta!)).entries()].find(([, id]) => id === bot.id)?.[0];
   const rival = crearLuchador({ nombre: bot.nombre, bando: bot.bando, aspecto: bot.aspecto, nivel: nivelRival, rasgos: bot.rasgos, arsenal: arsenalBot(nivelRival + (guardian ? 4 : 0), azar(h)), fruta: guardian ? undefined : frutaBot });
@@ -467,7 +467,7 @@ function enfrentarGuardian() {
   if (p.busqueda.vencido) { abrirComerFruta(); return; }
   const r = azar(p.busqueda.empezada % 100000);
   const aspecto = { ...aspectoAlAzar(r, 'hombre'), complexion: 'fuerte' as const, sombrero: 'ninguno' as const, accesorios: ['parche' as const] };
-  const guardian = { id: `guardian-${p.busqueda.fruta}`, nombre: 'El Guardián', apodo: undefined, bando: p.bando === 'marine' ? 'pirata' : 'marine', aspecto, rasgos: ['valiente', 'rudo', 'orgulloso'], nivel: p.nivel + 4 } as unknown as Bot;
+  const guardian = { id: `guardian-${p.busqueda.fruta}`, nombre: 'El Guardián', apodo: undefined, bando: p.bando === 'marine' ? 'pirata' : 'marine', aspecto, rasgos: ['valiente', 'rudo', 'orgulloso'], nivel: nivelGuardian(p.nivel) } as unknown as Bot;
   pelearCon(guardian, `En ${islaDePersonaje(p).nombre}, una sombra enorme se interpone: «Nadie toca la fruta mientras yo respire».`, true);
 }
 

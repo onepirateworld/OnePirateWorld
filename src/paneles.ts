@@ -20,7 +20,7 @@ import { cargarMensajes, enviarMensaje, escucharMensajes, estado as estadoServid
 import { botsDelMar, islaDePersonaje, islasDelMundo, nombreZona, posicionBot, type Bot } from './mundo/habitantes';
 import { cronica, frutasDelMar, formatoDoblones, haceCuanto, rangoDe, recompensa, type Suceso } from './mundo/cronica';
 import { icono } from './iconos';
-import { NIVEL_RUMORES, PISTAS_NECESARIAS, guardianAqui, islaDeBusqueda, rangoMarine, textoPista, topeMeritosDia, topeRecompensaDia } from './mundo/busqueda';
+import { NIVEL_RUMORES, PISTAS_NECESARIAS, nivelGuardian, guardianAqui, islaDeBusqueda, rangoMarine, textoPista, topeMeritosDia, topeRecompensaDia } from './mundo/busqueda';
 import { ruta } from './rutas';
 import { BARCOS_PRUEBA } from './arte/barcos';
 import { BARCOS, PRECIO_SASTRE, PROVISIONES, bolsaDe, type IdBarco } from './datos/tienda';
@@ -714,7 +714,7 @@ function seccionFruta(p: PersonajeGuardado): string {
   let boton = '';
   if (b.vencido) boton = '<button class="boton-oro ancho" data-accion="comer-fruta">✦ Decidir: ¿comérsela?</button>';
   else if (b.pistas >= PISTAS_NECESARIAS) boton = guardianAqui(p)
-    ? '<button class="boton-oro ancho" data-accion="guardian">⚔ Enfrentar al guardián</button>'
+    ? `<button class="boton-oro ancho" data-accion="guardian">⚔ Enfrentar al guardián (Nv. ${nivelGuardian(p.nivel)})</button>`
     : `<button class="boton-oro ancho" data-accion="navegar-busqueda">⛵ Navegar a ${esc(isla.nombre)}</button>`;
   return `<div class="objetivo busqueda"><b>${b.vencido ? 'La fruta te espera' : b.pistas >= PISTAS_NECESARIAS ? 'Ya sabes dónde está' : 'Siguiendo un rumor'}</b>
     ${barra}<small>${Math.min(b.pistas, PISTAS_NECESARIAS)} de ${PISTAS_NECESARIAS} pistas · como mucho una al día, explorando</small>
